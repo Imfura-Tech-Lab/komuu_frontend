@@ -6,26 +6,53 @@ import Image from "next/image";
 export default function AppLoader() {
   const router = useRouter();
   const [progress, setProgress] = useState(0);
+  const [loadingPhase, setLoadingPhase] = useState("Initializing...");
 
   useEffect(() => {
-    // Simulate app initialization
     const initializeApp = async () => {
-      // Progress animation
-      const progressInterval = setInterval(() => {
-        setProgress((prev) => {
-          if (prev >= 100) {
-            clearInterval(progressInterval);
-            return 100;
-          }
-          return prev + 1;
-        });
-      }, 600);
+      const phases = [
+        { message: "Initializing AFSA system...", duration: 800 },
+        { message: "Loading membership data...", duration: 1200 },
+        { message: "Configuring user preferences...", duration: 1000 },
+        { message: "Finalizing setup...", duration: 1000 },
+      ];
 
-      // Wait for initialization to complete
-      await new Promise((resolve) => setTimeout(resolve, 60000));
+      let currentProgress = 0;
+      const totalDuration = phases.reduce(
+        (sum, phase) => sum + phase.duration,
+        0
+      );
 
-      // Clear interval and redirect
-      clearInterval(progressInterval);
+      for (let i = 0; i < phases.length; i++) {
+        const phase = phases[i];
+        setLoadingPhase(phase.message);
+
+        // Smooth progress animation for this phase
+        const phaseProgress = ((i + 1) / phases.length) * 100;
+        const progressIncrement =
+          (phaseProgress - currentProgress) / (phase.duration / 50);
+
+        const phaseInterval = setInterval(() => {
+          setProgress((prev) => {
+            const newProgress = prev + progressIncrement;
+            if (newProgress >= phaseProgress) {
+              clearInterval(phaseInterval);
+              return phaseProgress;
+            }
+            return newProgress;
+          });
+        }, 50);
+
+        await new Promise((resolve) => setTimeout(resolve, phase.duration));
+        currentProgress = phaseProgress;
+      }
+
+      // Ensure we hit 100%
+      setProgress(100);
+      setLoadingPhase("Ready! Redirecting...");
+
+      // Brief pause before redirect
+      await new Promise((resolve) => setTimeout(resolve, 500));
       router.push("/login");
     };
 
@@ -41,7 +68,7 @@ export default function AppLoader() {
             <Image
               className="dark:invert drop-shadow-lg"
               src="/Logo.png"
-              alt="Logo"
+              alt="AFSA Logo"
               width={140}
               height={35}
               priority
@@ -73,25 +100,23 @@ export default function AppLoader() {
 
         {/* App Title */}
         <h1 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">
-          Kigali Car Rental
+          AFSA - Membership Acquisition
         </h1>
 
         {/* Loading Message */}
-        <p className="text-gray-600 dark:text-gray-300 mb-8">
-          Initializing your experience...
-        </p>
+        <p className="text-gray-600 dark:text-gray-300 mb-8">{loadingPhase}</p>
 
         {/* Progress Bar */}
         <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mb-4 overflow-hidden">
           <div
             className="bg-gradient-to-r from-blue-500 to-indigo-600 h-2 rounded-full transition-all duration-300 ease-out"
-            style={{ width: `${progress}%` }}
+            style={{ width: `${Math.round(progress)}%` }}
           ></div>
         </div>
 
         {/* Progress Text */}
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          {progress}% Complete
+          {Math.round(progress)}% Complete
         </p>
 
         {/* Animated dots */}

@@ -1,4 +1,3 @@
-// services/authService.ts
 import { ApiClient, ApiResponse, apiClient } from "@/lib/api-client";
 
 export interface User {
@@ -47,7 +46,7 @@ export class AuthService {
   ): Promise<ApiResponse<AuthResponse>> {
     try {
       const response = await this.client.post<AuthResponse>(
-        "/auth/login",
+        "login",
         credentials
       );
 

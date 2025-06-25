@@ -27,25 +27,25 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-blue-900 p-4">
       <div className="w-full max-w-md">
         {/* Logo Section */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
             <Image
-              className="dark:invert"
+              className="dark:invert drop-shadow-lg"
               src="/Logo.png"
-              alt="Next.js logo"
-              width={120}
-              height={25}
+              alt="AFSA Logo"
+              width={140}
+              height={35}
               priority
             />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">
             Welcome back
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Sign in to your account to continue
+          <p className="text-gray-600 dark:text-gray-300">
+            Sign in to your AFSA membership account
           </p>
         </div>
 
@@ -55,30 +55,18 @@ export default function Login() {
             {/* Error Display */}
             {error && (
               <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-                <div className="flex">
-                  <div className="ml-3">
-                    <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
-                      Login Failed
-                    </h3>
-                    <div className="mt-2 text-sm text-red-700 dark:text-red-300">
-                      {error.message}
-                    </div>
-                    {/* Field-specific errors */}
-                    {error.errors && (
-                      <div className="mt-2 space-y-1">
-                        {error.errors.email && (
-                          <p className="text-sm text-red-600 dark:text-red-400">
-                            Email: {error.errors.email.join(", ")}
-                          </p>
-                        )}
-                        {error.errors.password && (
-                          <p className="text-sm text-red-600 dark:text-red-400">
-                            Password: {error.errors.password.join(", ")}
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                <div className="text-sm text-red-700 dark:text-red-300">
+                  {(() => {
+                    if (typeof error === "string") {
+                      try {
+                        const parsed = JSON.parse(error);
+                        return parsed.message || error;
+                      } catch {
+                        return error;
+                      }
+                    }
+                    return error?.message || "An error occurred";
+                  })()}
                 </div>
               </div>
             )}
@@ -96,11 +84,7 @@ export default function Login() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-colors ${
-                  error?.errors?.email
-                    ? "border-red-300 dark:border-red-600"
-                    : "border-gray-300 dark:border-gray-600"
-                }`}
+                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-colors border-gray-300 dark:border-gray-600`}
                 placeholder="Enter your email"
                 disabled={loading}
               />
@@ -119,11 +103,7 @@ export default function Login() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-colors ${
-                  error?.errors?.password
-                    ? "border-red-300 dark:border-red-600"
-                    : "border-gray-300 dark:border-gray-600"
-                }`}
+                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-colors border-gray-300 dark:border-gray-600`}
                 placeholder="Enter your password"
                 disabled={loading}
               />
@@ -153,7 +133,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium py-3 px-4 rounded-lg transition-colors focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed"
+              className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 disabled:from-blue-400 disabled:to-indigo-500 text-white font-medium py-3 px-4 rounded-lg transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
             >
               {loading ? (
                 <div className="flex items-center justify-center">
