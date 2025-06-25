@@ -1,4 +1,4 @@
-// lib/api-client.ts
+import { useState, useCallback } from "react";
 export interface ApiResponse<T = any> {
   data: T;
   message?: string;
@@ -264,8 +264,6 @@ const getApiBaseUrl = (): string => {
 // Create a default client instance with your backend URL
 export const apiClient = new ApiClient(getApiBaseUrl());
 
-// Hook for using the API client in React components
-import { useState, useCallback } from "react";
 
 export interface UseApiState<T> {
   data: T | null;
