@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+
 export interface ApiResponse<T = any> {
   data: T;
   message?: string;
@@ -71,7 +72,7 @@ export class ApiClient {
       retryDelay = 1000,
     } = config;
 
-    let lastError: Error;
+    let lastError: ApiError | undefined = undefined;
 
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
@@ -97,15 +98,14 @@ export class ApiClient {
           const errorData = await response.json().catch(() => ({
             message: `HTTP ${response.status}: ${response.statusText}`,
           }));
-          throw new Error(
-            JSON.stringify({
-              message:
-                errorData.message ||
-                `HTTP ${response.status}: ${response.statusText}`,
-              status: response.status,
-              errors: errorData.errors,
-            })
-          );
+          
+          // Create ApiError object directly instead of JSON.stringify
+          lastError = {
+            message: errorData.message || `HTTP ${response.status}: ${response.statusText}`,
+            status: response.status,
+            errors: errorData.errors,
+          };
+          throw lastError;
         }
 
         const data = await response.json();
@@ -115,20 +115,31 @@ export class ApiClient {
           message: data.message,
         };
       } catch (error) {
-        lastError = error as Error;
-
-        // Handle network errors specifically
-        if (error instanceof TypeError && error.message.includes("fetch")) {
-          lastError = new Error(
-            JSON.stringify({
+        // If it's already an ApiError, use it
+        if (error && typeof error === 'object' && 'message' in error && 'status' in error) {
+          lastError = error as ApiError;
+        } else {
+          // Handle network errors specifically
+          if (error instanceof TypeError && error.message.includes("fetch")) {
+            lastError = {
               message: "Network error: Unable to connect to API",
               status: 0,
-            })
-          );
+            };
+          } else if (error instanceof Error && error.name === 'AbortError') {
+            lastError = {
+              message: "Request timeout",
+              status: 408,
+            };
+          } else {
+            lastError = {
+              message: (error as Error).message || "An unexpected error occurred",
+              status: 500,
+            };
+          }
         }
 
         // Don't retry on client errors (4xx) or if it's the last attempt
-        if (attempt === retries || (error as any).status < 500) {
+        if (attempt === retries || (lastError.status >= 400 && lastError.status < 500)) {
           break;
         }
 
@@ -137,13 +148,14 @@ export class ApiClient {
       }
     }
 
-    // Parse error if it's a JSON string
-    try {
-      const errorData = JSON.parse(lastError!.message);
-      throw errorData;
-    } catch {
-      throw { message: lastError!.message, status: 500 };
+    // Throw the ApiError object directly
+    if (!lastError) {
+      lastError = {
+        message: "An unknown error occurred",
+        status: 500,
+      };
     }
+    throw lastError;
   }
 
   // GET request
@@ -236,7 +248,7 @@ export class ApiClient {
     }
 
     const headers = { ...this.defaultHeaders };
-    delete headers["Content-Type"]; 
+    delete headers["Content-Type"]; // Let browser set Content-Type for FormData
 
     return this.makeRequest<T>(
       url,
@@ -263,7 +275,6 @@ const getApiBaseUrl = (): string => {
 
 // Create a default client instance with your backend URL
 export const apiClient = new ApiClient(getApiBaseUrl());
-
 
 export interface UseApiState<T> {
   data: T | null;
@@ -313,4 +324,3 @@ export function useApi<T = any>() {
 
   return { ...state, execute, reset };
 }
-

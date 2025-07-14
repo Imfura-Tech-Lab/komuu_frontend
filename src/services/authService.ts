@@ -44,25 +44,18 @@ export class AuthService {
   async login(
     credentials: LoginCredentials
   ): Promise<ApiResponse<AuthResponse>> {
-    try {
-      const response = await this.client.post<AuthResponse>(
-        "login",
-        credentials
-      );
+    const response = await this.client.post<AuthResponse>("login", credentials);
 
-      if (response.data.token) {
-        // Store token and user data
-        this.setToken(response.data.token);
-        this.setUser(response.data.user);
+    if (response.data.token) {
+      // Store token and user data
+      this.setToken(response.data.token);
+      this.setUser(response.data.user);
 
-        // Set token in API client for future requests
-        this.client.setAuthToken(response.data.token);
-      }
-
-      return response;
-    } catch (error) {
-      throw error as LoginError;
+      // Set token in API client for future requests
+      this.client.setAuthToken(response.data.token);
     }
+
+    return response;
   }
 
   /**
@@ -149,54 +142,3 @@ export class AuthService {
 // Create singleton instance
 export const authService = new AuthService();
 
-// React hook for authentication
-import { useState, useCallback, useEffect } from "react";
-import { useApi } from "@/lib/api-client";
-
-export interface UseAuthReturn {
-  user: User | null;
-  isAuthenticated: boolean;
-  loading: boolean;
-  error: LoginError | null;
-  login: (credentials: LoginCredentials) => Promise<void>;
-  logout: () => void;
-}
-
-export function useAuth(): UseAuthReturn {
-  const [user, setUser] = useState<User | null>(null);
-  const { loading, error, execute } = useApi<AuthResponse>();
-
-  // Initialize auth state
-  useEffect(() => {
-    authService.initializeAuth();
-    const currentUser = authService.getCurrentUser();
-    setUser(currentUser);
-  }, []);
-
-  const login = useCallback(
-    async (credentials: LoginCredentials) => {
-      try {
-        const response = await execute(() => authService.login(credentials));
-        setUser(response.data.user);
-      } catch (error) {
-        // Error is already handled by useApi hook
-        throw error;
-      }
-    },
-    [execute]
-  );
-
-  const logout = useCallback(() => {
-    authService.logout();
-    setUser(null);
-  }, []);
-
-  return {
-    user,
-    isAuthenticated: authService.isAuthenticated(),
-    loading,
-    error: error as LoginError | null,
-    login,
-    logout,
-  };
-}
