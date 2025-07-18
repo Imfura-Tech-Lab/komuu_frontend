@@ -25,67 +25,101 @@ const MembershipLayout: React.FC<MembershipLayoutProps> = ({
 }) => {
   // Sidebar component for progress steps
   const renderSidebar = () => (
-    <div className="w-80 bg-gradient-to-b from-[#00B5A5] to-[#008A7C] text-white p-6 flex flex-col">
+    <div className="w-80 bg-white shadow-xl border-r border-gray-200 p-6 flex flex-col">
       <div className="mb-8">
-        <div className="w-40 h-14 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center shadow-lg mb-4">
+        <div className="w-40 h-14 bg-gradient-to-r from-[#00B5A5] to-[#008A7C] rounded-lg flex items-center justify-center shadow-lg mb-4">
           <span className="text-white font-bold text-2xl">AFSA</span>
         </div>
-        <h1 className="text-2xl font-bold mb-2">AFSA Membership</h1>
-        <p className="text-white/90 text-sm">
+        <h1 className="text-2xl font-bold mb-2 text-gray-900">
+          AFSA Membership
+        </h1>
+        <p className="text-gray-600 text-sm">
           Join the African Forensic Science Association
         </p>
       </div>
 
       <div className="flex-1">
-        <div className="space-y-4">
+        <div className="space-y-3">
           {steps && steps.length > 0 ? (
             steps.map((step, index) => (
               <div
                 key={step.id}
-                className={`relative flex items-start p-4 rounded-lg transition-all duration-300 ${
+                className={`relative flex items-start p-4 rounded-xl transition-all duration-300 ${
                   currentStep === step.id
-                    ? "bg-white bg-opacity-20 border-l-4 border-white"
+                    ? "bg-gradient-to-r from-[#00B5A5] to-[#008A7C] text-white shadow-lg transform scale-105"
                     : currentStep > step.id
-                    ? "bg-white bg-opacity-10"
-                    : "bg-transparent"
+                    ? "bg-green-50 border border-green-200"
+                    : "bg-gray-50 border border-gray-200 hover:bg-gray-100"
                 }`}
               >
                 <div className="flex-shrink-0 mr-4">
                   <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center text-lg transition-all duration-300 ${
+                    className={`w-12 h-12 rounded-full flex items-center justify-center text-lg transition-all duration-300 shadow-md ${
                       currentStep > step.id
                         ? "bg-green-500 text-white"
                         : currentStep === step.id
-                        ? "bg-white text-[#00B5A5]"
-                        : "bg-[#00B5A5] bg-opacity-50 text-white/70"
+                        ? "bg-white text-[#00B5A5] ring-2 ring-white/30"
+                        : "bg-white text-gray-400 border-2 border-gray-300"
                     }`}
                   >
-                    {currentStep > step.id ? <Check size={20} /> : step.icon}
+                    {currentStep > step.id ? (
+                      <Check size={22} />
+                    ) : (
+                      <span className="font-bold">{step.id}</span>
+                    )}
                   </div>
                 </div>
 
                 <div className="flex-1 min-w-0">
                   <h3
-                    className={`text-sm font-semibold ${
-                      currentStep >= step.id ? "text-white" : "text-white/70"
+                    className={`text-sm font-bold mb-1 ${
+                      currentStep === step.id
+                        ? "text-white"
+                        : currentStep > step.id
+                        ? "text-green-800"
+                        : "text-gray-600"
                     }`}
                   >
                     {step.title}
                   </h3>
                   <p
-                    className={`text-xs mt-1 ${
-                      currentStep >= step.id ? "text-white/90" : "text-white/60"
+                    className={`text-xs leading-relaxed ${
+                      currentStep === step.id
+                        ? "text-white/90"
+                        : currentStep > step.id
+                        ? "text-green-600"
+                        : "text-gray-500"
                     }`}
                   >
                     {step.description}
                   </p>
+
+                  {/* Current step indicator */}
+                  {currentStep === step.id && (
+                    <div className="mt-2 flex items-center">
+                      <div className="w-2 h-2 bg-white rounded-full animate-pulse mr-2"></div>
+                      <span className="text-xs font-medium text-white/90">
+                        Current Step
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Completed indicator */}
+                  {currentStep > step.id && (
+                    <div className="mt-2 flex items-center">
+                      <Check size={14} className="text-green-600 mr-2" />
+                      <span className="text-xs font-medium text-green-600">
+                        Completed
+                      </span>
+                    </div>
+                  )}
                 </div>
 
-                {/* Progress line */}
+                {/* Enhanced progress line */}
                 {index < steps.length - 1 && (
                   <div
-                    className={`absolute left-9 top-14 w-0.5 h-8 transition-all duration-300 ${
-                      currentStep > step.id ? "bg-green-400" : "bg-white/30"
+                    className={`absolute left-10 top-16 w-1 h-6 rounded-full transition-all duration-500 ${
+                      currentStep > step.id ? "bg-green-400" : "bg-gray-300"
                     }`}
                   />
                 )}
@@ -93,26 +127,18 @@ const MembershipLayout: React.FC<MembershipLayoutProps> = ({
             ))
           ) : (
             <div className="text-center py-8">
-              <p className="text-white/70">Loading steps...</p>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00B5A5] mx-auto mb-4"></div>
+              <p className="text-gray-500">Loading steps...</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Progress indicator at bottom */}
-      <div className="mt-8 pt-6 border-t border-white/30">
-        <div className="flex justify-between items-center text-sm">
-          <span className="text-white/90">Progress</span>
-          <span className="text-white font-semibold">
-            {currentStep}/{steps?.length || 0}
-          </span>
-        </div>
-        <div className="mt-2 bg-white/30 rounded-full h-2">
-          <div
-            className="bg-white rounded-full h-2 transition-all duration-300"
-            style={{ width: `${(currentStep / (steps?.length || 1)) * 100}%` }}
-          />
-        </div>
+      {/* Motivational footer */}
+      <div className="mt-6 p-4 bg-gradient-to-r from-[#00B5A5] to-[#008A7C] rounded-lg">
+        <p className="text-white text-sm text-center font-medium">
+          🎉 You're doing great! Keep going!
+        </p>
       </div>
     </div>
   );
@@ -124,13 +150,34 @@ const MembershipLayout: React.FC<MembershipLayoutProps> = ({
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
-        {/* Header */}
+        {/* Header with Progress and Step Info */}
         <div className="bg-white shadow-sm border-b px-8 py-6">
-          <div className="max-w-4xl">
-            <h2 className="text-2xl font-bold text-gray-900">
-              {currentStepTitle}
-            </h2>
-            <p className="text-gray-600 mt-1">{currentStepDescription}</p>
+          <div className="max-w-4xl flex items-center justify-between">
+            {/* Step title and description column */}
+            <div className="flex-1">
+              <h2 className="text-2xl font-bold text-gray-900">
+                {currentStepTitle}
+              </h2>
+              <p className="text-gray-600 mt-1">{currentStepDescription}</p>
+            </div>
+
+            {/* Progress indicator */}
+            <div className="ml-8 min-w-[200px]">
+              <div className="flex justify-between items-center text-sm mb-2">
+                <span className="text-gray-600">Progress</span>
+                <span className="text-gray-900 font-semibold">
+                  Step {currentStep} of {steps?.length || 0}
+                </span>
+              </div>
+              <div className="bg-gray-200 rounded-full h-2">
+                <div
+                  className="bg-[#00B5A5] rounded-full h-2 transition-all duration-300"
+                  style={{
+                    width: `${(currentStep / (steps?.length || 1)) * 100}%`,
+                  }}
+                />
+              </div>
+            </div>
           </div>
         </div>
 
