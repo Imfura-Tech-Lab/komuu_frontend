@@ -11,7 +11,7 @@ type Country = {
 
 type CountryOfOperation = {
   id: string;
-  name?: string;
+  name?: string; // name is optional as we might only store ID
 };
 
 type FormDataType = {
@@ -29,7 +29,7 @@ type FormDataType = {
   national_id: string;
   passport: string;
 
-  // Membership Details
+  // Membership Details (partially in Step 1, some docs in Step 3)
   membership_type: "Full Member" | "Associate Member" | "Student" | "";
   country_of_residence: string;
   forensic_field_of_practice: string;
@@ -124,6 +124,9 @@ const MembershipSignupForm = () => {
       { id: 12, name: "Rwanda" },
       { id: 14, name: "Kenya" },
       { id: 15, name: "Uganda" },
+      { id: 16, name: "South Africa" },
+      { id: 17, name: "Nigeria" },
+      { id: 18, name: "Egypt" },
     ] as Country[],
     fieldsOfPractice: [
       "Biology",
@@ -131,22 +134,26 @@ const MembershipSignupForm = () => {
       "Physics",
       "Digital Forensics",
       "Psychology",
+      "Forensic Anthropology",
+      "Toxicology",
+      "Pathology",
+      "Ballistics",
     ],
-    associateCategories: ["Academic", "Industry", "Government", "NGO"],
+    associateCategories: ["Academic", "Industry", "Government", "NGO", "Legal"],
   };
 
   const steps = [
     {
       id: 1,
-      title: "Personal Information",
-      description: "Basic details and contact information",
-      icon: "👤",
+      title: "Membership Category",
+      description: "Choose your membership type and specialization",
+      icon: "🏛️",
     },
     {
       id: 2,
-      title: "Membership Details",
-      description: "Choose your membership type and specialization",
-      icon: "🏛️",
+      title: "Personal Information",
+      description: "Basic details and contact information",
+      icon: "👤",
     },
     {
       id: 3,
@@ -173,6 +180,7 @@ const MembershipSignupForm = () => {
       ...prev,
       [name]: value,
     }));
+    // Clear error for the field if it exists
     if (errors[name]) {
       setErrors((prev) => {
         const newErrors = { ...prev };
@@ -187,6 +195,7 @@ const MembershipSignupForm = () => {
       ...prev,
       [name]: file,
     }));
+    // Clear error for the field if it exists
     if (errors[name]) {
       setErrors((prev) => {
         const newErrors = { ...prev };
@@ -210,19 +219,36 @@ const MembershipSignupForm = () => {
         (_, i) => i !== index
       ),
     }));
+    // Clear countries_of_operation error if all removed or valid
+    if (
+      errors.countries_of_operation &&
+      formData.countries_of_operation.length - 1 === 0
+    ) {
+      setErrors((prevErrors) => {
+        const newErrors = { ...prevErrors };
+        delete newErrors.countries_of_operation;
+        return newErrors;
+      });
+    }
   };
 
   const updateCountryOfOperation = (index: number, countryId: string) => {
     setFormData((prev) => ({
       ...prev,
       countries_of_operation: prev.countries_of_operation.map((country, i) =>
-        i === index ? { id: countryId } : country
+        i === index ? { ...country, id: countryId } : country
       ),
     }));
+    // Clear error for this specific country if it was causing issues
     if (errors.countries_of_operation) {
-      setErrors((prev) => {
-        const newErrors = { ...prev };
-        delete newErrors.countries_of_operation;
+      setErrors((prevErrors) => {
+        const newErrors = { ...prevErrors };
+        const updatedCountries = formData.countries_of_operation.map((country, i) =>
+          i === index ? { ...country, id: countryId } : country
+        );
+        if (updatedCountries.every((c) => c.id)) {
+          delete newErrors.countries_of_operation;
+        }
         return newErrors;
       });
     }
@@ -233,22 +259,6 @@ const MembershipSignupForm = () => {
 
     switch (step) {
       case 1:
-        if (!formData.title) newErrors.title = "Title is required";
-        if (!formData.first_name)
-          newErrors.first_name = "First name is required";
-        if (!formData.surname) newErrors.surname = "Surname is required";
-        if (!formData.email) newErrors.email = "Email is required";
-        if (formData.email && !/\S+@\S+\.\S+/.test(formData.email))
-          newErrors.email = "Email address is invalid";
-        if (!formData.date_of_birth)
-          newErrors.date_of_birth = "Date of birth is required";
-        if (!formData.phone_number)
-          newErrors.phone_number = "Phone number is required";
-        if (!formData.national_id)
-          newErrors.national_id = "National ID is required";
-        break;
-
-      case 2:
         if (!formData.membership_type)
           newErrors.membership_type = "Membership type is required";
         if (!formData.country_of_residence)
@@ -262,6 +272,22 @@ const MembershipSignupForm = () => {
         ) {
           newErrors.associate_category = "Associate category is required";
         }
+        break;
+
+      case 2:
+        if (!formData.title) newErrors.title = "Title is required";
+        if (!formData.first_name)
+          newErrors.first_name = "First name is required";
+        if (!formData.surname) newErrors.surname = "Surname is required";
+        if (!formData.email) newErrors.email = "Email is required";
+        if (formData.email && !/\S+@\S+\.\S+/.test(formData.email))
+          newErrors.email = "Email address is invalid";
+        if (!formData.date_of_birth)
+          newErrors.date_of_birth = "Date of birth is required";
+        if (!formData.phone_number)
+          newErrors.phone_number = "Phone number is required";
+        if (!formData.national_id)
+          newErrors.national_id = "National ID is required";
         break;
 
       case 3:
@@ -328,26 +354,275 @@ const MembershipSignupForm = () => {
   };
 
   const handleSubmit = async () => {
-    if (!validateStep(currentStep)) return;
+    if (!validateStep(currentStep)) return; // Validate final step before submission
 
     setIsSubmitting(true);
+    // Simulate API call
     await new Promise((resolve) => setTimeout(resolve, 2000));
     console.log("Form submitted:", formData);
     setIsSubmitting(false);
     alert("Registration successful!");
+    // Optionally redirect or show success message
   };
 
-  // Input field styles with proper text visibility using auth layout colors
+  // Enhanced input field styles with dark mode support
   const inputStyles =
-    "w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00B5A5] focus:border-[#00B5A5] text-gray-900 bg-white placeholder-gray-500 transition-colors";
+    "w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#00B5A5] dark:focus:ring-[#00D4C7] focus:border-[#00B5A5] dark:focus:border-[#00D4C7] text-gray-900 dark:text-white bg-white dark:bg-gray-800 placeholder-gray-500 dark:placeholder-gray-400 transition-all duration-300";
+
   const selectStyles =
-    "w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00B5A5] focus:border-[#00B5A5] text-gray-900 bg-white transition-colors";
+    "w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#00B5A5] dark:focus:ring-[#00D4C7] focus:border-[#00B5A5] dark:focus:border-[#00D4C7] text-gray-900 dark:text-white bg-white dark:bg-gray-800 transition-all duration-300";
+
+  const renderMembershipCategory = () => (
+    <div className="space-y-6">
+      {/* Welcome Message */}
+      <div className="text-center mb-8">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+          Welcome to AFSA Membership
+        </h2>
+        <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+          Choose your membership category to get started. Each membership type
+          offers different benefits and requirements tailored to your
+          professional needs.
+        </p>
+      </div>
+
+      {/* Membership Type Selection */}
+      <div className="space-y-6">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-4 transition-colors duration-300">
+            Select Your Membership Type <span className="text-red-500">*</span>
+          </label>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {mockData.membershipTypes.map((type) => (
+              <div
+                key={type}
+                className={`relative cursor-pointer rounded-lg border-2 p-6 transition-all duration-300 ${
+                  formData.membership_type === type
+                    ? "border-[#00B5A5] dark:border-[#00D4C7] bg-[#00B5A5]/5 dark:bg-[#00D4C7]/5 shadow-lg"
+                    : "border-gray-200 dark:border-gray-700 hover:border-[#00B5A5] dark:hover:border-[#00D4C7] hover:shadow-md"
+                } bg-white dark:bg-gray-800`}
+                onClick={() =>
+                  handleInputChange(
+                    "membership_type",
+                    type as FormDataType["membership_type"]
+                  )
+                }
+              >
+                <div className="flex items-center">
+                  <input
+                    type="radio"
+                    name="membership_type"
+                    value={type}
+                    checked={formData.membership_type === type}
+                    onChange={() =>
+                      handleInputChange(
+                        "membership_type",
+                        type as FormDataType["membership_type"]
+                      )
+                    }
+                    className="h-4 w-4 text-[#00B5A5] dark:text-[#00D4C7] focus:ring-[#00B5A5] dark:focus:ring-[#00D4C7] border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
+                  />
+                  <div className="ml-3 flex-1">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      {type}
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                      {type === "Full Member" &&
+                        "For established forensic professionals with extensive experience"}
+                      {type === "Associate Member" &&
+                        "For professionals working in forensic-related fields"}
+                      {type === "Student" &&
+                        "For students pursuing forensic science education"}
+                    </p>
+                    <div className="mt-2 text-sm font-medium text-[#00B5A5] dark:text-[#00D4C7]">
+                      $
+                      {type === "Full Member"
+                        ? "100"
+                        : type === "Associate Member"
+                        ? "75"
+                        : "25"}
+                      /year
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          {errors.membership_type && (
+            <p className="text-red-500 dark:text-red-400 text-sm mt-2 transition-colors duration-300">
+              {errors.membership_type}
+            </p>
+          )}
+        </div>
+
+        {/* Additional fields after membership type is selected */}
+        {formData.membership_type && (
+          <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-300">
+                  Country of Residence <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.country_of_residence}
+                  onChange={(e) =>
+                    handleInputChange("country_of_residence", e.target.value)
+                  }
+                  className={selectStyles}
+                >
+                  <option value="">Select Country</option>
+                  {mockData.countries.map((country) => (
+                    <option key={country.id} value={country.id}>
+                      {country.name}
+                    </option>
+                  ))}
+                </select>
+                {errors.country_of_residence && (
+                  <p className="text-red-500 dark:text-red-400 text-sm mt-1 transition-colors duration-300">
+                    {errors.country_of_residence}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-300">
+                  Forensic Field of Practice{" "}
+                  <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.forensic_field_of_practice}
+                  onChange={(e) =>
+                    handleInputChange(
+                      "forensic_field_of_practice",
+                      e.target.value
+                    )
+                  }
+                  className={selectStyles}
+                >
+                  <option value="">Select Field</option>
+                  {mockData.fieldsOfPractice.map((field) => (
+                    <option key={field} value={field}>
+                      {field}
+                    </option>
+                  ))}
+                </select>
+                {errors.forensic_field_of_practice && (
+                  <p className="text-red-500 dark:text-red-400 text-sm mt-1 transition-colors duration-300">
+                    {errors.forensic_field_of_practice}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {formData.membership_type === "Associate Member" && (
+              <div className="animate-in slide-in-from-top-2 duration-300">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-300">
+                  Associate Category <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.associate_category}
+                  onChange={(e) =>
+                    handleInputChange("associate_category", e.target.value)
+                  }
+                  className={selectStyles}
+                >
+                  <option value="">Select Category</option>
+                  {mockData.associateCategories.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+                {errors.associate_category && (
+                  <p className="text-red-500 dark:text-red-400 text-sm mt-1 transition-colors duration-300">
+                    {errors.associate_category}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Membership Benefits Preview */}
+      {formData.membership_type && (
+        <div className="mt-8 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 animate-in slide-in-from-top-2 duration-300">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            {formData.membership_type} Benefits
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {formData.membership_type === "Full Member" && (
+              <>
+                <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                  <Check size={16} className="text-green-500 mr-2" />
+                  Full voting rights in AFSA decisions
+                </div>
+                <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                  <Check size={16} className="text-green-500 mr-2" />
+                  Access to exclusive research publications
+                </div>
+                <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                  <Check size={16} className="text-green-500 mr-2" />
+                  Priority registration for conferences
+                </div>
+                <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                  <Check size={16} className="text-green-500 mr-2" />
+                  Professional certification programs
+                </div>
+              </>
+            )}
+            {formData.membership_type === "Associate Member" && (
+              <>
+                <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                  <Check size={16} className="text-green-500 mr-2" />
+                  Access to AFSA resources and publications
+                </div>
+                <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                  <Check size={16} className="text-green-500 mr-2" />
+                  Networking opportunities with professionals
+                </div>
+                <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                  <Check size={16} className="text-green-500 mr-2" />
+                  Discounted conference registration
+                </div>
+                <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                  <Check size={16} className="text-green-500 mr-2" />
+                  Professional development workshops
+                </div>
+              </>
+            )}
+            {formData.membership_type === "Student" && (
+              <>
+                <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                  <Check size={16} className="text-green-500 mr-2" />
+                  Student-focused educational resources
+                </div>
+                <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                  <Check size={16} className="text-green-500 mr-2" />
+                  Mentorship program access
+                </div>
+                <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                  <Check size={16} className="text-green-500 mr-2" />
+                  Scholarship opportunities
+                </div>
+                <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                  <Check size={16} className="text-green-500 mr-2" />
+                  Career guidance and job placement
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   const renderPersonalInfo = () => (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-300">
             Title <span className="text-red-500">*</span>
           </label>
           <select
@@ -363,12 +638,14 @@ const MembershipSignupForm = () => {
             ))}
           </select>
           {errors.title && (
-            <p className="text-red-500 text-sm mt-1">{errors.title}</p>
+            <p className="text-red-500 dark:text-red-400 text-sm mt-1 transition-colors duration-300">
+              {errors.title}
+            </p>
           )}
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-300">
             First Name <span className="text-red-500">*</span>
           </label>
           <input
@@ -379,12 +656,14 @@ const MembershipSignupForm = () => {
             placeholder="Enter your first name"
           />
           {errors.first_name && (
-            <p className="text-red-500 text-sm mt-1">{errors.first_name}</p>
+            <p className="text-red-500 dark:text-red-400 text-sm mt-1 transition-colors duration-300">
+              {errors.first_name}
+            </p>
           )}
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-300">
             Middle Name
           </label>
           <input
@@ -397,7 +676,7 @@ const MembershipSignupForm = () => {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-300">
             Surname <span className="text-red-500">*</span>
           </label>
           <input
@@ -408,12 +687,14 @@ const MembershipSignupForm = () => {
             placeholder="Enter your surname"
           />
           {errors.surname && (
-            <p className="text-red-500 text-sm mt-1">{errors.surname}</p>
+            <p className="text-red-500 dark:text-red-400 text-sm mt-1 transition-colors duration-300">
+              {errors.surname}
+            </p>
           )}
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-300">
             Email <span className="text-red-500">*</span>
           </label>
           <input
@@ -424,12 +705,14 @@ const MembershipSignupForm = () => {
             placeholder="Enter your email address"
           />
           {errors.email && (
-            <p className="text-red-500 text-sm mt-1">{errors.email}</p>
+            <p className="text-red-500 dark:text-red-400 text-sm mt-1 transition-colors duration-300">
+              {errors.email}
+            </p>
           )}
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-300">
             Secondary Email
           </label>
           <input
@@ -444,7 +727,7 @@ const MembershipSignupForm = () => {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-300">
             Date of Birth <span className="text-red-500">*</span>
           </label>
           <input
@@ -454,12 +737,14 @@ const MembershipSignupForm = () => {
             className={inputStyles}
           />
           {errors.date_of_birth && (
-            <p className="text-red-500 text-sm mt-1">{errors.date_of_birth}</p>
+            <p className="text-red-500 dark:text-red-400 text-sm mt-1 transition-colors duration-300">
+              {errors.date_of_birth}
+            </p>
           )}
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-300">
             Phone Number <span className="text-red-500">*</span>
           </label>
           <input
@@ -470,12 +755,14 @@ const MembershipSignupForm = () => {
             placeholder="+250790340400"
           />
           {errors.phone_number && (
-            <p className="text-red-500 text-sm mt-1">{errors.phone_number}</p>
+            <p className="text-red-500 dark:text-red-400 text-sm mt-1 transition-colors duration-300">
+              {errors.phone_number}
+            </p>
           )}
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-300">
             Alternative Phone
           </label>
           <input
@@ -490,7 +777,7 @@ const MembershipSignupForm = () => {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-300">
             WhatsApp Number
           </label>
           <input
@@ -505,7 +792,7 @@ const MembershipSignupForm = () => {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-300">
             National ID <span className="text-red-500">*</span>
           </label>
           <input
@@ -516,12 +803,14 @@ const MembershipSignupForm = () => {
             placeholder="Enter your national ID"
           />
           {errors.national_id && (
-            <p className="text-red-500 text-sm mt-1">{errors.national_id}</p>
+            <p className="text-red-500 dark:text-red-400 text-sm mt-1 transition-colors duration-300">
+              {errors.national_id}
+            </p>
           )}
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-300">
             Passport Number
           </label>
           <input
@@ -536,127 +825,30 @@ const MembershipSignupForm = () => {
     </div>
   );
 
+  // This function is defined but its content is integrated into renderMembershipCategory (Step 1)
+  // for a more streamlined user flow.
   const renderMembershipDetails = () => (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Membership Type <span className="text-red-500">*</span>
-          </label>
-          <select
-            value={formData.membership_type}
-            onChange={(e) =>
-              handleInputChange(
-                "membership_type",
-                e.target.value as FormDataType["membership_type"]
-              )
-            }
-            className={selectStyles}
-          >
-            <option value="">Select Membership Type</option>
-            {mockData.membershipTypes.map((type) => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-            ))}
-          </select>
-          {errors.membership_type && (
-            <p className="text-red-500 text-sm mt-1">
-              {errors.membership_type}
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Country of Residence <span className="text-red-500">*</span>
-          </label>
-          <select
-            value={formData.country_of_residence}
-            onChange={(e) =>
-              handleInputChange("country_of_residence", e.target.value)
-            }
-            className={selectStyles}
-          >
-            <option value="">Select Country</option>
-            {mockData.countries.map((country) => (
-              <option key={country.id} value={country.id}>
-                {country.name}
-              </option>
-            ))}
-          </select>
-          {errors.country_of_residence && (
-            <p className="text-red-500 text-sm mt-1">
-              {errors.country_of_residence}
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Forensic Field of Practice <span className="text-red-500">*</span>
-          </label>
-          <select
-            value={formData.forensic_field_of_practice}
-            onChange={(e) =>
-              handleInputChange("forensic_field_of_practice", e.target.value)
-            }
-            className={selectStyles}
-          >
-            <option value="">Select Field</option>
-            {mockData.fieldsOfPractice.map((field) => (
-              <option key={field} value={field}>
-                {field}
-              </option>
-            ))}
-          </select>
-          {errors.forensic_field_of_practice && (
-            <p className="text-red-500 text-sm mt-1">
-              {errors.forensic_field_of_practice}
-            </p>
-          )}
-        </div>
-
-        {formData.membership_type === "Associate Member" && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Associate Category <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={formData.associate_category}
-              onChange={(e) =>
-                handleInputChange("associate_category", e.target.value)
-              }
-              className={selectStyles}
-            >
-              <option value="">Select Category</option>
-              {mockData.associateCategories.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </select>
-            {errors.associate_category && (
-              <p className="text-red-500 text-sm mt-1">
-                {errors.associate_category}
-              </p>
-            )}
-          </div>
-        )}
-      </div>
+      {/* The content for membership type, country of residence, field of practice, and associate category
+          is now part of renderMembershipCategory (Step 1) for a better user experience */}
+      <p className="text-gray-600 dark:text-gray-400">
+        Membership type and initial details are selected in the first step.
+        Proceed to "Additional Information" for specific document uploads or
+        organization details based on your chosen membership.
+      </p>
     </div>
   );
 
   const renderAdditionalInfo = () => (
     <div className="space-y-6">
       {formData.membership_type === "Student" && (
-        <div className="bg-blue-50 p-6 rounded-lg">
-          <h3 className="text-lg font-semibold text-blue-800 mb-4">
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-6 rounded-lg transition-colors duration-300 animate-in fade-in slide-in-from-top-2">
+          <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-300 mb-4">
             Student Information
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-300">
                 University <span className="text-red-500">*</span>
               </label>
               <input
@@ -669,12 +861,14 @@ const MembershipSignupForm = () => {
                 placeholder="Enter university name"
               />
               {errors.university && (
-                <p className="text-red-500 text-sm mt-1">{errors.university}</p>
+                <p className="text-red-500 dark:text-red-400 text-sm mt-1 transition-colors duration-300">
+                  {errors.university}
+                </p>
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-300">
                 Degree <span className="text-red-500">*</span>
               </label>
               <input
@@ -685,12 +879,14 @@ const MembershipSignupForm = () => {
                 placeholder="Enter degree program"
               />
               {errors.degree && (
-                <p className="text-red-500 text-sm mt-1">{errors.degree}</p>
+                <p className="text-red-500 dark:text-red-400 text-sm mt-1 transition-colors duration-300">
+                  {errors.degree}
+                </p>
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-300">
                 Degree Year <span className="text-red-500">*</span>
               </label>
               <input
@@ -700,17 +896,17 @@ const MembershipSignupForm = () => {
                   handleInputChange("degree_year", e.target.value)
                 }
                 className={inputStyles}
-                placeholder="2024"
+                placeholder="e.g., 2024"
               />
               {errors.degree_year && (
-                <p className="text-red-500 text-sm mt-1">
+                <p className="text-red-500 dark:text-red-400 text-sm mt-1 transition-colors duration-300">
                   {errors.degree_year}
                 </p>
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-300">
                 Country of Study <span className="text-red-500">*</span>
               </label>
               <select
@@ -728,24 +924,24 @@ const MembershipSignupForm = () => {
                 ))}
               </select>
               {errors.country_of_study && (
-                <p className="text-red-500 text-sm mt-1">
+                <p className="text-red-500 dark:text-red-400 text-sm mt-1 transition-colors duration-300">
                   {errors.country_of_study}
                 </p>
               )}
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-300">
                 Proof of Registration <span className="text-red-500">*</span>
               </label>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-[#00B5A5] transition-colors">
-                <Upload className="mx-auto h-12 w-12 text-gray-400" />
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-[#00B5A5] dark:hover:border-[#00D4C7] transition-colors duration-300 bg-white dark:bg-gray-800">
+                <Upload className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" />
                 <div className="mt-4">
                   <label
                     htmlFor="proof_of_registration_upload"
                     className="cursor-pointer"
                   >
-                    <span className="bg-[#00B5A5] text-white px-4 py-2 rounded-lg hover:bg-[#008A7C] transition-colors">
+                    <span className="bg-[#00B5A5] dark:bg-[#00D4C7] text-white px-4 py-2 rounded-lg hover:bg-[#008A7C] dark:hover:bg-[#00B5A5] transition-colors duration-300">
                       Upload File
                     </span>
                     <input
@@ -764,13 +960,13 @@ const MembershipSignupForm = () => {
                   </label>
                 </div>
                 {formData.proof_of_registration && (
-                  <p className="mt-2 text-sm text-gray-600">
+                  <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
                     Selected: {formData.proof_of_registration.name}
                   </p>
                 )}
               </div>
               {errors.proof_of_registration && (
-                <p className="text-red-500 text-sm mt-1">
+                <p className="text-red-500 dark:text-red-400 text-sm mt-1 transition-colors duration-300">
                   {errors.proof_of_registration}
                 </p>
               )}
@@ -780,14 +976,14 @@ const MembershipSignupForm = () => {
       )}
 
       {formData.membership_type === "Full Member" && (
-        <div className="bg-green-50 p-6 rounded-lg">
-          <h3 className="text-lg font-semibold text-green-800 mb-4">
+        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-6 rounded-lg transition-colors duration-300 animate-in fade-in slide-in-from-top-2">
+          <h3 className="text-lg font-semibold text-green-800 dark:text-green-300 mb-4">
             Full Member Information
           </h3>
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-300">
                   Organization Name <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -800,14 +996,14 @@ const MembershipSignupForm = () => {
                   placeholder="Enter organization name"
                 />
                 {errors.name_of_organization && (
-                  <p className="text-red-500 text-sm mt-1">
+                  <p className="text-red-500 dark:text-red-400 text-sm mt-1 transition-colors duration-300">
                     {errors.name_of_organization}
                   </p>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-300">
                   Abbreviation <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -817,17 +1013,17 @@ const MembershipSignupForm = () => {
                     handleInputChange("abbreviation", e.target.value)
                   }
                   className={inputStyles}
-                  placeholder="Enter abbreviation"
+                  placeholder="e.g., AFSA"
                 />
                 {errors.abbreviation && (
-                  <p className="text-red-500 text-sm mt-1">
+                  <p className="text-red-500 dark:text-red-400 text-sm mt-1 transition-colors duration-300">
                     {errors.abbreviation}
                   </p>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-300">
                   Company Email <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -840,7 +1036,7 @@ const MembershipSignupForm = () => {
                   placeholder="Enter company email"
                 />
                 {errors.company_email && (
-                  <p className="text-red-500 text-sm mt-1">
+                  <p className="text-red-500 dark:text-red-400 text-sm mt-1 transition-colors duration-300">
                     {errors.company_email}
                   </p>
                 )}
@@ -848,7 +1044,7 @@ const MembershipSignupForm = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-300">
                 Countries of Operation <span className="text-red-500">*</span>
               </label>
               <div className="space-y-2">
@@ -871,7 +1067,7 @@ const MembershipSignupForm = () => {
                     <button
                       type="button"
                       onClick={() => removeCountryOfOperation(index)}
-                      className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                      className="p-2 text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors duration-300"
                       aria-label={`Remove country ${index + 1}`}
                     >
                       <X size={20} />
@@ -881,13 +1077,13 @@ const MembershipSignupForm = () => {
                 <button
                   type="button"
                   onClick={addCountryOfOperation}
-                  className="w-full p-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-[#00B5A5] hover:text-[#00B5A5] transition-colors"
+                  className="w-full p-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-500 dark:text-gray-400 hover:border-[#00B5A5] dark:hover:border-[#00D4C7] hover:text-[#00B5A5] dark:hover:text-[#00D4C7] transition-colors duration-300 bg-white dark:bg-gray-800"
                 >
                   + Add Country of Operation
                 </button>
               </div>
               {errors.countries_of_operation && (
-                <p className="text-red-500 text-sm mt-1">
+                <p className="text-red-500 dark:text-red-400 text-sm mt-1 transition-colors duration-300">
                   {errors.countries_of_operation}
                 </p>
               )}
@@ -895,17 +1091,17 @@ const MembershipSignupForm = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-300">
                   Qualification Document <span className="text-red-500">*</span>
                 </label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-[#00B5A5] transition-colors">
-                  <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-[#00B5A5] dark:hover:border-[#00D4C7] transition-colors duration-300 bg-white dark:bg-gray-800">
+                  <Upload className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" />
                   <div className="mt-4">
                     <label
                       htmlFor="qualification_upload"
                       className="cursor-pointer"
                     >
-                      <span className="bg-[#00B5A5] text-white px-4 py-2 rounded-lg hover:bg-[#008A7C] transition-colors">
+                      <span className="bg-[#00B5A5] dark:bg-[#00D4C7] text-white px-4 py-2 rounded-lg hover:bg-[#008A7C] dark:hover:bg-[#00B5A5] transition-colors duration-300">
                         Upload Qualification
                       </span>
                       <input
@@ -924,30 +1120,30 @@ const MembershipSignupForm = () => {
                     </label>
                   </div>
                   {formData.qualification && (
-                    <p className="mt-2 text-sm text-gray-600">
+                    <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
                       Selected: {formData.qualification.name}
                     </p>
                   )}
                 </div>
                 {errors.qualification && (
-                  <p className="text-red-500 text-sm mt-1">
+                  <p className="text-red-500 dark:text-red-400 text-sm mt-1 transition-colors duration-300">
                     {errors.qualification}
                   </p>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-300">
                   CV/Resume <span className="text-red-500">*</span>
                 </label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-[#00B5A5] transition-colors">
-                  <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-[#00B5A5] dark:hover:border-[#00D4C7] transition-colors duration-300 bg-white dark:bg-gray-800">
+                  <Upload className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" />
                   <div className="mt-4">
                     <label
                       htmlFor="cv_resume_upload"
                       className="cursor-pointer"
                     >
-                      <span className="bg-[#00B5A5] text-white px-4 py-2 rounded-lg hover:bg-[#008A7C] transition-colors">
+                      <span className="bg-[#00B5A5] dark:bg-[#00D4C7] text-white px-4 py-2 rounded-lg hover:bg-[#008A7C] dark:hover:bg-[#00B5A5] transition-colors duration-300">
                         Upload CV/Resume
                       </span>
                       <input
@@ -966,13 +1162,13 @@ const MembershipSignupForm = () => {
                     </label>
                   </div>
                   {formData.cv_resume && (
-                    <p className="mt-2 text-sm text-gray-600">
+                    <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
                       Selected: {formData.cv_resume.name}
                     </p>
                   )}
                 </div>
                 {errors.cv_resume && (
-                  <p className="text-red-500 text-sm mt-1">
+                  <p className="text-red-500 dark:text-red-400 text-sm mt-1 transition-colors duration-300">
                     {errors.cv_resume}
                   </p>
                 )}
@@ -982,9 +1178,23 @@ const MembershipSignupForm = () => {
         </div>
       )}
 
+      {/* Show message if no membership type selected for this step */}
       {!formData.membership_type && (
-        <div className="text-center py-8 text-gray-500">
-          Please select a membership type in the previous step to continue.
+        <div className="text-center py-8 text-gray-500 dark:text-gray-400 transition-colors duration-300 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+          <p className="mb-2">
+            Please select a membership type in the{" "}
+            <span className="font-semibold text-[#00B5A5] dark:text-[#00D4C7]">
+              Membership Category
+            </span>{" "}
+            step to view relevant additional information fields.
+          </p>
+          <button
+            type="button"
+            onClick={() => setCurrentStep(1)}
+            className="text-[#00B5A5] dark:text-[#00D4C7] hover:underline text-sm font-medium"
+          >
+            Go to Membership Category
+          </button>
         </div>
       )}
     </div>
@@ -992,12 +1202,12 @@ const MembershipSignupForm = () => {
 
   const renderDeclarations = () => (
     <div className="space-y-6">
-      <div className="bg-yellow-50 p-6 rounded-lg">
-        <h3 className="text-lg font-semibold text-yellow-800 mb-4">
+      <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 p-6 rounded-lg transition-colors duration-300">
+        <h3 className="text-lg font-semibold text-yellow-800 dark:text-yellow-300 mb-4">
           Terms and Conditions
         </h3>
         <div className="space-y-4">
-          <label className="flex items-start space-x-3 cursor-pointer">
+          <label className="flex items-start space-x-3 cursor-pointer group">
             <input
               type="checkbox"
               checked={formData.abide_with_code_of_conduct}
@@ -1007,14 +1217,14 @@ const MembershipSignupForm = () => {
                   e.target.checked
                 )
               }
-              className="mt-1 w-4 h-4 text-[#00B5A5] bg-gray-100 border-gray-300 rounded focus:ring-[#00B5A5]"
+              className="mt-1 w-4 h-4 text-[#00B5A5] dark:text-[#00D4C7] bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-[#00B5A5] dark:focus:ring-[#00D4C7] transition-colors duration-300"
             />
             <div>
-              <span className="text-sm font-medium text-gray-900">
+              <span className="text-sm font-medium text-gray-900 dark:text-gray-100 group-hover:text-[#00B5A5] dark:group-hover:text-[#00D4C7] transition-colors duration-300">
                 I agree to abide by the code of conduct{" "}
                 <span className="text-red-500">*</span>
               </span>
-              <p className="text-sm text-gray-600 mt-1">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 transition-colors duration-300">
                 I understand and agree to follow all professional standards and
                 ethical guidelines established by the African Forensic Science
                 Association.
@@ -1022,12 +1232,12 @@ const MembershipSignupForm = () => {
             </div>
           </label>
           {errors.abide_with_code_of_conduct && (
-            <p className="text-red-500 text-sm">
+            <p className="text-red-500 dark:text-red-400 text-sm transition-colors duration-300">
               {errors.abide_with_code_of_conduct}
             </p>
           )}
 
-          <label className="flex items-start space-x-3 cursor-pointer">
+          <label className="flex items-start space-x-3 cursor-pointer group">
             <input
               type="checkbox"
               checked={formData.comply_with_current_constitution}
@@ -1037,69 +1247,73 @@ const MembershipSignupForm = () => {
                   e.target.checked
                 )
               }
-              className="mt-1 w-4 h-4 text-[#00B5A5] bg-gray-100 border-gray-300 rounded focus:ring-[#00B5A5]"
+              className="mt-1 w-4 h-4 text-[#00B5A5] dark:text-[#00D4C7] bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-[#00B5A5] dark:focus:ring-[#00D4C7] transition-colors duration-300"
             />
             <div>
-              <span className="text-sm font-medium text-gray-900">
+              <span className="text-sm font-medium text-gray-900 dark:text-gray-100 group-hover:text-[#00B5A5] dark:group-hover:text-[#00D4C7] transition-colors duration-300">
                 I agree to comply with the current constitution{" "}
                 <span className="text-red-500">*</span>
               </span>
-              <p className="text-sm text-gray-600 mt-1">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 transition-colors duration-300">
                 I acknowledge that I have read and understood the AFSA
                 constitution and agree to comply with all its provisions.
               </p>
             </div>
           </label>
           {errors.comply_with_current_constitution && (
-            <p className="text-red-500 text-sm">
+            <p className="text-red-500 dark:text-red-400 text-sm transition-colors duration-300">
               {errors.comply_with_current_constitution}
             </p>
           )}
 
-          <label className="flex items-start space-x-3 cursor-pointer">
+          <label className="flex items-start space-x-3 cursor-pointer group">
             <input
               type="checkbox"
               checked={formData.declaration}
               onChange={(e) =>
                 handleInputChange("declaration", e.target.checked)
               }
-              className="mt-1 w-4 h-4 text-[#00B5A5] bg-gray-100 border-gray-300 rounded focus:ring-[#00B5A5]"
+              className="mt-1 w-4 h-4 text-[#00B5A5] dark:text-[#00D4C7] bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-[#00B5A5] dark:focus:ring-[#00D4C7] transition-colors duration-300"
             />
             <div>
-              <span className="text-sm font-medium text-gray-900">
+              <span className="text-sm font-medium text-gray-900 dark:text-gray-100 group-hover:text-[#00B5A5] dark:group-hover:text-[#00D4C7] transition-colors duration-300">
                 Declaration of accuracy <span className="text-red-500">*</span>
               </span>
-              <p className="text-sm text-gray-600 mt-1">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 transition-colors duration-300">
                 I declare that all information provided in this application is
                 true and accurate to the best of my knowledge.
               </p>
             </div>
           </label>
           {errors.declaration && (
-            <p className="text-red-500 text-sm">{errors.declaration}</p>
+            <p className="text-red-500 dark:text-red-400 text-sm transition-colors duration-300">
+              {errors.declaration}
+            </p>
           )}
 
-          <label className="flex items-start space-x-3 cursor-pointer">
+          <label className="flex items-start space-x-3 cursor-pointer group">
             <input
               type="checkbox"
               checked={formData.incompliance}
               onChange={(e) =>
                 handleInputChange("incompliance", e.target.checked)
               }
-              className="mt-1 w-4 h-4 text-[#00B5A5] bg-gray-100 border-gray-300 rounded focus:ring-[#00B5A5]"
+              className="mt-1 w-4 h-4 text-[#00B5A5] dark:text-[#00D4C7] bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-[#00B5A5] dark:focus:ring-[#00D4C7] transition-colors duration-300"
             />
             <div>
-              <span className="text-sm font-medium text-gray-900">
+              <span className="text-sm font-medium text-gray-900 dark:text-gray-100 group-hover:text-[#00B5A5] dark:group-hover:text-[#00D4C7] transition-colors duration-300">
                 Compliance confirmation <span className="text-red-500">*</span>
               </span>
-              <p className="text-sm text-gray-600 mt-1">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 transition-colors duration-300">
                 I confirm that I am in compliance with all applicable laws and
                 regulations in my jurisdiction.
               </p>
             </div>
           </label>
           {errors.incompliance && (
-            <p className="text-red-500 text-sm">{errors.incompliance}</p>
+            <p className="text-red-500 dark:text-red-400 text-sm transition-colors duration-300">
+              {errors.incompliance}
+            </p>
           )}
         </div>
       </div>
@@ -1121,27 +1335,35 @@ const MembershipSignupForm = () => {
 
   const renderPayment = () => (
     <div className="space-y-6">
-      <div className="bg-green-50 p-6 rounded-lg">
-        <h3 className="text-lg font-semibold text-green-800 mb-4">
+      <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-6 rounded-lg transition-colors duration-300">
+        <h3 className="text-lg font-semibold text-green-800 dark:text-green-300 mb-4">
           Payment Summary
         </h3>
         <div className="space-y-3">
           <div className="flex justify-between">
-            <span className="text-gray-600">Membership Type:</span>
-            <span className="font-medium text-gray-900">
+            <span className="text-gray-600 dark:text-gray-400">
+              Membership Type:
+            </span>
+            <span className="font-medium text-gray-900 dark:text-gray-100">
               {formData.membership_type || "Not selected"}
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-600">Membership Fee:</span>
-            <span className="font-medium text-gray-900">
+            <span className="text-gray-600 dark:text-gray-400">
+              Membership Fee:
+            </span>
+            <span className="font-medium text-gray-900 dark:text-gray-100">
               ${getMembershipFee()}
             </span>
           </div>
-          <div className="border-t pt-3">
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
             <div className="flex justify-between text-lg font-semibold">
-              <span className="text-gray-700">Total Amount:</span>
-              <span className="text-green-600">${getMembershipFee()}</span>
+              <span className="text-gray-700 dark:text-gray-300">
+                Total Amount:
+              </span>
+              <span className="text-green-600 dark:text-green-400">
+                ${getMembershipFee()}
+              </span>
             </div>
           </div>
         </div>
@@ -1149,7 +1371,7 @@ const MembershipSignupForm = () => {
 
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-300">
             Payment Method
           </label>
           <select
@@ -1166,13 +1388,13 @@ const MembershipSignupForm = () => {
         </div>
 
         {formData.payment_method === "Credit Card" && (
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <p className="text-sm text-gray-600 mb-4">
+          <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4 rounded-lg transition-colors duration-300 animate-in fade-in slide-in-from-top-2">
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
               You will be redirected to our secure payment processor to complete
               your payment.
             </p>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-300">
                 Transaction Number (Auto-generated)
               </label>
               <input
@@ -1181,18 +1403,18 @@ const MembershipSignupForm = () => {
                   "TXN-" + Math.random().toString(36).substr(2, 9).toUpperCase()
                 }
                 disabled
-                className="w-full p-3 border border-gray-300 rounded-lg bg-gray-100 text-gray-500"
+                className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
               />
             </div>
           </div>
         )}
 
         {formData.payment_method === "Bank Transfer" && (
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <h4 className="font-medium text-blue-800 mb-2">
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4 rounded-lg transition-colors duration-300 animate-in fade-in slide-in-from-top-2">
+            <h4 className="font-medium text-blue-800 dark:text-blue-300 mb-2">
               Bank Transfer Details
             </h4>
-            <div className="text-sm text-blue-700 space-y-1">
+            <div className="text-sm text-blue-700 dark:text-blue-400 space-y-1">
               <p>
                 <strong>Bank:</strong> ABC Bank
               </p>
@@ -1207,16 +1429,21 @@ const MembershipSignupForm = () => {
                 <strong>Reference:</strong> AFSA-{formData.first_name}-
                 {formData.surname}
               </p>
+              <p className="pt-2 font-semibold">
+                Please make your payment and click "Complete Registration" to
+                finalize. Your membership will be activated upon payment
+                verification.
+              </p>
             </div>
           </div>
         )}
 
         {formData.payment_method === "Mobile Money" && (
-          <div className="bg-orange-50 p-4 rounded-lg">
-            <h4 className="font-medium text-orange-800 mb-2">
+          <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 p-4 rounded-lg transition-colors duration-300 animate-in fade-in slide-in-from-top-2">
+            <h4 className="font-medium text-orange-800 dark:text-orange-300 mb-2">
               Mobile Money Payment
             </h4>
-            <div className="text-sm text-orange-700 space-y-1">
+            <div className="text-sm text-orange-700 dark:text-orange-400 space-y-1">
               <p>
                 <strong>Service:</strong> MTN Mobile Money / Airtel Money
               </p>
@@ -1225,6 +1452,11 @@ const MembershipSignupForm = () => {
               </p>
               <p>
                 <strong>Reference:</strong> AFSA-{formData.first_name}
+              </p>
+              <p className="pt-2 font-semibold">
+                Please make your payment and click "Complete Registration" to
+                finalize. Your membership will be activated upon payment
+                verification.
               </p>
             </div>
           </div>
@@ -1236,9 +1468,9 @@ const MembershipSignupForm = () => {
   const renderCurrentStep = () => {
     switch (currentStep) {
       case 1:
-        return renderPersonalInfo();
+        return renderMembershipCategory();
       case 2:
-        return renderMembershipDetails();
+        return renderPersonalInfo();
       case 3:
         return renderAdditionalInfo();
       case 4:
@@ -1260,15 +1492,15 @@ const MembershipSignupForm = () => {
       {renderCurrentStep()}
 
       {/* Navigation Buttons */}
-      <div className="flex justify-between mt-8 pt-6 border-t">
+      <div className="flex justify-between mt-8 pt-6 border-t border-gray-200 dark:border-gray-700 transition-colors duration-300">
         <button
           type="button"
           onClick={prevStep}
           disabled={currentStep === 1}
-          className={`flex items-center px-6 py-3 rounded-lg font-medium transition-colors duration-200 ${
+          className={`flex items-center px-6 py-3 rounded-lg font-medium transition-all duration-300 ${
             currentStep === 1
-              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+              ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed"
+              : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 shadow-sm hover:shadow-md"
           }`}
         >
           <ChevronLeft size={20} className="mr-2" />
@@ -1279,7 +1511,7 @@ const MembershipSignupForm = () => {
           <button
             type="button"
             onClick={nextStep}
-            className="flex items-center px-6 py-3 bg-[#00B5A5] text-white rounded-lg font-medium hover:bg-[#008A7C] transition-colors duration-200 shadow-lg hover:shadow-xl"
+            className="flex items-center px-6 py-3 bg-gradient-to-r from-[#00B5A5] to-[#008A7C] dark:from-[#00D4C7] dark:to-[#00B5A5] text-white rounded-lg font-medium hover:from-[#008A7C] hover:to-[#006D5D] dark:hover:from-[#00B5A5] dark:hover:to-[#008A7C] transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
           >
             Next
             <ChevronRight size={20} className="ml-2" />
@@ -1289,10 +1521,10 @@ const MembershipSignupForm = () => {
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className={`flex items-center px-8 py-3 rounded-lg font-medium transition-colors duration-200 shadow-lg hover:shadow-xl ${
+            className={`flex items-center px-8 py-3 rounded-lg font-medium transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 ${
               isSubmitting
-                ? "bg-gray-400 text-white cursor-not-allowed"
-                : "bg-green-500 text-white hover:bg-green-600"
+                ? "bg-gray-400 dark:bg-gray-600 text-white cursor-not-allowed"
+                : "bg-gradient-to-r from-green-500 to-green-600 dark:from-green-600 dark:to-green-700 text-white hover:from-green-600 hover:to-green-700 dark:hover:from-green-700 dark:hover:to-green-800"
             }`}
           >
             {isSubmitting ? (

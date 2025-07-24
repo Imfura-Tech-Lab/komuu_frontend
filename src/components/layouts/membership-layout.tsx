@@ -42,20 +42,6 @@ const MembershipLayout: React.FC<MembershipLayoutProps> = ({
     }
   }, []);
 
-  // Toggle dark mode
-  const toggleDarkMode = () => {
-    const newDarkMode = !darkMode;
-    setDarkMode(newDarkMode);
-
-    if (newDarkMode) {
-      document.documentElement.classList.add("dark");
-      localStorage.setItem("theme", "dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-      localStorage.setItem("theme", "light");
-    }
-  };
-
   // Sidebar component for progress steps
   const renderSidebar = () => (
     <div
@@ -67,27 +53,10 @@ const MembershipLayout: React.FC<MembershipLayoutProps> = ({
       {/* Mobile close button */}
       <div className="lg:hidden flex justify-between items-center mb-4">
         <button
-          onClick={toggleDarkMode}
-          className="p-2 rounded-md text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-        >
-          {darkMode ? <Sun size={20} /> : <Moon size={20} />}
-        </button>
-        <button
           onClick={() => setIsSidebarOpen(false)}
           className="p-2 rounded-md text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
         >
           <X size={24} />
-        </button>
-      </div>
-
-      {/* Desktop dark mode toggle */}
-      <div className="hidden lg:flex justify-end mb-2">
-        <button
-          onClick={toggleDarkMode}
-          className="p-2 rounded-md text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-          title={darkMode ? "Switch to light mode" : "Switch to dark mode"}
-        >
-          {darkMode ? <Sun size={20} /> : <Moon size={20} />}
         </button>
       </div>
 
