@@ -6,7 +6,7 @@ import {
   AuthService,
   LoginCredentials,
   User,
-} from "@/services/authService";
+} from "@/services/auth-service";
 
 export interface UseAuthReturn {
   user: User | null;

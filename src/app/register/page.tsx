@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { ChevronLeft, ChevronRight, Check, Upload, X } from "lucide-react";
-import MembershipLayout from "@/components/layouts/MembershipLayout";
+import MembershipLayout from "@/components/layouts/membership-layout";
 
 // Type Definitions
 type Country = {
