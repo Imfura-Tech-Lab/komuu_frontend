@@ -137,8 +137,25 @@ export class AuthService {
       localStorage.removeItem(this.USER_KEY);
     }
   }
+
+  /**
+   * Register a new user with form data
+   */
+  async register(formData: FormData): Promise<ApiResponse> {
+    try {
+      const response = await this.client.post<ApiResponse>(
+        "membership-signup",
+        formData
+      );
+      console.log("Registration response:", response);
+
+      return response;
+    } catch (error) {
+      // Re-throw the error so the calling component can handle it
+      throw error;
+    }
+  }
 }
 
 // Create singleton instance
 export const authService = new AuthService();
-

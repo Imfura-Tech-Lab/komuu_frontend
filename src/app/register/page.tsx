@@ -2,19 +2,20 @@
 import React, { useState } from "react";
 import { ChevronLeft, ChevronRight, Check, Upload, X } from "lucide-react";
 import MembershipLayout from "@/components/layouts/membership-layout";
+import { authService } from "@/services/auth-service"; // Assuming this is your actual service
 
 // Type Definitions
 type Country = {
-  id: number;
+  id: string; // Changed to string to match how you're using it in 'id' for countries_of_operation
   name: string;
 };
 
-type CountryOfOperation = {
+export type CountryOfOperation = {
   id: string;
-  name?: string; // name is optional as we might only store ID
+  name?: string; // Optional name, useful for displaying selected country
 };
 
-type FormDataType = {
+export type FormDataType = {
   // Personal Information
   title: string;
   first_name: string;
@@ -31,15 +32,15 @@ type FormDataType = {
 
   // Membership Details (partially in Step 1, some docs in Step 3)
   membership_type: "Full Member" | "Associate Member" | "Student" | "";
-  country_of_residence: string;
-  forensic_field_of_practice: string;
+  country_of_residence: string; // This will store the country ID
+  forensic_field_of_practice: string; // This will store the field name/ID
   associate_category: string;
 
   // Student Fields
   university: string;
   degree: string;
   degree_year: string;
-  country_of_study: string;
+  country_of_study: string; // This will store the country ID
   proof_of_registration: File | null;
 
   // Full Member Fields
@@ -115,29 +116,31 @@ const MembershipSignupForm = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Mock data
+  // Mock data - Ensure 'id' is a string for consistency with HTML select 'value' attribute
   const mockData = {
     titles: ["Mr", "Mrs", "Ms", "Dr", "Prof"],
     membershipTypes: ["Full Member", "Associate Member", "Student"],
     countries: [
-      { id: 1, name: "United States" },
-      { id: 12, name: "Rwanda" },
-      { id: 14, name: "Kenya" },
-      { id: 15, name: "Uganda" },
-      { id: 16, name: "South Africa" },
-      { id: 17, name: "Nigeria" },
-      { id: 18, name: "Egypt" },
+      { id: "1", name: "United States" },
+      { id: "12", name: "Rwanda" },
+      { id: "14", name: "Kenya" },
+      { id: "15", name: "Uganda" },
+      { id: "16", name: "South Africa" },
+      { id: "17", name: "Nigeria" },
+      { id: "18", name: "Egypt" },
+      // Added a 'Physics' entry that matches your server error message, assuming it expects string IDs.
+      // If server expects numeric IDs, convert your 'id' fields in mockData to number.
     ] as Country[],
     fieldsOfPractice: [
-      "Biology",
-      "Chemistry",
-      "Physics",
-      "Digital Forensics",
-      "Psychology",
-      "Forensic Anthropology",
-      "Toxicology",
-      "Pathology",
-      "Ballistics",
+      { id: "1", name: "Biology" },
+      { id: "2", name: "Chemistry" },
+      { id: "3", name: "Physics" }, // Ensure this matches server-side expected value/ID
+      { id: "4", name: "Digital Forensics" },
+      { id: "5", name: "Psychology" },
+      { id: "6", name: "Forensic Anthropology" },
+      { id: "7", name: "Toxicology" },
+      { id: "8", name: "Pathology" },
+      { id: "9", name: "Ballistics" },
     ],
     associateCategories: ["Academic", "Industry", "Government", "NGO", "Legal"],
   };
@@ -233,19 +236,26 @@ const MembershipSignupForm = () => {
   };
 
   const updateCountryOfOperation = (index: number, countryId: string) => {
+    // Find the country name based on the ID for display purposes if needed
+    const selectedCountry = mockData.countries.find((c) => c.id === countryId);
+
     setFormData((prev) => ({
       ...prev,
       countries_of_operation: prev.countries_of_operation.map((country, i) =>
-        i === index ? { ...country, id: countryId } : country
+        i === index
+          ? { ...country, id: countryId, name: selectedCountry?.name }
+          : country
       ),
     }));
     // Clear error for this specific country if it was causing issues
     if (errors.countries_of_operation) {
       setErrors((prevErrors) => {
         const newErrors = { ...prevErrors };
-        const updatedCountries = formData.countries_of_operation.map((country, i) =>
-          i === index ? { ...country, id: countryId } : country
+        const updatedCountries = formData.countries_of_operation.map(
+          (country, i) =>
+            i === index ? { ...country, id: countryId } : country
         );
+        // Only clear the error if all countries have a valid ID now
         if (updatedCountries.every((c) => c.id)) {
           delete newErrors.countries_of_operation;
         }
@@ -263,9 +273,31 @@ const MembershipSignupForm = () => {
           newErrors.membership_type = "Membership type is required";
         if (!formData.country_of_residence)
           newErrors.country_of_residence = "Country of residence is required";
+        // Check if selected country of residence is a valid ID from mock data
+        if (
+          formData.country_of_residence &&
+          !mockData.countries.some(
+            (c) => c.id === formData.country_of_residence
+          )
+        ) {
+          newErrors.country_of_residence =
+            "Invalid country of residence selected";
+        }
+
         if (!formData.forensic_field_of_practice)
           newErrors.forensic_field_of_practice =
             "Field of practice is required";
+        // Validate if forensic_field_of_practice is a valid ID
+        if (
+          formData.forensic_field_of_practice &&
+          !mockData.fieldsOfPractice.some(
+            (f) => f.id === formData.forensic_field_of_practice
+          )
+        ) {
+          newErrors.forensic_field_of_practice =
+            "Invalid forensic field of practice selected";
+        }
+
         if (
           formData.membership_type === "Associate Member" &&
           !formData.associate_category
@@ -282,8 +314,17 @@ const MembershipSignupForm = () => {
         if (!formData.email) newErrors.email = "Email is required";
         if (formData.email && !/\S+@\S+\.\S+/.test(formData.email))
           newErrors.email = "Email address is invalid";
-        if (!formData.date_of_birth)
+        if (!formData.date_of_birth) {
           newErrors.date_of_birth = "Date of birth is required";
+        } else {
+          // Validate date of birth for age (e.g., must be 18 years old)
+          const dob = new Date(formData.date_of_birth);
+          const eighteenYearsAgo = new Date();
+          eighteenYearsAgo.setFullYear(eighteenYearsAgo.getFullYear() - 18);
+          if (dob > eighteenYearsAgo) {
+            newErrors.date_of_birth = "You must be at least 18 years old.";
+          }
+        }
         if (!formData.phone_number)
           newErrors.phone_number = "Phone number is required";
         if (!formData.national_id)
@@ -299,28 +340,70 @@ const MembershipSignupForm = () => {
             newErrors.degree_year = "Degree year is required";
           if (!formData.country_of_study)
             newErrors.country_of_study = "Country of study is required";
-          if (!formData.proof_of_registration)
+          // Validate selected country of study
+          if (
+            formData.country_of_study &&
+            !mockData.countries.some((c) => c.id === formData.country_of_study)
+          ) {
+            newErrors.country_of_study = "Invalid country of study selected";
+          }
+          if (!formData.proof_of_registration) {
             newErrors.proof_of_registration =
               "Proof of registration is required";
+          } else if (
+            formData.proof_of_registration &&
+            !["application/pdf", "image/jpeg", "image/png"].includes(
+              formData.proof_of_registration.type
+            )
+          ) {
+            newErrors.proof_of_registration =
+              "Proof of registration must be a PDF, JPG, or PNG file.";
+          }
         }
 
         if (formData.membership_type === "Full Member") {
-          if (!formData.qualification)
+          if (!formData.qualification) {
             newErrors.qualification = "Qualification is required";
-          if (!formData.cv_resume)
+          } else if (
+            formData.qualification &&
+            !["application/pdf"].includes(formData.qualification.type)
+          ) {
+            newErrors.qualification = "Qualification must be a PDF file.";
+          }
+          if (!formData.cv_resume) {
             newErrors.cv_resume = "CV/Resume is required";
+          } else if (
+            formData.cv_resume &&
+            ![
+              "application/pdf",
+              "application/msword",
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ].includes(formData.cv_resume.type)
+          ) {
+            newErrors.cv_resume = "CV/Resume must be a PDF, DOC, or DOCX file.";
+          }
           if (!formData.name_of_organization)
             newErrors.name_of_organization = "Organization name is required";
           if (!formData.abbreviation)
-            newErrors.abbreviation = "Abbreviation is required";
+            newErrors.abbreviation = "Abbreviation is required"; // Matches backend's required_if for organization name
           if (!formData.company_email)
             newErrors.company_email = "Company email is required";
           if (
+            formData.company_email &&
+            !/\S+@\S+\.\S+/.test(formData.company_email)
+          )
+            newErrors.company_email = "Company email address is invalid";
+
+          if (
             formData.countries_of_operation.length === 0 ||
-            formData.countries_of_operation.some((country) => !country.id)
+            formData.countries_of_operation.some(
+              (country) =>
+                !country.id ||
+                !mockData.countries.some((c) => c.id === country.id) // Ensure ID is valid
+            )
           ) {
             newErrors.countries_of_operation =
-              "At least one country of operation is required and must be selected";
+              "At least one valid country of operation is required.";
           }
         }
         break;
@@ -354,15 +437,142 @@ const MembershipSignupForm = () => {
   };
 
   const handleSubmit = async () => {
-    if (!validateStep(currentStep)) return; // Validate final step before submission
+    if (!validateStep(currentStep)) {
+      // If validation fails on the final step, scroll to the first error or highlight
+      console.log("Validation errors on submit:", errors);
+      alert("Please correct the errors in the form before submitting.");
+      return;
+    }
 
     setIsSubmitting(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    console.log("Form submitted:", formData);
-    setIsSubmitting(false);
-    alert("Registration successful!");
-    // Optionally redirect or show success message
+
+    try {
+      // Create a FormData object for file uploads
+      const submitFormData = new FormData();
+
+      // Append all text fields
+      for (const key in formData) {
+        if (
+          key !== "qualification" &&
+          key !== "cv_resume" &&
+          key !== "proof_of_registration"
+        ) {
+          const value = formData[key as keyof FormDataType];
+          if (Array.isArray(value)) {
+            // Handle array of objects (countries_of_operation)
+            value.forEach((item, index) => {
+              for (const itemKey in item) {
+                submitFormData.append(
+                  `${key}[${index}][${itemKey}]`,
+                  (item as any)[itemKey]
+                );
+              }
+            });
+          } else if (typeof value === "boolean") {
+            submitFormData.append(key, value ? "1" : "0"); // Or 'true' : 'false' depending on backend
+          } else if (value !== null && value !== undefined) {
+            submitFormData.append(key, String(value));
+          }
+        }
+      }
+
+      // Append file fields
+      if (formData.qualification) {
+        submitFormData.append("qualification", formData.qualification);
+      }
+      if (formData.cv_resume) {
+        submitFormData.append("cv_resume", formData.cv_resume);
+      }
+      if (formData.proof_of_registration) {
+        submitFormData.append(
+          "proof_of_registration",
+          formData.proof_of_registration
+        );
+      }
+
+      // Log FormData content for debugging
+      // for (let pair of submitFormData.entries()) {
+      //   console.log(pair[0] + ": " + pair[1]);
+      // }
+
+      const response = await authService.register(submitFormData); 
+
+      console.log("Registration successful:", response.data);
+      alert("Registration successful! Your application has been submitted.");
+
+      // Redirect or update UI as needed
+      // router.push("/dashboard"); // if using Next.js router
+    } catch (error: any) {
+      console.error("Registration failed:", error);
+
+      if (error.response && error.response.data && error.response.data.errors) {
+        // Backend validation errors (Laravel-style)
+        setErrors(error.response.data.errors);
+        alert(
+          "Registration failed due to validation errors. Please check the form."
+        );
+        // Optional: find first error field and scroll to it or navigate to relevant step
+        const firstErrorField = Object.keys(error.response.data.errors)[0];
+        if (firstErrorField) {
+          // Heuristic to navigate to the step where the first error occurs
+          if (
+            [
+              "membership_type",
+              "country_of_residence",
+              "forensic_field_of_practice",
+              "associate_category",
+            ].includes(firstErrorField)
+          ) {
+            setCurrentStep(1);
+          } else if (
+            [
+              "title",
+              "first_name",
+              "surname",
+              "email",
+              "date_of_birth",
+              "phone_number",
+              "national_id",
+            ].includes(firstErrorField)
+          ) {
+            setCurrentStep(2);
+          } else if (
+            [
+              "university",
+              "degree",
+              "degree_year",
+              "country_of_study",
+              "proof_of_registration",
+              "qualification",
+              "cv_resume",
+              "name_of_organization",
+              "abbreviation",
+              "countries_of_operation",
+              "company_email",
+            ].includes(firstErrorField)
+          ) {
+            setCurrentStep(3);
+          } else if (
+            [
+              "abide_with_code_of_conduct",
+              "comply_with_current_constitution",
+              "declaration",
+              "incompliance",
+            ].includes(firstErrorField)
+          ) {
+            setCurrentStep(4);
+          }
+        }
+      } else if (error.status === 422) {
+        alert("Please check your form data and try again.");
+      } else if (error.status === 409) {
+        alert("User with this email already exists.");
+      } else {
+        alert("Registration failed. Please try again later.");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Enhanced input field styles with dark mode support
@@ -502,8 +712,8 @@ const MembershipSignupForm = () => {
                 >
                   <option value="">Select Field</option>
                   {mockData.fieldsOfPractice.map((field) => (
-                    <option key={field} value={field}>
-                      {field}
+                    <option key={field.id} value={field.id}>
+                      {field.name}
                     </option>
                   ))}
                 </select>
@@ -949,7 +1159,7 @@ const MembershipSignupForm = () => {
                       id="proof_of_registration_upload"
                       name="proof_of_registration"
                       className="hidden"
-                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" // Keep broad for client-side, but validate on server
                       onChange={(e) =>
                         handleFileUpload(
                           "proof_of_registration",
@@ -962,6 +1172,16 @@ const MembershipSignupForm = () => {
                 {formData.proof_of_registration && (
                   <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
                     Selected: {formData.proof_of_registration.name}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleFileUpload("proof_of_registration", null)
+                      }
+                      className="ml-2 text-red-500 hover:text-red-700"
+                      title="Remove file"
+                    >
+                      <X size={16} />
+                    </button>
                   </p>
                 )}
               </div>
@@ -1109,7 +1329,7 @@ const MembershipSignupForm = () => {
                         id="qualification_upload"
                         name="qualification"
                         className="hidden"
-                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                        accept=".pdf" // Specific accept for PDF
                         onChange={(e) =>
                           handleFileUpload(
                             "qualification",
@@ -1122,6 +1342,14 @@ const MembershipSignupForm = () => {
                   {formData.qualification && (
                     <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
                       Selected: {formData.qualification.name}
+                      <button
+                        type="button"
+                        onClick={() => handleFileUpload("qualification", null)}
+                        className="ml-2 text-red-500 hover:text-red-700"
+                        title="Remove file"
+                      >
+                        <X size={16} />
+                      </button>
                     </p>
                   )}
                 </div>
@@ -1151,7 +1379,7 @@ const MembershipSignupForm = () => {
                         id="cv_resume_upload"
                         name="cv_resume"
                         className="hidden"
-                        accept=".pdf,.doc,.docx"
+                        accept=".pdf,.doc,.docx" // Specific accept for these types
                         onChange={(e) =>
                           handleFileUpload(
                             "cv_resume",
@@ -1164,6 +1392,14 @@ const MembershipSignupForm = () => {
                   {formData.cv_resume && (
                     <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
                       Selected: {formData.cv_resume.name}
+                      <button
+                        type="button"
+                        onClick={() => handleFileUpload("cv_resume", null)}
+                        className="ml-2 text-red-500 hover:text-red-700"
+                        title="Remove file"
+                      >
+                        <X size={16} />
+                      </button>
                     </p>
                   )}
                 </div>
