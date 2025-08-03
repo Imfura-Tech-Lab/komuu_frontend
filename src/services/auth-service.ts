@@ -142,18 +142,37 @@ export class AuthService {
    * Register a new user with form data
    */
   async register(formData: FormData): Promise<ApiResponse> {
-    try {
-      const response = await this.client.post<ApiResponse>(
-        "membership-signup",
-        formData
-      );
-      console.log("Registration response:", response);
+   try {
+     console.log("Registering user with form data:", formData);
+     const response = await fetch(
+       `${process.env.NEXT_PUBLIC_BACKEND_API_URL}membership-signup`,
+       {
+         method: "POST",
+         body: formData,
+         headers: {
+           Accept: "application/json",
+         },
+       }
+     );
 
-      return response;
-    } catch (error) {
-      // Re-throw the error so the calling component can handle it
-      throw error;
-    }
+     if (!response.ok) {
+       const errorData = await response.json();
+       throw {
+         message: errorData.message || `HTTP ${response.status}`,
+         status: response.status,
+         errors: errorData.errors,
+       };
+     }
+
+     const data = await response.json();
+     return {
+       data,
+       status: response.status,
+       message: data.message,
+     };
+   } catch (error) {
+     throw error;
+   }
   }
 }
 

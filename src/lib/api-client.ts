@@ -98,10 +98,12 @@ export class ApiClient {
           const errorData = await response.json().catch(() => ({
             message: `HTTP ${response.status}: ${response.statusText}`,
           }));
-          
+
           // Create ApiError object directly instead of JSON.stringify
           lastError = {
-            message: errorData.message || `HTTP ${response.status}: ${response.statusText}`,
+            message:
+              errorData.message ||
+              `HTTP ${response.status}: ${response.statusText}`,
             status: response.status,
             errors: errorData.errors,
           };
@@ -116,7 +118,12 @@ export class ApiClient {
         };
       } catch (error) {
         // If it's already an ApiError, use it
-        if (error && typeof error === 'object' && 'message' in error && 'status' in error) {
+        if (
+          error &&
+          typeof error === "object" &&
+          "message" in error &&
+          "status" in error
+        ) {
           lastError = error as ApiError;
         } else {
           // Handle network errors specifically
@@ -125,21 +132,25 @@ export class ApiClient {
               message: "Network error: Unable to connect to API",
               status: 0,
             };
-          } else if (error instanceof Error && error.name === 'AbortError') {
+          } else if (error instanceof Error && error.name === "AbortError") {
             lastError = {
               message: "Request timeout",
               status: 408,
             };
           } else {
             lastError = {
-              message: (error as Error).message || "An unexpected error occurred",
+              message:
+                (error as Error).message || "An unexpected error occurred",
               status: 500,
             };
           }
         }
 
         // Don't retry on client errors (4xx) or if it's the last attempt
-        if (attempt === retries || (lastError.status >= 400 && lastError.status < 500)) {
+        if (
+          attempt === retries ||
+          (lastError.status >= 400 && lastError.status < 500)
+        ) {
           break;
         }
 
@@ -179,6 +190,30 @@ export class ApiClient {
       {
         method: "POST",
         body: data ? JSON.stringify(data) : undefined,
+      },
+      config
+    );
+  }
+
+  async postFormData<T = any>(
+    endpoint: string,
+    formData: FormData,
+    config?: RequestConfig
+  ): Promise<ApiResponse<T>> {
+    const url = this.buildURL(endpoint);
+    const formDataHeaders = {
+      ...(this.defaultHeaders["Authorization"] && {
+        Authorization: this.defaultHeaders["Authorization"],
+      }),
+      Accept: "application/json",
+    };
+
+    return this.makeRequest<T>(
+      url,
+      {
+        method: "POST",
+        body: formData,
+        headers: formDataHeaders,
       },
       config
     );

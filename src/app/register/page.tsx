@@ -30,10 +30,9 @@ export type FormDataType = {
   national_id: string;
   passport: string;
 
-  // Membership Details (partially in Step 1, some docs in Step 3)
   membership_type: "Full Member" | "Associate Member" | "Student" | "";
-  country_of_residence: string; // This will store the country ID
-  forensic_field_of_practice: string; // This will store the field name/ID
+  country_of_residence: string;
+  forensic_field_of_practice: string;
   associate_category: string;
 
   // Student Fields
@@ -128,13 +127,11 @@ const MembershipSignupForm = () => {
       { id: "16", name: "South Africa" },
       { id: "17", name: "Nigeria" },
       { id: "18", name: "Egypt" },
-      // Added a 'Physics' entry that matches your server error message, assuming it expects string IDs.
-      // If server expects numeric IDs, convert your 'id' fields in mockData to number.
     ] as Country[],
     fieldsOfPractice: [
       { id: "1", name: "Biology" },
       { id: "2", name: "Chemistry" },
-      { id: "3", name: "Physics" }, // Ensure this matches server-side expected value/ID
+      { id: "3", name: "Physics" },
       { id: "4", name: "Digital Forensics" },
       { id: "5", name: "Psychology" },
       { id: "6", name: "Forensic Anthropology" },
@@ -236,31 +233,33 @@ const MembershipSignupForm = () => {
   };
 
   const updateCountryOfOperation = (index: number, countryId: string) => {
-    // Find the country name based on the ID for display purposes if needed
     const selectedCountry = mockData.countries.find((c) => c.id === countryId);
 
     setFormData((prev) => ({
       ...prev,
       countries_of_operation: prev.countries_of_operation.map((country, i) =>
         i === index
-          ? { ...country, id: countryId, name: selectedCountry?.name }
+          ? { id: countryId, name: selectedCountry?.name || "" }
           : country
       ),
     }));
-    // Clear error for this specific country if it was causing issues
+
+    // Clear specific error if all countries now have valid IDs
     if (errors.countries_of_operation) {
-      setErrors((prevErrors) => {
-        const newErrors = { ...prevErrors };
-        const updatedCountries = formData.countries_of_operation.map(
-          (country, i) =>
-            i === index ? { ...country, id: countryId } : country
-        );
-        // Only clear the error if all countries have a valid ID now
-        if (updatedCountries.every((c) => c.id)) {
+      const updatedCountries = formData.countries_of_operation.map(
+        (country, i) =>
+          i === index
+            ? { id: countryId, name: selectedCountry?.name || "" }
+            : country
+      );
+
+      if (updatedCountries.length > 0 && updatedCountries.every((c) => c.id)) {
+        setErrors((prev) => {
+          const newErrors = { ...prev };
           delete newErrors.countries_of_operation;
-        }
-        return newErrors;
-      });
+          return newErrors;
+        });
+      }
     }
   };
 
@@ -269,10 +268,12 @@ const MembershipSignupForm = () => {
 
     switch (step) {
       case 1:
-        if (!formData.membership_type)
+        if (!formData.membership_type) {
           newErrors.membership_type = "Membership type is required";
-        if (!formData.country_of_residence)
+        }
+        if (!formData.country_of_residence) {
           newErrors.country_of_residence = "Country of residence is required";
+        }
         // Check if selected country of residence is a valid ID from mock data
         if (
           formData.country_of_residence &&
@@ -284,9 +285,10 @@ const MembershipSignupForm = () => {
             "Invalid country of residence selected";
         }
 
-        if (!formData.forensic_field_of_practice)
+        if (!formData.forensic_field_of_practice) {
           newErrors.forensic_field_of_practice =
             "Field of practice is required";
+        }
         // Validate if forensic_field_of_practice is a valid ID
         if (
           formData.forensic_field_of_practice &&
@@ -307,39 +309,57 @@ const MembershipSignupForm = () => {
         break;
 
       case 2:
-        if (!formData.title) newErrors.title = "Title is required";
-        if (!formData.first_name)
-          newErrors.first_name = "First name is required";
-        if (!formData.surname) newErrors.surname = "Surname is required";
-        if (!formData.email) newErrors.email = "Email is required";
-        if (formData.email && !/\S+@\S+\.\S+/.test(formData.email))
-          newErrors.email = "Email address is invalid";
-        if (!formData.date_of_birth) {
-          newErrors.date_of_birth = "Date of birth is required";
-        } else {
-          // Validate date of birth for age (e.g., must be 18 years old)
+        // Required fields validation
+        const requiredFields = [
+          { key: "title", label: "Title" },
+          { key: "first_name", label: "First name" },
+          { key: "surname", label: "Surname" },
+          { key: "email", label: "Email" },
+          { key: "date_of_birth", label: "Date of birth" },
+          { key: "phone_number", label: "Phone number" },
+          { key: "national_id", label: "National ID" },
+        ];
+
+        requiredFields.forEach(({ key, label }) => {
+          if (!formData[key as keyof FormDataType]) {
+            newErrors[key] = `${label} is required`;
+          }
+        });
+
+        // Email validation
+        if (
+          formData.email &&
+          !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)
+        ) {
+          newErrors.email = "Please enter a valid email address";
+        }
+
+        // Age validation (18+)
+        if (formData.date_of_birth) {
           const dob = new Date(formData.date_of_birth);
           const eighteenYearsAgo = new Date();
           eighteenYearsAgo.setFullYear(eighteenYearsAgo.getFullYear() - 18);
           if (dob > eighteenYearsAgo) {
-            newErrors.date_of_birth = "You must be at least 18 years old.";
+            newErrors.date_of_birth = "You must be at least 18 years old";
           }
         }
-        if (!formData.phone_number)
-          newErrors.phone_number = "Phone number is required";
-        if (!formData.national_id)
-          newErrors.national_id = "National ID is required";
         break;
 
       case 3:
         if (formData.membership_type === "Student") {
-          if (!formData.university)
-            newErrors.university = "University is required";
-          if (!formData.degree) newErrors.degree = "Degree is required";
-          if (!formData.degree_year)
-            newErrors.degree_year = "Degree year is required";
-          if (!formData.country_of_study)
-            newErrors.country_of_study = "Country of study is required";
+          const studentRequiredFields = [
+            { key: "university", label: "University" },
+            { key: "degree", label: "Degree" },
+            { key: "degree_year", label: "Degree year" },
+            { key: "country_of_study", label: "Country of study" },
+          ];
+
+          studentRequiredFields.forEach(({ key, label }) => {
+            if (!formData[key as keyof FormDataType]) {
+              newErrors[key] = `${label} is required`;
+            }
+          });
+
           // Validate selected country of study
           if (
             formData.country_of_study &&
@@ -347,6 +367,7 @@ const MembershipSignupForm = () => {
           ) {
             newErrors.country_of_study = "Invalid country of study selected";
           }
+
           if (!formData.proof_of_registration) {
             newErrors.proof_of_registration =
               "Proof of registration is required";
@@ -357,19 +378,32 @@ const MembershipSignupForm = () => {
             )
           ) {
             newErrors.proof_of_registration =
-              "Proof of registration must be a PDF, JPG, or PNG file.";
+              "Proof of registration must be a PDF, JPG, or PNG file";
           }
         }
 
         if (formData.membership_type === "Full Member") {
+          const fullMemberRequiredFields = [
+            { key: "name_of_organization", label: "Organization name" },
+            { key: "abbreviation", label: "Abbreviation" },
+            { key: "company_email", label: "Company email" },
+          ];
+
+          fullMemberRequiredFields.forEach(({ key, label }) => {
+            if (!formData[key as keyof FormDataType]) {
+              newErrors[key] = `${label} is required`;
+            }
+          });
+
           if (!formData.qualification) {
-            newErrors.qualification = "Qualification is required";
+            newErrors.qualification = "Qualification document is required";
           } else if (
             formData.qualification &&
             !["application/pdf"].includes(formData.qualification.type)
           ) {
-            newErrors.qualification = "Qualification must be a PDF file.";
+            newErrors.qualification = "Qualification must be a PDF file";
           }
+
           if (!formData.cv_resume) {
             newErrors.cv_resume = "CV/Resume is required";
           } else if (
@@ -380,50 +414,115 @@ const MembershipSignupForm = () => {
               "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             ].includes(formData.cv_resume.type)
           ) {
-            newErrors.cv_resume = "CV/Resume must be a PDF, DOC, or DOCX file.";
+            newErrors.cv_resume = "CV/Resume must be a PDF, DOC, or DOCX file";
           }
-          if (!formData.name_of_organization)
-            newErrors.name_of_organization = "Organization name is required";
-          if (!formData.abbreviation)
-            newErrors.abbreviation = "Abbreviation is required"; // Matches backend's required_if for organization name
-          if (!formData.company_email)
-            newErrors.company_email = "Company email is required";
+
+          // Validate company email
           if (
             formData.company_email &&
-            !/\S+@\S+\.\S+/.test(formData.company_email)
-          )
-            newErrors.company_email = "Company email address is invalid";
+            !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.company_email)
+          ) {
+            newErrors.company_email =
+              "Please enter a valid company email address";
+          }
 
+          // Validate countries of operation
           if (
-            formData.countries_of_operation.length === 0 ||
+            !formData.countries_of_operation ||
+            formData.countries_of_operation.length === 0
+          ) {
+            newErrors.countries_of_operation =
+              "At least one country of operation is required";
+          } else if (
             formData.countries_of_operation.some(
               (country) =>
                 !country.id ||
-                !mockData.countries.some((c) => c.id === country.id) // Ensure ID is valid
+                !mockData.countries.some((c) => c.id === country.id)
             )
           ) {
             newErrors.countries_of_operation =
-              "At least one valid country of operation is required.";
+              "Please select valid countries for all entries";
           }
         }
         break;
 
       case 4:
-        if (!formData.abide_with_code_of_conduct)
-          newErrors.abide_with_code_of_conduct =
-            "You must agree to abide by the code of conduct";
-        if (!formData.comply_with_current_constitution)
-          newErrors.comply_with_current_constitution =
-            "You must agree to comply with the constitution";
-        if (!formData.declaration)
-          newErrors.declaration = "You must agree to the declaration";
-        if (!formData.incompliance)
-          newErrors.incompliance = "You must confirm compliance";
+        const declarationFields = [
+          {
+            key: "abide_with_code_of_conduct",
+            label: "You must agree to abide by the code of conduct",
+          },
+          {
+            key: "comply_with_current_constitution",
+            label: "You must agree to comply with the constitution",
+          },
+          { key: "declaration", label: "You must agree to the declaration" },
+          { key: "incompliance", label: "You must confirm compliance" },
+        ];
+
+        declarationFields.forEach(({ key, label }) => {
+          if (!formData[key as keyof FormDataType]) {
+            newErrors[key] = label;
+          }
+        });
         break;
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  // Helper function to navigate to the step containing the error field
+  const navigateToErrorStep = (fieldName: string) => {
+    const stepFieldMap = {
+      1: [
+        "membership_type",
+        "country_of_residence",
+        "forensic_field_of_practice",
+        "associate_category",
+      ],
+      2: [
+        "title",
+        "first_name",
+        "middle_name",
+        "surname",
+        "email",
+        "secondary_email",
+        "date_of_birth",
+        "phone_number",
+        "alternative_phone",
+        "whatsapp_number",
+        "national_id",
+        "passport",
+      ],
+      3: [
+        "university",
+        "degree",
+        "degree_year",
+        "country_of_study",
+        "proof_of_registration",
+        "qualification",
+        "cv_resume",
+        "name_of_organization",
+        "abbreviation",
+        "countries_of_operation",
+        "company_email",
+      ],
+      4: [
+        "abide_with_code_of_conduct",
+        "comply_with_current_constitution",
+        "declaration",
+        "incompliance",
+      ],
+      5: ["amount_paid", "payment_method", "transaction_number"],
+    };
+
+    for (const [step, fields] of Object.entries(stepFieldMap)) {
+      if (fields.includes(fieldName)) {
+        setCurrentStep(parseInt(step));
+        break;
+      }
+    }
   };
 
   const nextStep = () => {
@@ -436,10 +535,32 @@ const MembershipSignupForm = () => {
     setCurrentStep((prev) => Math.max(prev - 1, 1));
   };
 
+  const getMembershipFee = () => {
+    switch (formData.membership_type) {
+      case "Full Member":
+        return 100;
+      case "Associate Member":
+        return 75;
+      case "Student":
+        return 25;
+      default:
+        return 0;
+    }
+  };
+
   const handleSubmit = async () => {
-    if (!validateStep(currentStep)) {
-      // If validation fails on the final step, scroll to the first error or highlight
-      console.log("Validation errors on submit:", errors);
+    // Validate all steps before submission
+    let hasErrors = false;
+    for (let step = 1; step <= steps.length - 1; step++) {
+      // Don't validate payment step
+      if (!validateStep(step)) {
+        hasErrors = true;
+        setCurrentStep(step); // Go to first step with errors
+        break;
+      }
+    }
+
+    if (hasErrors) {
       alert("Please correct the errors in the form before submitting.");
       return;
     }
@@ -450,33 +571,71 @@ const MembershipSignupForm = () => {
       // Create a FormData object for file uploads
       const submitFormData = new FormData();
 
-      // Append all text fields
-      for (const key in formData) {
-        if (
-          key !== "qualification" &&
-          key !== "cv_resume" &&
-          key !== "proof_of_registration"
-        ) {
-          const value = formData[key as keyof FormDataType];
-          if (Array.isArray(value)) {
-            // Handle array of objects (countries_of_operation)
-            value.forEach((item, index) => {
-              for (const itemKey in item) {
-                submitFormData.append(
-                  `${key}[${index}][${itemKey}]`,
-                  (item as any)[itemKey]
-                );
-              }
-            });
-          } else if (typeof value === "boolean") {
-            submitFormData.append(key, value ? "1" : "0"); // Or 'true' : 'false' depending on backend
-          } else if (value !== null && value !== undefined) {
-            submitFormData.append(key, String(value));
-          }
+      // Handle text and select fields
+      const textFields = [
+        "title",
+        "first_name",
+        "middle_name",
+        "surname",
+        "email",
+        "secondary_email",
+        "date_of_birth",
+        "phone_number",
+        "alternative_phone",
+        "whatsapp_number",
+        "national_id",
+        "passport",
+        "membership_type",
+        "country_of_residence",
+        "forensic_field_of_practice",
+        "associate_category",
+        "university",
+        "degree",
+        "degree_year",
+        "country_of_study",
+        "name_of_organization",
+        "abbreviation",
+        "company_email",
+        "payment_method",
+        "transaction_number",
+      ];
+
+      textFields.forEach((field) => {
+        const value = formData[field as keyof FormDataType];
+        if (value !== null && value !== undefined && value !== "") {
+          submitFormData.append(field, String(value));
         }
+      });
+
+      // Handle boolean fields - send as "1" or "0" for Laravel
+      const booleanFields = [
+        "abide_with_code_of_conduct",
+        "comply_with_current_constitution",
+        "declaration",
+        "incompliance",
+      ];
+
+      booleanFields.forEach((field) => {
+        const value = formData[field as keyof FormDataType] as boolean;
+        submitFormData.append(field, value ? "1" : "0");
+      });
+
+      // Handle countries_of_operation array - Laravel expects array format
+      if (
+        formData.countries_of_operation &&
+        formData.countries_of_operation.length > 0
+      ) {
+        formData.countries_of_operation.forEach((country, index) => {
+          if (country.id) {
+            submitFormData.append(
+              `countries_of_operation[${index}]`,
+              country.id
+            );
+          }
+        });
       }
 
-      // Append file fields
+      // Handle file uploads
       if (formData.qualification) {
         submitFormData.append("qualification", formData.qualification);
       }
@@ -490,12 +649,17 @@ const MembershipSignupForm = () => {
         );
       }
 
-      // Log FormData content for debugging
-      // for (let pair of submitFormData.entries()) {
-      //   console.log(pair[0] + ": " + pair[1]);
-      // }
+      // Set amount_paid based on membership type
+      const membershipFee = getMembershipFee();
+      submitFormData.append("amount_paid", membershipFee.toString());
 
-      const response = await authService.register(submitFormData); 
+      // Debug: Log FormData content
+      console.log("FormData being sent:");
+      for (let pair of submitFormData.entries()) {
+        console.log(pair[0] + ": " + pair[1]);
+      }
+
+      const response = await authService.register(submitFormData);
 
       console.log("Registration successful:", response.data);
       alert("Registration successful! Your application has been submitted.");
@@ -505,67 +669,31 @@ const MembershipSignupForm = () => {
     } catch (error: any) {
       console.error("Registration failed:", error);
 
-      if (error.response && error.response.data && error.response.data.errors) {
+      if (error.response?.data?.errors) {
         // Backend validation errors (Laravel-style)
-        setErrors(error.response.data.errors);
+        const backendErrors = error.response.data.errors;
+
+        // Convert array error messages to strings
+        const processedErrors: Record<string, string> = {};
+        Object.keys(backendErrors).forEach((key) => {
+          const errorArray = backendErrors[key];
+          processedErrors[key] = Array.isArray(errorArray)
+            ? errorArray[0]
+            : errorArray;
+        });
+
+        setErrors(processedErrors);
+
+        // Navigate to the step with the first error
+        const firstErrorField = Object.keys(processedErrors)[0];
+        navigateToErrorStep(firstErrorField);
+
         alert(
           "Registration failed due to validation errors. Please check the form."
         );
-        // Optional: find first error field and scroll to it or navigate to relevant step
-        const firstErrorField = Object.keys(error.response.data.errors)[0];
-        if (firstErrorField) {
-          // Heuristic to navigate to the step where the first error occurs
-          if (
-            [
-              "membership_type",
-              "country_of_residence",
-              "forensic_field_of_practice",
-              "associate_category",
-            ].includes(firstErrorField)
-          ) {
-            setCurrentStep(1);
-          } else if (
-            [
-              "title",
-              "first_name",
-              "surname",
-              "email",
-              "date_of_birth",
-              "phone_number",
-              "national_id",
-            ].includes(firstErrorField)
-          ) {
-            setCurrentStep(2);
-          } else if (
-            [
-              "university",
-              "degree",
-              "degree_year",
-              "country_of_study",
-              "proof_of_registration",
-              "qualification",
-              "cv_resume",
-              "name_of_organization",
-              "abbreviation",
-              "countries_of_operation",
-              "company_email",
-            ].includes(firstErrorField)
-          ) {
-            setCurrentStep(3);
-          } else if (
-            [
-              "abide_with_code_of_conduct",
-              "comply_with_current_constitution",
-              "declaration",
-              "incompliance",
-            ].includes(firstErrorField)
-          ) {
-            setCurrentStep(4);
-          }
-        }
-      } else if (error.status === 422) {
+      } else if (error.response?.status === 422) {
         alert("Please check your form data and try again.");
-      } else if (error.status === 409) {
+      } else if (error.response?.status === 409) {
         alert("User with this email already exists.");
       } else {
         alert("Registration failed. Please try again later.");
@@ -1035,20 +1163,6 @@ const MembershipSignupForm = () => {
     </div>
   );
 
-  // This function is defined but its content is integrated into renderMembershipCategory (Step 1)
-  // for a more streamlined user flow.
-  const renderMembershipDetails = () => (
-    <div className="space-y-6">
-      {/* The content for membership type, country of residence, field of practice, and associate category
-          is now part of renderMembershipCategory (Step 1) for a better user experience */}
-      <p className="text-gray-600 dark:text-gray-400">
-        Membership type and initial details are selected in the first step.
-        Proceed to "Additional Information" for specific document uploads or
-        organization details based on your chosen membership.
-      </p>
-    </div>
-  );
-
   const renderAdditionalInfo = () => (
     <div className="space-y-6">
       {formData.membership_type === "Student" && (
@@ -1159,7 +1273,7 @@ const MembershipSignupForm = () => {
                       id="proof_of_registration_upload"
                       name="proof_of_registration"
                       className="hidden"
-                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" // Keep broad for client-side, but validate on server
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                       onChange={(e) =>
                         handleFileUpload(
                           "proof_of_registration",
@@ -1329,7 +1443,7 @@ const MembershipSignupForm = () => {
                         id="qualification_upload"
                         name="qualification"
                         className="hidden"
-                        accept=".pdf" // Specific accept for PDF
+                        accept=".pdf"
                         onChange={(e) =>
                           handleFileUpload(
                             "qualification",
@@ -1379,7 +1493,7 @@ const MembershipSignupForm = () => {
                         id="cv_resume_upload"
                         name="cv_resume"
                         className="hidden"
-                        accept=".pdf,.doc,.docx" // Specific accept for these types
+                        accept=".pdf,.doc,.docx"
                         onChange={(e) =>
                           handleFileUpload(
                             "cv_resume",
@@ -1555,19 +1669,6 @@ const MembershipSignupForm = () => {
       </div>
     </div>
   );
-
-  const getMembershipFee = () => {
-    switch (formData.membership_type) {
-      case "Full Member":
-        return 100;
-      case "Associate Member":
-        return 75;
-      case "Student":
-        return 25;
-      default:
-        return 0;
-    }
-  };
 
   const renderPayment = () => (
     <div className="space-y-6">
