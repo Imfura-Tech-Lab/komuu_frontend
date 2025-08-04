@@ -1,15 +1,12 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight, Check, Upload, X } from "lucide-react";
 import MembershipLayout from "@/components/layouts/membership-layout";
-import { authService } from "@/services/auth-service"; // Assuming this is your actual service
+import { authService } from "@/services/auth-service";
+import { membershipService } from "@/services/membership-service";
+import { ApiError } from "@/lib/api-client";
 
 // Type Definitions
-type Country = {
-  id: string; // Changed to string to match how you're using it in 'id' for countries_of_operation
-  name: string;
-};
-
 export type CountryOfOperation = {
   id: string;
   name?: string; // Optional name, useful for displaying selected country
@@ -30,7 +27,7 @@ export type FormDataType = {
   national_id: string;
   passport: string;
 
-  membership_type: "Full Member" | "Associate Member" | "Student" | "";
+  membership_type: string;
   country_of_residence: string;
   forensic_field_of_practice: string;
   associate_category: string;
@@ -46,7 +43,7 @@ export type FormDataType = {
   qualification: File | null;
   cv_resume: File | null;
   name_of_organization: string;
-  abbreviation: string;
+  Abbreviation: string;
   countries_of_operation: CountryOfOperation[];
   company_email: string;
 
@@ -61,6 +58,14 @@ export type FormDataType = {
   payment_method: string;
   transaction_number: string;
 };
+
+interface MasterData {
+  countries: Array<{ id: string; name: string }>;
+  titles: Array<{ id: string; name: string }>;
+  membershipTypes: Array<{ id: string; name: string; price?: number }>;
+  fieldsOfPractice: Array<{ id: string; name: string }>;
+  associateCategories: Array<{ id: string; name: string }>;
+}
 
 const MembershipSignupForm = () => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -96,7 +101,7 @@ const MembershipSignupForm = () => {
     qualification: null,
     cv_resume: null,
     name_of_organization: "",
-    abbreviation: "",
+    Abbreviation: "",
     countries_of_operation: [],
     company_email: "",
 
@@ -115,32 +120,39 @@ const MembershipSignupForm = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Mock data - Ensure 'id' is a string for consistency with HTML select 'value' attribute
-  const mockData = {
-    titles: ["Mr", "Mrs", "Ms", "Dr", "Prof"],
-    membershipTypes: ["Full Member", "Associate Member", "Student"],
-    countries: [
-      { id: "1", name: "United States" },
-      { id: "12", name: "Rwanda" },
-      { id: "14", name: "Kenya" },
-      { id: "15", name: "Uganda" },
-      { id: "16", name: "South Africa" },
-      { id: "17", name: "Nigeria" },
-      { id: "18", name: "Egypt" },
-    ] as Country[],
-    fieldsOfPractice: [
-      { id: "1", name: "Biology" },
-      { id: "2", name: "Chemistry" },
-      { id: "3", name: "Physics" },
-      { id: "4", name: "Digital Forensics" },
-      { id: "5", name: "Psychology" },
-      { id: "6", name: "Forensic Anthropology" },
-      { id: "7", name: "Toxicology" },
-      { id: "8", name: "Pathology" },
-      { id: "9", name: "Ballistics" },
-    ],
-    associateCategories: ["Academic", "Industry", "Government", "NGO", "Legal"],
-  };
+  // Master data state
+  const [masterData, setMasterData] = useState<MasterData>({
+    countries: [],
+    titles: [],
+    membershipTypes: [],
+    fieldsOfPractice: [],
+    associateCategories: [],
+  });
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [dataError, setDataError] = useState<string | null>(null);
+
+  // Fetch master data on component mount
+  useEffect(() => {
+    const fetchMasterData = async () => {
+      try {
+        setIsLoadingData(true);
+        setDataError(null);
+
+        const data = await membershipService.getAllMasterData();
+        setMasterData(data);
+      } catch (error) {
+        console.error("Failed to fetch master data:", error);
+        const apiError = error as ApiError;
+        setDataError(
+          apiError.message || "Failed to load form data. Please try again."
+        );
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+
+    fetchMasterData();
+  }, []);
 
   const steps = [
     {
@@ -174,6 +186,47 @@ const MembershipSignupForm = () => {
       icon: "💳",
     },
   ];
+
+  // Show loading state while fetching data
+  if (isLoadingData) {
+    return (
+      <MembershipLayout
+        currentStep={1}
+        steps={steps}
+        currentStepTitle="Loading..."
+        currentStepDescription="Fetching form data..."
+      >
+        <div className="flex justify-center items-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00B5A5]"></div>
+          <span className="ml-3 text-gray-600 dark:text-gray-400">
+            Loading form data...
+          </span>
+        </div>
+      </MembershipLayout>
+    );
+  }
+
+  // Show error state if data fetch failed
+  if (dataError) {
+    return (
+      <MembershipLayout
+        currentStep={1}
+        steps={steps}
+        currentStepTitle="Error"
+        currentStepDescription="Failed to load data"
+      >
+        <div className="text-center py-12">
+          <div className="text-red-500 dark:text-red-400 mb-4">{dataError}</div>
+          <button
+            onClick={() => window.location.reload()}
+            className="bg-[#00B5A5] dark:bg-[#00D4C7] text-white px-6 py-2 rounded-lg hover:bg-[#008A7C] dark:hover:bg-[#00B5A5] transition-colors duration-300"
+          >
+            Retry
+          </button>
+        </div>
+      </MembershipLayout>
+    );
+  }
 
   const handleInputChange = (name: keyof FormDataType, value: any) => {
     setFormData((prev) => ({
@@ -233,7 +286,9 @@ const MembershipSignupForm = () => {
   };
 
   const updateCountryOfOperation = (index: number, countryId: string) => {
-    const selectedCountry = mockData.countries.find((c) => c.id === countryId);
+    const selectedCountry = masterData.countries.find(
+      (c) => c.id === countryId
+    );
 
     setFormData((prev) => ({
       ...prev,
@@ -274,10 +329,10 @@ const MembershipSignupForm = () => {
         if (!formData.country_of_residence) {
           newErrors.country_of_residence = "Country of residence is required";
         }
-        // Check if selected country of residence is a valid ID from mock data
+        // Check if selected country of residence is a valid ID from master data
         if (
           formData.country_of_residence &&
-          !mockData.countries.some(
+          !masterData.countries.some(
             (c) => c.id === formData.country_of_residence
           )
         ) {
@@ -289,11 +344,11 @@ const MembershipSignupForm = () => {
           newErrors.forensic_field_of_practice =
             "Field of practice is required";
         }
-        // Validate if forensic_field_of_practice is a valid ID
+        // Validate if forensic_field_of_practice is a valid name
         if (
           formData.forensic_field_of_practice &&
-          !mockData.fieldsOfPractice.some(
-            (f) => f.id === formData.forensic_field_of_practice
+          !masterData.fieldsOfPractice.some(
+            (f) => f.name === formData.forensic_field_of_practice
           )
         ) {
           newErrors.forensic_field_of_practice =
@@ -363,7 +418,9 @@ const MembershipSignupForm = () => {
           // Validate selected country of study
           if (
             formData.country_of_study &&
-            !mockData.countries.some((c) => c.id === formData.country_of_study)
+            !masterData.countries.some(
+              (c) => c.id === formData.country_of_study
+            )
           ) {
             newErrors.country_of_study = "Invalid country of study selected";
           }
@@ -385,7 +442,7 @@ const MembershipSignupForm = () => {
         if (formData.membership_type === "Full Member") {
           const fullMemberRequiredFields = [
             { key: "name_of_organization", label: "Organization name" },
-            { key: "abbreviation", label: "Abbreviation" },
+            { key: "Abbreviation", label: "Abbreviation" },
             { key: "company_email", label: "Company email" },
           ];
 
@@ -437,7 +494,7 @@ const MembershipSignupForm = () => {
             formData.countries_of_operation.some(
               (country) =>
                 !country.id ||
-                !mockData.countries.some((c) => c.id === country.id)
+                !masterData.countries.some((c) => c.id === country.id)
             )
           ) {
             newErrors.countries_of_operation =
@@ -504,7 +561,7 @@ const MembershipSignupForm = () => {
         "qualification",
         "cv_resume",
         "name_of_organization",
-        "abbreviation",
+        "Abbreviation",
         "countries_of_operation",
         "company_email",
       ],
@@ -535,16 +592,26 @@ const MembershipSignupForm = () => {
     setCurrentStep((prev) => Math.max(prev - 1, 1));
   };
 
+  // Update getMembershipFee function to use real data
   const getMembershipFee = () => {
-    switch (formData.membership_type) {
+    const selectedType = masterData.membershipTypes.find(
+      (type) => type.name === formData.membership_type
+    );
+    return selectedType?.price || 0;
+  };
+
+  const getMembershipDescription = (membershipType: string): string => {
+    switch (membershipType) {
       case "Full Member":
-        return 100;
+        return "For qualified forensic professionals with full voting rights and access to all AFSA resources.";
       case "Associate Member":
-        return 75;
-      case "Student":
-        return 25;
+        return "For professionals working in forensic-related fields with access to most AFSA resources.";
+      case "Student Member":
+        return "For students pursuing forensic science education with access to educational resources and mentorship.";
+      case "Affiliate Member":
+        return "For international members and organizations supporting forensic science advancement.";
       default:
-        return 0;
+        return "Professional membership with access to AFSA resources and networking opportunities.";
     }
   };
 
@@ -594,7 +661,7 @@ const MembershipSignupForm = () => {
         "degree_year",
         "country_of_study",
         "name_of_organization",
-        "abbreviation",
+        "Abbreviation",
         "company_email",
         "payment_method",
         "transaction_number",
@@ -602,9 +669,8 @@ const MembershipSignupForm = () => {
 
       textFields.forEach((field) => {
         const value = formData[field as keyof FormDataType];
-        if (value !== null && value !== undefined && value !== "") {
-          submitFormData.append(field, String(value));
-        }
+        // Send all fields, even if empty (Laravel expects them to be present)
+        submitFormData.append(field, value ? String(value) : "");
       });
 
       // Handle boolean fields - send as "1" or "0" for Laravel
@@ -620,19 +686,17 @@ const MembershipSignupForm = () => {
         submitFormData.append(field, value ? "1" : "0");
       });
 
-      // Handle countries_of_operation array - Laravel expects array format
+      // FIXED: Handle countries_of_operation array - send as FormData array
       if (
         formData.countries_of_operation &&
         formData.countries_of_operation.length > 0
       ) {
-        formData.countries_of_operation.forEach((country, index) => {
-          if (country.id) {
-            submitFormData.append(
-              `countries_of_operation[${index}]`,
-              country.id
-            );
-          }
-        });
+        // Filter out countries without IDs and send each as array element
+        formData.countries_of_operation
+          .filter(country => country.id) // Only include countries with valid IDs
+          .forEach((country, index) => {
+            submitFormData.append(`countries_of_operation[${index}][id]`, country.id);
+          });
       }
 
       // Handle file uploads
@@ -732,55 +796,36 @@ const MembershipSignupForm = () => {
           </label>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {mockData.membershipTypes.map((type) => (
+            {masterData.membershipTypes.map((type) => (
               <div
-                key={type}
+                key={type.id}
                 className={`relative cursor-pointer rounded-lg border-2 p-6 transition-all duration-300 ${
-                  formData.membership_type === type
+                  formData.membership_type === type.name
                     ? "border-[#00B5A5] dark:border-[#00D4C7] bg-[#00B5A5]/5 dark:bg-[#00D4C7]/5 shadow-lg"
                     : "border-gray-200 dark:border-gray-700 hover:border-[#00B5A5] dark:hover:border-[#00D4C7] hover:shadow-md"
                 } bg-white dark:bg-gray-800`}
-                onClick={() =>
-                  handleInputChange(
-                    "membership_type",
-                    type as FormDataType["membership_type"]
-                  )
-                }
+                onClick={() => handleInputChange("membership_type", type.name)}
               >
                 <div className="flex items-center">
                   <input
                     type="radio"
                     name="membership_type"
-                    value={type}
-                    checked={formData.membership_type === type}
+                    value={type.name}
+                    checked={formData.membership_type === type.name}
                     onChange={() =>
-                      handleInputChange(
-                        "membership_type",
-                        type as FormDataType["membership_type"]
-                      )
+                      handleInputChange("membership_type", type.name)
                     }
                     className="h-4 w-4 text-[#00B5A5] dark:text-[#00D4C7] focus:ring-[#00B5A5] dark:focus:ring-[#00D4C7] border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
                   />
                   <div className="ml-3 flex-1">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                      {type}
+                      {type.name}
                     </h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                      {type === "Full Member" &&
-                        "For established forensic professionals with extensive experience"}
-                      {type === "Associate Member" &&
-                        "For professionals working in forensic-related fields"}
-                      {type === "Student" &&
-                        "For students pursuing forensic science education"}
+                      {getMembershipDescription(type.name)}
                     </p>
                     <div className="mt-2 text-sm font-medium text-[#00B5A5] dark:text-[#00D4C7]">
-                      $
-                      {type === "Full Member"
-                        ? "100"
-                        : type === "Associate Member"
-                        ? "75"
-                        : "25"}
-                      /year
+                      ${type.price || 0}/year
                     </div>
                   </div>
                 </div>
@@ -810,7 +855,7 @@ const MembershipSignupForm = () => {
                   className={selectStyles}
                 >
                   <option value="">Select Country</option>
-                  {mockData.countries.map((country) => (
+                  {masterData.countries.map((country) => (
                     <option key={country.id} value={country.id}>
                       {country.name}
                     </option>
@@ -839,8 +884,8 @@ const MembershipSignupForm = () => {
                   className={selectStyles}
                 >
                   <option value="">Select Field</option>
-                  {mockData.fieldsOfPractice.map((field) => (
-                    <option key={field.id} value={field.id}>
+                  {masterData.fieldsOfPractice.map((field, index) => (
+                    <option key={index} value={field.name}>
                       {field.name}
                     </option>
                   ))}
@@ -866,9 +911,9 @@ const MembershipSignupForm = () => {
                   className={selectStyles}
                 >
                   <option value="">Select Category</option>
-                  {mockData.associateCategories.map((category) => (
-                    <option key={category} value={category}>
-                      {category}
+                  {masterData.associateCategories.map((category, index) => (
+                    <option key={index} value={category.name}>
+                      {category.name}
                     </option>
                   ))}
                 </select>
@@ -930,7 +975,7 @@ const MembershipSignupForm = () => {
                 </div>
               </>
             )}
-            {formData.membership_type === "Student" && (
+            {formData.membership_type === "Student Member" && (
               <>
                 <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
                   <Check size={16} className="text-green-500 mr-2" />
@@ -947,6 +992,26 @@ const MembershipSignupForm = () => {
                 <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
                   <Check size={16} className="text-green-500 mr-2" />
                   Career guidance and job placement
+                </div>
+              </>
+            )}
+            {formData.membership_type === "Affiliate Member" && (
+              <>
+                <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                  <Check size={16} className="text-green-500 mr-2" />
+                  Access to AFSA publications and resources
+                </div>
+                <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                  <Check size={16} className="text-green-500 mr-2" />
+                  International collaboration opportunities
+                </div>
+                <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                  <Check size={16} className="text-green-500 mr-2" />
+                  Conference participation discounts
+                </div>
+                <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                  <Check size={16} className="text-green-500 mr-2" />
+                  Global forensic science network access
                 </div>
               </>
             )}
@@ -969,9 +1034,9 @@ const MembershipSignupForm = () => {
             className={selectStyles}
           >
             <option value="">Select Title</option>
-            {mockData.titles.map((title) => (
-              <option key={title} value={title}>
-                {title}
+            {masterData.titles.map((title, index) => (
+              <option key={index} value={title.name}>
+                {title.name}
               </option>
             ))}
           </select>
@@ -1165,7 +1230,7 @@ const MembershipSignupForm = () => {
 
   const renderAdditionalInfo = () => (
     <div className="space-y-6">
-      {formData.membership_type === "Student" && (
+      {formData.membership_type === "Student Member" && (
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-6 rounded-lg transition-colors duration-300 animate-in fade-in slide-in-from-top-2">
           <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-300 mb-4">
             Student Information
@@ -1241,7 +1306,7 @@ const MembershipSignupForm = () => {
                 className={selectStyles}
               >
                 <option value="">Select Country</option>
-                {mockData.countries.map((country) => (
+                {masterData.countries.map((country) => (
                   <option key={country.id} value={country.id}>
                     {country.name}
                   </option>
@@ -1342,16 +1407,16 @@ const MembershipSignupForm = () => {
                 </label>
                 <input
                   type="text"
-                  value={formData.abbreviation}
+                  value={formData.Abbreviation}
                   onChange={(e) =>
-                    handleInputChange("abbreviation", e.target.value)
+                    handleInputChange("Abbreviation", e.target.value)
                   }
                   className={inputStyles}
                   placeholder="e.g., AFSA"
                 />
-                {errors.abbreviation && (
+                {errors.Abbreviation && (
                   <p className="text-red-500 dark:text-red-400 text-sm mt-1 transition-colors duration-300">
-                    {errors.abbreviation}
+                    {errors.Abbreviation}
                   </p>
                 )}
               </div>
@@ -1392,7 +1457,7 @@ const MembershipSignupForm = () => {
                       className={`flex-1 ${selectStyles}`}
                     >
                       <option value="">Select Country</option>
-                      {mockData.countries.map((c) => (
+                      {masterData.countries.map((c) => (
                         <option key={c.id} value={c.id}>
                           {c.name}
                         </option>
