@@ -12,7 +12,7 @@ import { useAuth } from "@/lib/hooks/Use-auth";
 export default function OTPVerification() {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [errors, setErrors] = useState<{ otp?: string }>({});
-  const [timeLeft, setTimeLeft] = useState(300); // 5 minutes
+  const [timeLeft, setTimeLeft] = useState(300);
   const [canResend, setCanResend] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isResending, setIsResending] = useState(false);
@@ -22,17 +22,14 @@ export default function OTPVerification() {
   const searchParams = useSearchParams();
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  // Get the OTP code from URL params if available
   const urlCode = searchParams.get("code");
 
-  // Show the OTP code in a toast when component mounts
   useEffect(() => {
     if (urlCode) {
       showSuccessToast(`Your OTP code is: ${urlCode}`);
     }
   }, [urlCode]);
 
-  // Timer countdown
   useEffect(() => {
     if (timeLeft > 0) {
       const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
@@ -42,7 +39,6 @@ export default function OTPVerification() {
     }
   }, [timeLeft]);
 
-  // Format time display
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -125,7 +121,7 @@ export default function OTPVerification() {
       // Call the two-factor-check API with code as query parameter
       const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
       const response = await fetch(
-        `${apiUrl}two-factor-check?code=${otpString}`,
+        `${apiUrl}/two-factor-check?code=${otpString}`,
         {
           method: "POST",
           headers: {
@@ -190,7 +186,7 @@ export default function OTPVerification() {
     try {
       // Call the resend two-factor code API (GET request)
       const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
-      const response = await fetch(`${apiUrl}resend-two-factor-code`, {
+      const response = await fetch(`${apiUrl}/resend-two-factor-code`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -240,7 +236,7 @@ export default function OTPVerification() {
             {otp.map((digit, index) => (
               <input
                 key={index}
-                // @ts-ignore
+                //@ts-ignore
                 ref={(el) => (inputRefs.current[index] = el)}
                 type="text"
                 maxLength={1}
