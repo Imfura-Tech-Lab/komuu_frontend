@@ -146,7 +146,7 @@ export default function SecureDashboardLayout({
 
       // Call logout API if token exists
       if (token && apiUrl) {
-        await fetch(`${apiUrl}/logout`, {
+        await fetch(`${apiUrl}logout`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,

@@ -102,7 +102,7 @@ export default function OTPVerification() {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
       const response = await fetch(
-        `${apiUrl}/two-factor-check?code=${otpString}`,
+        `${apiUrl}two-factor-check?code=${otpString}`,
         {
           method: "POST",
           headers: {
@@ -160,7 +160,7 @@ export default function OTPVerification() {
 
     try {
       const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
-      const response = await fetch(`${apiUrl}/resend-two-factor-code`, {
+      const response = await fetch(`${apiUrl}resend-two-factor-code`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -170,7 +170,7 @@ export default function OTPVerification() {
       const data = await response.json();
 
       if (response.ok && (data.success || data.status === "success")) {
-        showSuccessToast("New OTP sent to your email/phone");
+        showSuccessToast("New OTP sent to your email");
         setTimeLeft(300);
         setCanResend(false);
         setOtp(["", "", "", "", "", ""]);
@@ -197,7 +197,7 @@ export default function OTPVerification() {
   return (
     <AuthLayout
       title="Verify your account"
-      subtitle="We've sent a 6-digit verification code to your registered email/phone"
+      subtitle="We've sent a 6-digit verification code to your registered email"
     >
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="space-y-2">
