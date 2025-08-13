@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import AuthLayout, {
   AuthButton,
   AuthLink,
@@ -19,16 +19,7 @@ export default function OTPVerification() {
 
   const { loading } = useAuth();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-
-  const urlCode = searchParams.get("code");
-
-  useEffect(() => {
-    if (urlCode) {
-      showSuccessToast(`Your OTP code is: ${urlCode}`);
-    }
-  }, [urlCode]);
 
   useEffect(() => {
     if (timeLeft > 0) {
@@ -45,34 +36,28 @@ export default function OTPVerification() {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  // Handle OTP input change
   const handleOtpChange = (index: number, value: string) => {
-    // Only allow numbers
     if (!/^\d*$/.test(value)) return;
 
     const newOtp = [...otp];
     newOtp[index] = value;
     setOtp(newOtp);
 
-    // Clear errors when user starts typing
     if (errors.otp) {
       setErrors({});
     }
 
-    // Auto-focus next input
     if (value && index < 5) {
       inputRefs.current[index + 1]?.focus();
     }
   };
 
-  // Handle backspace
   const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
     if (e.key === "Backspace" && !otp[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
   };
 
-  // Handle paste
   const handlePaste = (e: React.ClipboardEvent) => {
     e.preventDefault();
     const pasteData = e.clipboardData.getData("text").replace(/\D/g, "");
@@ -84,12 +69,10 @@ export default function OTPVerification() {
 
     setOtp(newOtp);
 
-    // Focus the next empty field or last field
     const nextIndex = Math.min(pasteData.length, 5);
     inputRefs.current[nextIndex]?.focus();
   };
 
-  // Form validation
   const validateForm = () => {
     const otpString = otp.join("");
 
@@ -101,7 +84,6 @@ export default function OTPVerification() {
     return true;
   };
 
-  // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -118,7 +100,6 @@ export default function OTPVerification() {
     setIsVerifying(true);
 
     try {
-      // Call the two-factor-check API with code as query parameter
       const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
       const response = await fetch(
         `${apiUrl}/two-factor-check?code=${otpString}`,
@@ -135,15 +116,11 @@ export default function OTPVerification() {
       if (response.ok && (data.success || data.status === "success")) {
         showSuccessToast("OTP verified successfully!");
 
-        // Store user data globally if returned from API
         if (data.token && data.data) {
-          // Store token
           localStorage.setItem("auth_token", data.token);
 
-          // Store user data
           localStorage.setItem("user_data", JSON.stringify(data.data));
 
-          // Check if password needs to be changed
           const hasChangedPassword = data.data.has_changed_password;
 
           if (!hasChangedPassword) {
@@ -160,7 +137,6 @@ export default function OTPVerification() {
             }, 1000);
           }
         } else {
-          // If no user data returned, just redirect to dashboard
           setTimeout(() => {
             router.push("/dashboard");
           }, 1000);
@@ -177,14 +153,12 @@ export default function OTPVerification() {
     }
   };
 
-  // Handle resend OTP
   const handleResendOtp = async () => {
     if (!canResend || isResending) return;
 
     setIsResending(true);
 
     try {
-      // Call the resend two-factor code API (GET request)
       const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
       const response = await fetch(`${apiUrl}/resend-two-factor-code`, {
         method: "GET",
@@ -202,7 +176,6 @@ export default function OTPVerification() {
         setOtp(["", "", "", "", "", ""]);
         inputRefs.current[0]?.focus();
 
-        // If the response contains a new code, show it in toast
         if (data.code) {
           setTimeout(() => {
             showSuccessToast(`Your new OTP code is: ${data.code}`);
@@ -227,7 +200,6 @@ export default function OTPVerification() {
       subtitle="We've sent a 6-digit verification code to your registered email/phone"
     >
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* OTP Input */}
         <div className="space-y-2">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Enter verification code
@@ -261,7 +233,6 @@ export default function OTPVerification() {
           )}
         </div>
 
-        {/* Timer and Resend */}
         <div className="text-center space-y-2">
           {!canResend ? (
             <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -290,7 +261,6 @@ export default function OTPVerification() {
           </button>
         </div>
 
-        {/* Submit Button */}
         <AuthButton
           type="submit"
           loading={isVerifying}
@@ -300,7 +270,6 @@ export default function OTPVerification() {
           Verify & Continue
         </AuthButton>
 
-        {/* Back to Login */}
         <div className="text-center">
           <p className="text-sm text-gray-600 dark:text-gray-400">
             Want to use a different account?{" "}
@@ -310,7 +279,6 @@ export default function OTPVerification() {
           </p>
         </div>
 
-        {/* Help Section */}
         <div className="mt-8 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 transition-colors duration-300">
           <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
             Having trouble with verification?
