@@ -40,7 +40,6 @@ export function useAuth(): UseAuthReturn {
 
       try {
         const response = await execute(() => authService.login(credentials));
-        console.log("Login successful:", response.data);
         setUser(response.data.user);
         return { success: true };
       } catch (error) {

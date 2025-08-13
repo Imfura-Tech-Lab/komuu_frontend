@@ -62,18 +62,17 @@ export default function Login() {
 
       if (result.success) {
         // Show success toast
-        showSuccessToast("Login successful! Welcome back.");
+        showSuccessToast(result.message ?? "Login successful! Welcome back.");
 
         // Add a small delay before redirect to allow toast to show
         setTimeout(() => {
-          router.push("/dashboard");
+          router.push("/otp-verification");
         }, 1000);
       } else {
         // Show error toast
         showErrorToast(result.message || "Login failed. Please try again.");
       }
     } catch (error) {
-      console.error("Login error:", error);
       showErrorToast("An unexpected error occurred. Please try again.");
     }
   };

@@ -9,7 +9,7 @@ import { ApiError } from "@/lib/api-client";
 // Type Definitions
 export type CountryOfOperation = {
   id: string;
-  name?: string; // Optional name, useful for displaying selected country
+  name?: string; 
 };
 
 export type FormDataType = {
