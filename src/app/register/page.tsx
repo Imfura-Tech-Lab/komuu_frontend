@@ -5,11 +5,15 @@ import MembershipLayout from "@/components/layouts/membership-layout";
 import { authService } from "@/services/auth-service";
 import { membershipService } from "@/services/membership-service";
 import { ApiError } from "@/lib/api-client";
+import {
+  showErrorToast,
+  showSuccessToast,
+} from "@/components/layouts/auth-layer-out";
 
 // Type Definitions
 export type CountryOfOperation = {
   id: string;
-  name?: string; 
+  name?: string;
 };
 
 export type FormDataType = {
@@ -628,7 +632,9 @@ const MembershipSignupForm = () => {
     }
 
     if (hasErrors) {
-      alert("Please correct the errors in the form before submitting.");
+      showErrorToast(
+        "Please correct the errors in the form before submitting."
+      );
       return;
     }
 
@@ -693,9 +699,12 @@ const MembershipSignupForm = () => {
       ) {
         // Filter out countries without IDs and send each as array element
         formData.countries_of_operation
-          .filter(country => country.id) // Only include countries with valid IDs
+          .filter((country) => country.id) // Only include countries with valid IDs
           .forEach((country, index) => {
-            submitFormData.append(`countries_of_operation[${index}][id]`, country.id);
+            submitFormData.append(
+              `countries_of_operation[${index}][id]`,
+              country.id
+            );
           });
       }
 
@@ -724,9 +733,9 @@ const MembershipSignupForm = () => {
       }
 
       const response = await authService.register(submitFormData);
-
-      console.log("Registration successful:", response.data);
-      alert("Registration successful! Your application has been submitted.");
+      showSuccessToast(
+        "Registration successful! Your application has been submitted."
+      );
 
       // Redirect or update UI as needed
       // router.push("/dashboard"); // if using Next.js router
@@ -752,15 +761,15 @@ const MembershipSignupForm = () => {
         const firstErrorField = Object.keys(processedErrors)[0];
         navigateToErrorStep(firstErrorField);
 
-        alert(
+        showErrorToast(
           "Registration failed due to validation errors. Please check the form."
         );
       } else if (error.response?.status === 422) {
-        alert("Please check your form data and try again.");
+        showErrorToast("Please check your form data and try again.");
       } else if (error.response?.status === 409) {
-        alert("User with this email already exists.");
+        showErrorToast("User with this email already exists.");
       } else {
-        alert("Registration failed. Please try again later.");
+        showErrorToast("Registration failed. Please try again later.");
       }
     } finally {
       setIsSubmitting(false);
