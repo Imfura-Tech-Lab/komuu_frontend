@@ -1,7 +1,7 @@
 "use client";
 import SecureDashboardLayout, {
-  UserData,
-} from "@/components/layouts/secure-dashboard-layout";
+
+} from "@/components/dashboard/secure-dashboard-layout";
 import { useEffect, useState, Suspense, lazy } from "react";
 import { showErrorToast } from "@/components/layouts/auth-layer-out";
 import React from "react";
@@ -9,25 +9,8 @@ import { AdministratorDashboard } from "@/components/dashboards/AdministratorDas
 import { PresidentDashboard } from "@/components/dashboards/PresidentDashboard";
 import { BoardDashboard } from "@/components/dashboards/BoardDashboard";
 import { MemberDashboard } from "@/components/dashboards/MemberDashboard";
+import { UserData } from "@/types";
 
-// // Lazy load role-specific dashboard components
-// const AdministratorDashboard = lazy(
-//   () => import("@/components/dashboards/AdministratorDashboard")
-// );
-// const PresidentDashboard = lazy(
-//   () => import("@/components/dashboards/PresidentDashboard")
-// );
-// const BoardDashboard = lazy(
-//   () => import("@/components/dashboards/BoardDashboard")
-// );
-// const MemberDashboard = lazy(
-//   () => import("@/components/dashboards/MemberDashboard")
-// );
-// const MemberUnverifiedDashboard = lazy(
-//   () => import("@/components/dashboards/MemberUnverifiedDashboard")
-// );
-
-// Loading component for role-specific dashboards
 const DashboardSkeleton = () => (
   <div className="animate-pulse space-y-6">
     {/* Welcome Section Skeleton */}
@@ -118,7 +101,6 @@ export default function DashboardPage() {
     setRetryKey((prev) => prev + 1);
   };
 
-  // Get the appropriate dashboard component based on user role
   const getDashboardComponent = () => {
     if (!userData) return null;
 
@@ -130,7 +112,9 @@ export default function DashboardPage() {
       MemberUnverified: MemberDashboard,
     };
 
-    const DashboardComponent = roleComponentMap[userData.role];
+    const DashboardComponent =
+      roleComponentMap[userData.role as keyof typeof roleComponentMap] ||
+      MemberDashboard;
 
     if (!DashboardComponent) {
       // Fallback to Member dashboard if role not found
@@ -173,7 +157,10 @@ export default function DashboardPage() {
       },
     };
 
-    return roleMessages[userData.role] || roleMessages.Member;
+    return (
+      roleMessages[userData.role as keyof typeof roleMessages] ||
+      roleMessages.Member
+    );
   };
 
   // Show loading state while user data is being loaded
@@ -356,9 +343,7 @@ const DefaultDashboardContent = ({ userData }: { userData: UserData }) => (
                   Role
                 </dt>
                 <dd className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {userData.role === "MemberUnverified"
-                    ? "Member"
-                    : userData.role}
+                  {userData.role}
                 </dd>
               </dl>
             </div>

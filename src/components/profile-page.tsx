@@ -14,7 +14,7 @@ interface UserData {
   secondary_email: string | null;
   alternative_phone: string | null;
   whatsapp_number: string | null;
-  role: "Administrator" | "President" | "Board" | "Member" | "MemberUnverified";
+  role: "Administrator" | "President" | "Board" | "Member" | "MemberUnverified" | "Pending";
   verified: boolean;
   active: boolean;
   has_changed_password: boolean;
@@ -46,6 +46,7 @@ export default function ProfilePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
+  const router = useRouter();
   const [formData, setFormData] = useState<ProfileFormData>({
     title: "",
     first_name: "",
@@ -66,7 +67,101 @@ export default function ProfilePage() {
     null
   );
 
-  const router = useRouter();
+  // Handle image load error (for blob URLs this shouldn't happen)
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const imgElement = e.currentTarget;
+    if (process.env.NODE_ENV === 'development') {
+      console.log("🚨 Blob image failed to load:");
+      console.log("  URL:", imgElement.src);
+      console.log("  This should not happen with blob URLs");
+    }
+    setProfileImagePreview(null);
+  };
+
+  // Handle image load success
+  const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const imgElement = e.currentTarget;
+    if (process.env.NODE_ENV === 'development') {
+      console.log("✅ Image loaded successfully:");
+      console.log("  URL:", imgElement.src);
+      console.log("  Natural width:", imgElement.naturalWidth);
+      console.log("  Natural height:", imgElement.naturalHeight);
+      console.log("  Complete:", imgElement.complete);
+    }
+  };
+
+  // Better name parsing function
+  const parseFullName = (fullName: string) => {
+    if (!fullName) return { title: "", first_name: "", middle_name: "", surname: "" };
+
+    const nameParts = fullName.trim().split(" ").filter(part => part.length > 0);
+    
+    // Common titles to filter out
+    const titles = ["Mr", "Mrs", "Ms", "Dr", "Prof", "Sir", "Madam"];
+    
+    // Find and extract title
+    let title = "";
+    let namePartsWithoutTitle = [...nameParts];
+    
+    if (nameParts.length > 0 && titles.includes(nameParts[0])) {
+      title = nameParts[0];
+      namePartsWithoutTitle = nameParts.slice(1);
+    }
+    
+    // Handle remaining name parts
+    if (namePartsWithoutTitle.length === 0) {
+      return { title, first_name: "", middle_name: "", surname: "" };
+    } else if (namePartsWithoutTitle.length === 1) {
+      return { title, first_name: namePartsWithoutTitle[0], middle_name: "", surname: "" };
+    } else if (namePartsWithoutTitle.length === 2) {
+      return { 
+        title, 
+        first_name: namePartsWithoutTitle[0], 
+        middle_name: "", 
+        surname: namePartsWithoutTitle[1] 
+      };
+    } else {
+      // 3+ parts: first, middle(s), last
+      return {
+        title,
+        first_name: namePartsWithoutTitle[0],
+        middle_name: namePartsWithoutTitle.slice(1, -1).join(" "),
+        surname: namePartsWithoutTitle[namePartsWithoutTitle.length - 1]
+      };
+    }
+  };
+
+  // Check if profile image is valid
+  const hasValidProfileImage = (profileUrl: string | null | undefined) => {
+    if (!profileUrl || profileUrl.trim() === "") return false;
+    
+    // Check for invalid/placeholder URLs
+    const invalidUrls = [
+      "null",
+      "undefined",
+      "/storage", // Just the path without domain
+      "https://membership-portal-master-s83ce2.laravel.cloud/storage" // Base storage URL without file
+    ];
+    
+    // Check if it's a valid URL format and not in the invalid list
+    const isValidUrl = profileUrl.startsWith("http") && 
+                       !invalidUrls.includes(profileUrl.trim()) &&
+                       profileUrl.includes(".") && // Should have a file extension
+                       (profileUrl.includes(".jpg") || 
+                        profileUrl.includes(".jpeg") || 
+                        profileUrl.includes(".png") || 
+                        profileUrl.includes(".gif") || 
+                        profileUrl.includes(".webp"));
+    
+    return isValidUrl;
+  };
+
+  // Monitor profile image state changes
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log("🔄 profileImagePreview state changed to:", profileImagePreview);
+    }
+  }, [profileImagePreview]);
 
   // Load user data - simplified since auth is handled by SecureDashboardLayout
   useEffect(() => {
@@ -81,18 +176,15 @@ export default function ProfilePage() {
         const parsedUserData = JSON.parse(storedUserData);
         setUserData(parsedUserData);
 
-        // Parse the name field into components
-        const nameParts = (parsedUserData.name || "").split(" ");
-        const firstName = nameParts[0] || "";
-        const surname = nameParts[nameParts.length - 1] || "";
-        const middleName = nameParts.slice(1, -1).join(" ");
+        // Parse the name field into components using improved logic
+        const parsedName = parseFullName(parsedUserData.name || "");
 
         // Initialize form data
         setFormData({
-          title: "", // This would need to come from the API
-          first_name: firstName,
-          surname: surname,
-          middle_name: middleName,
+          title: parsedName.title,
+          first_name: parsedName.first_name,
+          surname: parsedName.surname,
+          middle_name: parsedName.middle_name,
           email: parsedUserData.email || "",
           phone_number: parsedUserData.phone_number || "",
           secondary_email: parsedUserData.secondary_email || "",
@@ -107,12 +199,31 @@ export default function ProfilePage() {
         });
 
         // Set profile image preview if available
-        if (
-          parsedUserData.public_profile &&
-          parsedUserData.public_profile !==
-            "https://membership-portal-master-s83ce2.laravel.cloud/storage"
-        ) {
-          setProfileImagePreview(parsedUserData.public_profile);
+        const imageUrl = parsedUserData.public_profile;
+        if (process.env.NODE_ENV === 'development') {
+          console.log("📸 Setting up profile image:");
+          console.log("  Raw profile URL from API:", imageUrl);
+        }
+        
+        const isValidImage = hasValidProfileImage(imageUrl);
+        if (process.env.NODE_ENV === 'development') {
+          console.log("  Validation result:", isValidImage);
+        }
+        
+        if (isValidImage) {
+          if (process.env.NODE_ENV === 'development') {
+            console.log("  ✅ Profile image passed validation");
+            console.log("  🔐 Fetching image with authentication (403 error expected without auth)");
+          }
+          
+          // Since images require authentication, fetch with auth token directly
+          // fetchImageWithAuth(imageUrl);
+          
+        } else {
+          if (process.env.NODE_ENV === 'development') {
+            console.log("  ❌ Profile image failed validation, clearing preview");
+          }
+          setProfileImagePreview(null);
         }
       } catch (error) {
         console.error("Failed to load user data:", error);
@@ -145,6 +256,8 @@ export default function ProfilePage() {
 
     if (!formData.phone_number.trim()) {
       newErrors.phone_number = "Phone number is required";
+    } else if (!/^\+?[\d\s\-\(\)]+$/.test(formData.phone_number)) {
+      newErrors.phone_number = "Please enter a valid phone number";
     }
 
     if (!formData.national_id.trim()) {
@@ -153,6 +266,7 @@ export default function ProfilePage() {
 
     if (
       formData.secondary_email &&
+      formData.secondary_email.trim() &&
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.secondary_email)
     ) {
       newErrors.secondary_email = "Please enter a valid email address";
@@ -160,6 +274,30 @@ export default function ProfilePage() {
 
     if (!formData.date_of_birth) {
       newErrors.date_of_birth = "Date of birth is required";
+    } else {
+      // Check if date is not in the future and person is at least 16 years old
+      const selectedDate = new Date(formData.date_of_birth);
+      const today = new Date();
+      const minAge = new Date();
+      minAge.setFullYear(today.getFullYear() - 16);
+
+      if (selectedDate > today) {
+        newErrors.date_of_birth = "Date of birth cannot be in the future";
+      } else if (selectedDate > minAge) {
+        newErrors.date_of_birth = "You must be at least 16 years old";
+      }
+    }
+
+    // Validate alternative phone if provided
+    if (formData.alternative_phone && formData.alternative_phone.trim() && 
+        !/^\+?[\d\s\-\(\)]+$/.test(formData.alternative_phone)) {
+      newErrors.alternative_phone = "Please enter a valid phone number";
+    }
+
+    // Validate WhatsApp number if provided
+    if (formData.whatsapp_number && formData.whatsapp_number.trim() && 
+        !/^\+?[\d\s\-\(\)]+$/.test(formData.whatsapp_number)) {
+      newErrors.whatsapp_number = "Please enter a valid WhatsApp number";
     }
 
     setErrors(newErrors);
@@ -178,6 +316,10 @@ export default function ProfilePage() {
       const token = localStorage.getItem("auth_token");
       const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
 
+      if (!token) {
+        throw new Error("No authentication token found");
+      }
+
       // Create FormData for file upload
       const formDataPayload = new FormData();
       formDataPayload.append("_method", "PATCH");
@@ -190,10 +332,7 @@ export default function ProfilePage() {
       formDataPayload.append("secondary_email", formData.secondary_email);
       formDataPayload.append("alternative_phone", formData.alternative_phone);
       formDataPayload.append("whatsapp_number", formData.whatsapp_number);
-      formDataPayload.append(
-        "date_of_birth",
-        formData.date_of_birth.replace(/-/g, "/")
-      );
+      formDataPayload.append("date_of_birth", formData.date_of_birth);
       formDataPayload.append("national_id", formData.national_id);
       formDataPayload.append("passport", formData.passport);
 
@@ -212,7 +351,19 @@ export default function ProfilePage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to update profile");
+        
+        // Handle validation errors from backend
+        if (errorData.errors) {
+          const backendErrors: Partial<ProfileFormData> = {};
+          Object.keys(errorData.errors).forEach(key => {
+            if (Array.isArray(errorData.errors[key])) {
+              backendErrors[key as keyof ProfileFormData] = errorData.errors[key][0];
+            }
+          });
+          setErrors(backendErrors);
+        }
+        
+        throw new Error(errorData.message || `HTTP ${response.status}: Failed to update profile`);
       }
 
       const data = await response.json();
@@ -223,9 +374,16 @@ export default function ProfilePage() {
       setUserData(updatedUserData);
       setIsEditing(false);
       showSuccessToast("Profile updated successfully!");
+      
+      // Clear any previous errors
+      setErrors({});
     } catch (error) {
       console.error("Profile update failed:", error);
-      showErrorToast("Failed to update profile. Please try again.");
+      if (error instanceof Error) {
+        showErrorToast(error.message);
+      } else {
+        showErrorToast("Failed to update profile. Please try again.");
+      }
     } finally {
       setIsSaving(false);
     }
@@ -245,7 +403,7 @@ export default function ProfilePage() {
     if (file) {
       // Validate file type
       if (!file.type.startsWith("image/")) {
-        showErrorToast("Please select a valid image file.");
+        showErrorToast("Please select a valid image file (JPG, PNG, GIF, etc.).");
         return;
       }
 
@@ -269,16 +427,13 @@ export default function ProfilePage() {
   // Cancel editing
   const handleCancel = () => {
     if (userData) {
-      const nameParts = (userData.name || "").split(" ");
-      const firstName = nameParts[0] || "";
-      const surname = nameParts[nameParts.length - 1] || "";
-      const middleName = nameParts.slice(1, -1).join(" ");
+      const parsedName = parseFullName(userData.name || "");
 
       setFormData({
-        title: "",
-        first_name: firstName,
-        surname: surname,
-        middle_name: middleName,
+        title: parsedName.title,
+        first_name: parsedName.first_name,
+        surname: parsedName.surname,
+        middle_name: parsedName.middle_name,
         email: userData.email || "",
         phone_number: userData.phone_number || "",
         secondary_email: userData.secondary_email || "",
@@ -293,11 +448,7 @@ export default function ProfilePage() {
       });
 
       // Reset profile image
-      if (
-        userData.public_profile &&
-        userData.public_profile !==
-          "https://membership-portal-master-s83ce2.laravel.cloud/storage"
-      ) {
+      if (hasValidProfileImage(userData.public_profile)) {
         setProfileImagePreview(userData.public_profile);
       } else {
         setProfileImagePreview(null);
@@ -320,14 +471,12 @@ export default function ProfilePage() {
   // Role color mapping
   const getRoleColor = (role: string) => {
     const colors = {
-      Administrator:
-        "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
-      President:
-        "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+      Administrator: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+      President: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
       Board: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
       Member: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
-      MemberUnverified:
-        "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+      MemberUnverified: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+      Pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
     };
     return colors[role as keyof typeof colors] || colors.Member;
   };
@@ -381,6 +530,24 @@ export default function ProfilePage() {
 
   return (
     <div className="space-y-6">
+      {/* Debug Information - Remove this in production */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4">
+          <h3 className="text-sm font-semibold text-yellow-800 dark:text-yellow-200 mb-2">🐛 Debug Info</h3>
+          <div className="text-xs text-yellow-700 dark:text-yellow-300 space-y-1">
+            <div><strong>Raw API URL:</strong> {userData.public_profile || 'null'}</div>
+            <div><strong>Profile Preview State:</strong> {profileImagePreview || 'null'}</div>
+            <div><strong>Has Valid Image:</strong> {hasValidProfileImage(userData.public_profile) ? 'Yes' : 'No'}</div>
+            <div><strong>URL Validation:</strong></div>
+            <div className="ml-4">
+              <div>• Starts with http: {userData.public_profile?.startsWith('http') ? 'Yes' : 'No'}</div>
+              <div>• Not null string: {userData.public_profile !== 'null' ? 'Yes' : 'No'}</div>
+              <div>• Length {">"} 10: {(userData.public_profile?.length || 0) > 10 ? 'Yes' : 'No'}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Page Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -402,6 +569,8 @@ export default function ProfilePage() {
                     src={profileImagePreview}
                     alt="Profile"
                     className="w-full h-full object-cover"
+                    onError={handleImageError}
+                    onLoad={handleImageLoad}
                   />
                 ) : (
                   <span className="text-xl font-bold text-white">
@@ -560,6 +729,8 @@ export default function ProfilePage() {
                           src={profileImagePreview}
                           alt="Preview"
                           className="w-full h-full object-cover"
+                          onError={handleImageError}
+                          onLoad={handleImageLoad}
                         />
                       ) : (
                         <span className="text-lg font-bold text-white">
@@ -582,6 +753,8 @@ export default function ProfilePage() {
                           src={profileImagePreview}
                           alt="Profile"
                           className="w-full h-full object-cover"
+                          onError={handleImageError}
+                          onLoad={handleImageLoad}
                         />
                       ) : (
                         <span className="text-lg font-bold text-white">
@@ -904,12 +1077,21 @@ export default function ProfilePage() {
                     onChange={(e) =>
                       handleInputChange("alternative_phone", e.target.value)
                     }
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent transition-colors duration-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent transition-colors duration-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
+                      errors.alternative_phone
+                        ? "border-red-300 dark:border-red-600"
+                        : "border-gray-300 dark:border-gray-600"
+                    }`}
                     placeholder="Enter alternative phone (optional)"
                   />
                 ) : (
                   <p className="py-2 text-gray-900 dark:text-white transition-colors duration-200">
                     {formData.alternative_phone || "Not specified"}
+                  </p>
+                )}
+                {errors.alternative_phone && (
+                  <p className="mt-1 text-sm text-red-600 dark:text-red-400 transition-colors duration-200">
+                    {errors.alternative_phone}
                   </p>
                 )}
               </div>
@@ -926,12 +1108,21 @@ export default function ProfilePage() {
                     onChange={(e) =>
                       handleInputChange("whatsapp_number", e.target.value)
                     }
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent transition-colors duration-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent transition-colors duration-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
+                      errors.whatsapp_number
+                        ? "border-red-300 dark:border-red-600"
+                        : "border-gray-300 dark:border-gray-600"
+                    }`}
                     placeholder="Enter WhatsApp number (optional)"
                   />
                 ) : (
                   <p className="py-2 text-gray-900 dark:text-white transition-colors duration-200">
                     {formData.whatsapp_number || "Not specified"}
+                  </p>
+                )}
+                {errors.whatsapp_number && (
+                  <p className="mt-1 text-sm text-red-600 dark:text-red-400 transition-colors duration-200">
+                    {errors.whatsapp_number}
                   </p>
                 )}
               </div>
@@ -1001,7 +1192,7 @@ export default function ProfilePage() {
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <button
-                    onClick={() => router.push("/change-password")}
+                    onClick={() => router.push("/change-password?from=profile")}
                     className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00B5A5] dark:focus:ring-offset-gray-800 transition-colors duration-200 shadow-sm"
                   >
                     <svg
@@ -1017,14 +1208,39 @@ export default function ProfilePage() {
                         d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
                       />
                     </svg>
-                    Change Password
+                    Update Password
                   </button>
 
                   {!userData.verified && (
                     <button
-                      onClick={() => {
-                        // Add resend verification logic here
-                        showSuccessToast("Verification email sent!");
+                      onClick={async () => {
+                        try {
+                          const token = localStorage.getItem("auth_token");
+                          const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
+                          
+                          if (!token) {
+                            showErrorToast("Authentication token not found");
+                            return;
+                          }
+                          
+                          const response = await fetch(`${apiUrl}resend-verification`, {
+                            method: "POST",
+                            headers: {
+                              Authorization: `Bearer ${token}`,
+                              "Content-Type": "application/json",
+                            },
+                          });
+                          
+                          if (response.ok) {
+                            showSuccessToast("Verification email sent successfully!");
+                          } else {
+                            const error = await response.json();
+                            showErrorToast(error.message || "Failed to send verification email");
+                          }
+                        } catch (error) {
+                          console.error("Error sending verification email:", error);
+                          showErrorToast("Failed to send verification email");
+                        }
                       }}
                       className="inline-flex items-center justify-center px-4 py-2 border border-[#00B5A5] dark:border-[#008F82] text-sm font-medium rounded-md text-[#00B5A5] dark:text-[#008F82] bg-white dark:bg-gray-800 hover:bg-[#00B5A5] hover:text-white dark:hover:bg-[#008F82] dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00B5A5] dark:focus:ring-offset-gray-800 transition-colors duration-200 shadow-sm"
                     >
