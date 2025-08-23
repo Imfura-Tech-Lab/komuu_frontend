@@ -128,7 +128,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
     Administrator: [
       {
         name: "Application Management",
-        href: "/admin/applications",
+        href: "/applications",
         permission: "approve_applications",
         icon: "applications",
         description: "Review and approve membership applications",
@@ -209,7 +209,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
       },
       {
         name: "Applications Review",
-        href: "/president/applications",
+        href: "/applications",
         permission: "view_all_applications",
         icon: "applications",
         description: "Review membership applications",
@@ -246,7 +246,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
       },
       {
         name: "Applications List",
-        href: "/board/applications",
+        href: "/applications",
         permission: "view_all_applications",
         icon: "applications",
         description: "View membership applications",
@@ -297,7 +297,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
     Member: [
       {
         name: "Applications",
-        href: "/member/applications",
+        href: "/applications",
         permission: "view_own_payments",
         icon: "applications",
         description: "View your payment history",
@@ -358,3 +358,64 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
 
   return [...baseItems, ...(roleSpecificItems[role] || [])];
 };
+
+
+// applications types
+
+export interface Application {
+  id: string;
+  member: string;
+  application_status: string;
+  application_date: string;
+  membership_type: string;
+  membership_number: string | null;
+  employement: string | null;
+  forensic_field_of_practice: string;
+  qualification: string;
+  cv_resume: string;
+  associate_category: string;
+  university: string;
+  degree: string;
+  graduation_year: string;
+  proof_of_registration: string;
+  country_of_study: string;
+  name_of_organization: string;
+  Abbreviation: string;
+  country_of_residency: string;
+  country_of_operation: string | null;
+  company_email: string;
+  abide_with_code_of_conduct: boolean;
+  comply_with_current_constitution: boolean;
+  declaration: boolean;
+  incompliance: boolean;
+  member_details: {
+    id: number;
+    name: string;
+    email: string;
+    phone_number: string;
+    secondary_email: string | null;
+    alternative_phone: string | null;
+    whatsapp_number: string | null;
+    role: string;
+    verified: boolean;
+    active: boolean;
+    has_changed_password: boolean;
+    date_of_birth: string;
+    national_ID: string;
+    passport: string | null;
+    public_profile: string;
+  };
+  fieldsOfPractices: any[];
+  sectorOfEmployments: any[];
+  countriesOfPractice: Array<{
+    id: number;
+    country: string;
+    region: string;
+  }>;
+}
+
+export interface ApplicationResponse {
+  status: string;
+  message: string;
+  data: Application;
+}
