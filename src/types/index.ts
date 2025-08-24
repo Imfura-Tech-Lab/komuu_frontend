@@ -304,35 +304,35 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
       },
       {
         name: "My Payments",
-        href: "/member/payments",
+        href: "/payments",
         permission: "view_own_payments",
         icon: "payments",
         description: "View your payment history",
       },
       {
         name: "My Certificates",
-        href: "/member/certificates",
+        href: "/certificates",
         permission: "view_own_certificates",
         icon: "certificates",
         description: "View your certificates",
       },
       {
         name: "Resources",
-        href: "/member/resources",
+        href: "/resources",
         permission: "member_resources",
         icon: "resources",
         description: "Member resources and downloads",
       },
       {
         name: "Events",
-        href: "/member/events",
+        href: "/events",
         permission: "member_events",
         icon: "events",
         description: "Upcoming events and activities",
       },
       {
         name: "Community",
-        href: "/member/community",
+        href: "/community",
         permission: "member_community",
         icon: "community",
         description: "Connect with other members",
@@ -358,7 +358,6 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
 
   return [...baseItems, ...(roleSpecificItems[role] || [])];
 };
-
 
 // applications types
 
@@ -418,4 +417,26 @@ export interface ApplicationResponse {
   status: string;
   message: string;
   data: Application;
+}
+
+// certificates type
+
+export interface Certificate {
+  id: number;
+  member_id: number;
+  certificate_type: string;
+  certificate_number: string;
+  issue_date: string;
+  expiry_date: string | null;
+  status: "active" | "expired" | "revoked" | "pending";
+  download_url: string;
+  verification_url: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CertificatesResponse {
+  status: string;
+  message: string;
+  data: Certificate[];
 }

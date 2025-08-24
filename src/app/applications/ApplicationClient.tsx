@@ -7,10 +7,64 @@ import {
 } from "@/components/layouts/auth-layer-out";
 import { Application, ApplicationResponse } from "@/types";
 
+interface CollapsibleSectionProps {
+  title: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}
+
+function CollapsibleSection({
+  title,
+  children,
+  defaultOpen = true,
+}: CollapsibleSectionProps) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  return (
+    <div className="border border-gray-200 dark:border-gray-700 rounded-lg">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors rounded-lg"
+      >
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+          {title}
+        </h3>
+        <svg
+          className={`w-5 h-5 transform transition-transform ${
+            isOpen ? "rotate-180" : ""
+          }`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M19 9l-7 7-7-7"
+          />
+        </svg>
+      </button>
+      {isOpen && (
+        <div className="p-4 bg-white dark:bg-gray-800 rounded-b-lg">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ApplicationClient() {
   const [application, setApplication] = useState<Application | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    application: true,
+    member: true,
+    documents: true,
+    declaration: false,
+    countries: false,
+  });
 
   useEffect(() => {
     fetchApplication();
@@ -86,6 +140,13 @@ export default function ApplicationClient() {
     return value ? "Yes" : "No";
   };
 
+  const toggleSection = (section: string) => {
+    setOpenSections((prev) => ({
+      ...prev,
+      [section]: !prev[section],
+    }));
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
@@ -106,9 +167,7 @@ export default function ApplicationClient() {
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-6 text-center">
-            <div className="text-red-600 dark:text-red-400 text-2xl mb-2">
-              ⚠️
-            </div>
+            <div className="text-red-600 dark:bg-red-400 text-2xl mb-2">⚠️</div>
             <h3 className="text-red-800 dark:text-red-200 font-medium mb-2">
               Error Loading Application
             </h3>
@@ -158,17 +217,13 @@ export default function ApplicationClient() {
           </p>
         </div>
 
-        {/* Application Card */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-          {/* Application Header */}
-          <div className="flex items-center justify-between mb-6">
+        {/* Application Header Card */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
+          <div className="flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
                 {application.member}
               </h2>
-              <p className="text-gray-500 dark:text-gray-400">
-                Application ID: {application.id}
-              </p>
             </div>
             <span
               className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${getStatusColor(
@@ -178,14 +233,13 @@ export default function ApplicationClient() {
               {application.application_status}
             </span>
           </div>
+        </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Application Details */}
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Application Details
-              </h3>
-
+        {/* Collapsible Sections */}
+        <div className="space-y-4">
+          {/* Application Details Section */}
+          <CollapsibleSection title="Application Details" defaultOpen={true}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-3">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -213,7 +267,9 @@ export default function ApplicationClient() {
                     {application.forensic_field_of_practice}
                   </p>
                 </div>
+              </div>
 
+              <div className="space-y-3">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
                     Organization
@@ -232,15 +288,22 @@ export default function ApplicationClient() {
                     {application.country_of_residency}
                   </p>
                 </div>
+
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Company Email
+                  </p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    {application.company_email}
+                  </p>
+                </div>
               </div>
             </div>
+          </CollapsibleSection>
 
-            {/* Member Details */}
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Member Information
-              </h3>
-
+          {/* Member Information Section */}
+          <CollapsibleSection title="Member Information" defaultOpen={true}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-3">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -268,7 +331,9 @@ export default function ApplicationClient() {
                     {application.member_details.phone_number}
                   </p>
                 </div>
+              </div>
 
+              <div className="space-y-3">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
                     National ID
@@ -288,16 +353,23 @@ export default function ApplicationClient() {
                     ).toLocaleDateString()}
                   </p>
                 </div>
+
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Account Status
+                  </p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    {application.member_details.verified
+                      ? "Verified"
+                      : "Pending Verification"}
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
+          </CollapsibleSection>
 
           {/* Documents Section */}
-          <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Documents
-            </h3>
-
+          <CollapsibleSection title="Documents">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
                 <div className="flex items-center space-x-3">
@@ -349,14 +421,10 @@ export default function ApplicationClient() {
                 </a>
               </div>
             </div>
-          </div>
+          </CollapsibleSection>
 
           {/* Declaration Section */}
-          <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Declaration
-            </h3>
-
+          <CollapsibleSection title="Declaration">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div>
                 <p className="text-gray-600 dark:text-gray-400">
@@ -391,15 +459,12 @@ export default function ApplicationClient() {
                 </p>
               </div>
             </div>
-          </div>
+          </CollapsibleSection>
 
-          {/* Countries of Practice */}
+          {/* Countries of Practice Section */}
           {application.countriesOfPractice &&
             application.countriesOfPractice.length > 0 && (
-              <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                  Countries of Practice
-                </h3>
+              <CollapsibleSection title="Countries of Practice">
                 <div className="flex flex-wrap gap-2">
                   {application.countriesOfPractice.map((country) => (
                     <span
@@ -410,7 +475,7 @@ export default function ApplicationClient() {
                     </span>
                   ))}
                 </div>
-              </div>
+              </CollapsibleSection>
             )}
         </div>
 
