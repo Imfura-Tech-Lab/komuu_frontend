@@ -20,10 +20,14 @@ import { Header } from "./Header";
 import { Sidebar } from "./Sidebar";
 import { StatusAlerts } from "./StatusAlerts";
 
+// Environment constants
+export const isDev = process.env.NODE_ENV === 'development';
+export const isProd = process.env.NODE_ENV === 'production';
+
 interface SecureDashboardLayoutProps {
   children: React.ReactNode;
-  requiredRoles?: UserRole[]; // Use UserRole type
-  requiredPermissions?: Permission[]; // Use Permission type
+  requiredRoles?: UserRole[];
+  requiredPermissions?: Permission[];
 }
 
 const AUTO_LOGOUT_TIMEOUT = 30 * 60 * 1000;
@@ -40,6 +44,7 @@ export default function SecureDashboardLayout({
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [lastActivity, setLastActivity] = useState(Date.now());
   const [authInitialized, setAuthInitialized] = useState(false);
+  const [debugExpanded, setDebugExpanded] = useState(false);
 
   const router = useRouter();
   const pathname = usePathname();
@@ -73,7 +78,6 @@ export default function SecureDashboardLayout({
 
   // Enhanced role description
   const getRoleDescription = useCallback((role: UserRole) => {
-    // Use UserRole type
     const descriptions: Record<UserRole, string> = {
       Administrator: "Full system access & management",
       President: "Executive access with certificate authority",
@@ -133,9 +137,8 @@ export default function SecureDashboardLayout({
   // Enhanced permission and role checking
   const hasPermission = useCallback(
     (permission: Permission): boolean => {
-      // Use Permission type
       if (!userData) return false;
-      // @ts-ignore
+        // @ts-ignore
       return ROLE_PERMISSIONS[userData.role]?.includes(permission) ?? false;
     },
     [userData]
@@ -143,14 +146,13 @@ export default function SecureDashboardLayout({
 
   const hasRoleLevel = useCallback(
     (requiredRole: UserRole): boolean => {
-      // Use UserRole type
       if (!userData) return false;
       return ROLE_HIERARCHY[userData.role] >= ROLE_HIERARCHY[requiredRole];
     },
     [userData]
   );
 
-  // Enhanced token validation - more tolerant of network errors
+  // Enhanced token validation
   const validateTokenWithBackend = useCallback(async (token: string) => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
@@ -163,22 +165,20 @@ export default function SecureDashboardLayout({
       });
 
       if (!response.ok) {
-        // Only logout for explicit auth failures, not network errors
         if (response.status === 401 || response.status === 403) {
           console.warn("Token validation failed - authentication error");
           throw new Error("Authentication failed");
         }
 
-        // For other errors (500, network issues, etc.), warn but don't logout
         console.warn(
           `Profile fetch failed with status ${response.status}, but continuing with stored data`
         );
-        return false; // Indicate validation failed but don't throw
+        return false;
       }
 
       const data = await response.json();
       if (data.data || data.user) {
-        const updatedUserData: UserData = data.data || data.user; // Ensure type
+        const updatedUserData: UserData = data.data || data.user;
         localStorage.setItem("user_data", JSON.stringify(updatedUserData));
         setUserData(updatedUserData);
         return true;
@@ -186,7 +186,6 @@ export default function SecureDashboardLayout({
 
       return false;
     } catch (error) {
-      // Only throw for authentication errors, not network errors
       if (error instanceof Error && error.message === "Authentication failed") {
         localStorage.removeItem("auth_token");
         localStorage.removeItem("user_data");
@@ -194,41 +193,8 @@ export default function SecureDashboardLayout({
         throw error;
       }
 
-      // For network errors, just log and continue
       console.warn("Token validation failed due to network error:", error);
       return false;
-    }
-  }, []);
-
-  // Token refresh functionality
-  const refreshAuthToken = useCallback(async (refreshToken: string) => {
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
-      const response = await fetch(`${apiUrl}refresh`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ refresh_token: refreshToken }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Token refresh failed");
-      }
-
-      const data = await response.json();
-      if (data.access_token) {
-        localStorage.setItem("auth_token", data.access_token);
-        if (data.refresh_token) {
-          localStorage.setItem("refresh_token", data.refresh_token);
-        }
-        return data.access_token;
-      }
-
-      throw new Error("Invalid refresh response");
-    } catch (error) {
-      console.error("Token refresh failed:", error);
-      throw error;
     }
   }, []);
 
@@ -243,7 +209,6 @@ export default function SecureDashboardLayout({
         const token = localStorage.getItem("auth_token");
         const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
 
-        // Try to call logout endpoint, but don't block on failure
         if (token && apiUrl) {
           try {
             await fetch(`${apiUrl}logout`, {
@@ -255,21 +220,17 @@ export default function SecureDashboardLayout({
             });
           } catch (error) {
             console.warn("Logout API call failed:", error);
-            // Continue with logout even if API call fails
           }
         }
       } finally {
-        // Clear all auth data
         localStorage.removeItem("auth_token");
         localStorage.removeItem("user_data");
         localStorage.removeItem("refresh_token");
 
-        // Clear activity timeout
         if (activityTimeoutRef.current) {
           clearTimeout(activityTimeoutRef.current);
         }
 
-        // Reset state
         setUserData(null);
         setAuthInitialized(false);
 
@@ -284,7 +245,7 @@ export default function SecureDashboardLayout({
     [isLoggingOut, router]
   );
 
-  // Auto-logout timer - only start after auth is initialized
+  // Auto-logout timer
   useEffect(() => {
     if (!userData || !authInitialized) return;
 
@@ -301,7 +262,6 @@ export default function SecureDashboardLayout({
         return;
       }
 
-      // Schedule next check
       const timeUntilLogout = AUTO_LOGOUT_TIMEOUT - timeSinceLastActivity;
       activityTimeoutRef.current = setTimeout(
         checkActivity,
@@ -309,7 +269,6 @@ export default function SecureDashboardLayout({
       );
     };
 
-    // Start the activity check
     checkActivity();
 
     return () => {
@@ -319,7 +278,7 @@ export default function SecureDashboardLayout({
     };
   }, [userData, lastActivity, authInitialized, handleLogout]);
 
-  // Enhanced authentication check - run only once on mount
+  // Authentication check
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -343,7 +302,6 @@ export default function SecureDashboardLayout({
           return;
         }
 
-        // Validate user data structure
         if (
           !parsedUserData.id ||
           !parsedUserData.role ||
@@ -383,7 +341,7 @@ export default function SecureDashboardLayout({
           }
         }
 
-        // Enhanced force password change check
+        // Force password change check
         if (
           !parsedUserData.has_changed_password &&
           pathname !== "/change-password"
@@ -414,11 +372,9 @@ export default function SecureDashboardLayout({
           return;
         }
 
-        // Set user data from localStorage first
         setUserData(parsedUserData);
         setAuthInitialized(true);
 
-        // Try to validate token with backend, but don't block on failure
         try {
           await validateTokenWithBackend(token);
         } catch (error) {
@@ -436,10 +392,8 @@ export default function SecureDashboardLayout({
       }
     };
 
-    // Only run on mount
     checkAuth();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty dependency array - only run once
+  }, []);
 
   const handleProfileClick = useCallback(() => {
     router.push("/profile");
@@ -480,6 +434,13 @@ export default function SecureDashboardLayout({
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Environment Banner - Only show in development */}
+      {isDev && (
+        <div className="bg-yellow-100 text-yellow-800 text-center py-2 px-4 text-sm font-medium border-b">
+          DEVELOPMENT MODE - API: {process.env.NEXT_PUBLIC_BACKEND_API_URL}
+        </div>
+      )}
+
       {/* Sidebar */}
       <Sidebar
         sidebarOpen={sidebarOpen}
@@ -510,10 +471,11 @@ export default function SecureDashboardLayout({
         />
 
         {/* Account Status Alerts */}
-        <StatusAlerts userData={userData} 
+        
+        <StatusAlerts 
+        userData={userData} 
         // @ts-ignore
-        router={router}
-         />
+        router={router} />
 
         {/* Main content area */}
         <main className="flex-1 py-6">
@@ -523,50 +485,72 @@ export default function SecureDashboardLayout({
         </main>
       </div>
 
-      {/* Enhanced debug panel */}
-      {process.env.NODE_ENV === "development" && userData && (
-        <div className="fixed bottom-4 right-4 bg-gray-800 text-white p-4 rounded-lg text-xs max-w-sm opacity-90 hover:opacity-100 transition-opacity z-50">
-          <h4 className="font-bold mb-2">Debug: User Data</h4>
-          <div className="space-y-1">
-            <p>
-              <strong>ID:</strong> {userData.id}
-            </p>
-            <p>
-              <strong>Role:</strong> {userData.role}
-            </p>
-            <p>
-              <strong>Hierarchy Level:</strong> {ROLE_HIERARCHY[userData.role]}
-            </p>
-            <p>
-              <strong>Verified:</strong> {userData.verified ? "Yes" : "No"}
-            </p>
-            <p>
-              <strong>Active:</strong> {userData.active ? "Yes" : "No"}
-            </p>
-            <p>
-              <strong>Auth Initialized:</strong>{" "}
-              {authInitialized ? "Yes" : "No"}
-            </p>
-            <p>
-              <strong>Application Status:</strong>{" "}
-              {userData.application_status || "N/A"}
-            </p>
-            <p>
-              <strong>Permissions:</strong>
-            </p>
-            <ul className="ml-4 text-xs max-h-32 overflow-y-auto list-disc list-inside">
-              {ROLE_PERMISSIONS[userData.role]?.map((perm) => (
-                <li key={perm}>{perm}</li>
-              ))}
-            </ul>
-            <p>
-              <strong>Current Path:</strong> {pathname}
-            </p>
-            <p>
-              <strong>Last Activity:</strong>{" "}
-              {new Date(lastActivity).toLocaleTimeString()}
-            </p>
-          </div>
+      {/* Debug panel - Only show in development */}
+      {isDev && userData && (
+        <div className="fixed bottom-4 right-4 bg-gray-800 text-white rounded-lg overflow-hidden opacity-90 hover:opacity-100 transition-opacity z-50 shadow-lg">
+          <button
+            onClick={() => setDebugExpanded(!debugExpanded)}
+            className="w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 flex items-center justify-between text-sm font-medium"
+          >
+            <span>Debug Info</span>
+            <svg
+              className={`w-4 h-4 transform transition-transform ${debugExpanded ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          
+          {debugExpanded && (
+            <div className="p-4 max-w-sm max-h-96 overflow-y-auto">
+              <h4 className="font-bold mb-2 text-xs uppercase tracking-wide">User Data</h4>
+              <div className="space-y-1 text-xs">
+                <p>
+                  <strong>ID:</strong> {userData.id}
+                </p>
+                <p>
+                  <strong>Role:</strong> {userData.role}
+                </p>
+                <p>
+                  <strong>Hierarchy Level:</strong> {ROLE_HIERARCHY[userData.role]}
+                </p>
+                <p>
+                  <strong>Verified:</strong> {userData.verified ? "Yes" : "No"}
+                </p>
+                <p>
+                  <strong>Active:</strong> {userData.active ? "Yes" : "No"}
+                </p>
+                <p>
+                  <strong>Auth Initialized:</strong>{" "}
+                  {authInitialized ? "Yes" : "No"}
+                </p>
+                <p>
+                  <strong>Application Status:</strong>{" "}
+                  {userData.application_status || "N/A"}
+                </p>
+                <div>
+                  <strong>Permissions:</strong>
+                  <ul className="ml-4 mt-1 list-disc list-inside">
+                    {ROLE_PERMISSIONS[userData.role]?.map((perm) => (
+                      <li key={perm}>{perm}</li>
+                    ))}
+                  </ul>
+                </div>
+                <p>
+                  <strong>Current Path:</strong> {pathname}
+                </p>
+                <p>
+                  <strong>Last Activity:</strong>{" "}
+                  {new Date(lastActivity).toLocaleTimeString()}
+                </p>
+                <p>
+                  <strong>Environment:</strong> {isDev ? 'Development' : 'Production'}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
