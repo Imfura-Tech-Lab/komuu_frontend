@@ -275,9 +275,7 @@ function PaymentCard({
             View Details
           </button>
           <button
-            onClick={() =>
-              (window.location.href = `/my-payments/${payment.id}`)
-            }
+            onClick={() => (window.location.href = `/payments/${payment.id}`)}
             className="w-full px-3 py-2 text-sm bg-[#00B5A5] hover:bg-[#009985] text-white rounded-md transition-colors"
           >
             View Full Payment
