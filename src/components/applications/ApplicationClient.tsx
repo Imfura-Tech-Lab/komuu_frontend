@@ -6,7 +6,8 @@ import {
   showErrorToast,
   showSuccessToast,
 } from "@/components/layouts/auth-layer-out";
-import { Application, ApplicationResponse } from "@/types";
+import { Application } from "@/types";
+import { User } from './../../services/auth-service';
 
 interface CollapsibleSectionProps {
   title: string;
@@ -64,6 +65,7 @@ interface ApplicationCardProps {
   getStatusColor: (status: string) => string;
   formatDate: (dateString: string) => string;
   formatBoolean: (value: boolean) => string;
+  userRole: string;
   router: any;
 }
 
