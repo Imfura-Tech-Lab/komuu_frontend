@@ -5,7 +5,7 @@ import SecureDashboardLayout from "@/components/dashboard/secure-dashboard-layou
 export default function MyApplicationPage() {
   return (
     <SecureDashboardLayout requiredRoles={["Member"]}>
-      <Suspense fallback={<div>Loading your application...</div>}>
+      <Suspense>
         <ApplicationClient />
       </Suspense>
     </SecureDashboardLayout>
