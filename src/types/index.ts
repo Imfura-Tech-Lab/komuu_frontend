@@ -226,28 +226,28 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
       },
       {
         name: "Member",
-        href: "/board/members",
+        href: "/members",
         permission: "view_all_members",
         icon: "members",
         description: "View all members",
       },
       {
         name: "Payment",
-        href: "/board/payments",
+        href: "/payments",
         permission: "view_all_payments",
         icon: "payments",
         description: "View payment records",
       },
       {
         name: "Certificates",
-        href: "/board/certificates",
+        href: "/certificates",
         permission: "view_all_certificates",
         icon: "certificates",
         description: "View issued certificates",
       },
       {
         name: "Policy Management",
-        href: "/board/policies",
+        href: "/policies",
         permission: "policy_decisions",
         icon: "policies",
         description: "Organizational policies",
@@ -255,7 +255,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
     ],
     Member: [
       {
-        name: "Applications",
+        name: "Application",
         href: "/my-application",
         permission: "view_own_payments",
         icon: "applications",
@@ -263,14 +263,14 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
       },
       {
         name: "Payments",
-        href: "/payments",
+        href: "/my-payments",
         permission: "view_own_payments",
         icon: "payments",
         description: "View your payment history",
       },
       {
         name: "Certificates",
-        href: "/certificates",
+        href: "/my-certificates",
         permission: "view_own_certificates",
         icon: "certificates",
         description: "View your certificates",

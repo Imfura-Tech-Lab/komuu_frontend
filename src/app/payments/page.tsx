@@ -1,15 +1,12 @@
-import { Suspense } from "react";
-import CertificatesClient from "@/components/certificates/certificates-client";
 import SecureDashboardLayout from "@/components/dashboard/secure-dashboard-layout";
+import PaymentsClient from "@/components/payments/payments-client";
 
-export default function CertificatesPage() {
+export default function PaymentsPage() {
   return (
     <SecureDashboardLayout
       requiredRoles={["Administrator", "Board", "President"]}
     >
-      <Suspense>
-        <CertificatesClient />
-      </Suspense>
+      <PaymentsClient />
     </SecureDashboardLayout>
   );
 }
