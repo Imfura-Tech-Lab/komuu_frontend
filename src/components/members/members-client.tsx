@@ -9,15 +9,24 @@ import {
 
 interface Member {
   id: string;
-  name: string;
-  email: string;
-  phone_number: string;
-  role: string;
-  verified: boolean;
-  active: boolean;
-  has_changed_password: boolean;
-  date_of_birth: string;
-  national_ID: string;
+  title?: string;
+  surname: string;
+  first_name: string;
+  middle_name?: string;
+  incompliance: boolean;
+  membership_type: string;
+  membership_number: string;
+  certificate_status: string;
+  country_of_residency: string;
+  application_status: string;
+  email?: string;
+  phone_number?: string;
+  role?: string;
+  verified?: boolean;
+  active?: boolean;
+  has_changed_password?: boolean;
+  date_of_birth?: string;
+  national_ID?: string;
   passport?: string;
   whatsapp_number?: string;
   secondary_email?: string;
@@ -49,13 +58,25 @@ function MemberCard({
       .toUpperCase();
   };
 
+  const getFullName = (member: Member) => {
+    const parts = [
+      member.title,
+      member.first_name,
+      member.middle_name,
+      member.surname,
+    ].filter(Boolean);
+    return parts.join(" ");
+  };
+
+  const fullName = getFullName(member);
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow">
       <div className="p-6">
         <div className="flex items-start space-x-4">
           <div className="w-12 h-12 bg-[#00B5A5] rounded-full flex items-center justify-center flex-shrink-0">
             <span className="text-white font-semibold text-sm">
-              {getUserInitials(member.name)}
+              {getUserInitials(fullName)}
             </span>
           </div>
 
@@ -64,43 +85,61 @@ function MemberCard({
               onClick={() => onMemberClick(member.id)}
               className="text-lg font-semibold text-gray-900 dark:text-white hover:text-[#00B5A5] transition-colors text-left truncate block w-full"
             >
-              {member.name}
+              {fullName}
             </button>
 
-            <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-              {member.email}
+            <p className="text-sm text-gray-600 dark:text-gray-400 truncate mt-1">
+              {member.email || "No email provided"}
             </p>
+            {member.phone_number && (
+              <p className="text-sm text-gray-600 dark:text-gray-400 truncate mt-0.5">
+                Phone: {member.phone_number}
+              </p>
+            )}
 
-            <div className="flex items-center space-x-2 mt-2">
+            <div className="flex flex-wrap items-center space-x-2 mt-2 gap-y-1">
               <span
                 className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getRoleColor(
-                  member.role
+                  member.membership_type
                 )}`}
               >
-                {member.role}
+                {member.membership_type}
               </span>
 
-              {member.verified && (
+              {member.certificate_status === "Approved" && (
                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                  Approved
+                </span>
+              )}
+
+              {member.application_status === "Pending" && (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300">
+                  Pending
+                </span>
+              )}
+
+              {!member.incompliance && (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
+                  Non-compliant
+                </span>
+              )}
+
+              {member.verified && (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
                   Verified
                 </span>
               )}
-
-              {!member.active && (
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
-                  Inactive
-                </span>
-              )}
             </div>
 
-            <div className="flex items-center justify-between mt-3">
-              <span className="text-xs text-gray-500 dark:text-gray-400">
-                ID: {member.national_ID}
-              </span>
-              <span className="text-xs text-gray-500 dark:text-gray-400">
-                {member.phone_number}
-              </span>
+            <div className="flex items-center justify-between mt-3 text-xs text-gray-500 dark:text-gray-400">
+              <span>{member.membership_number}</span>
+              <span>{member.country_of_residency}</span>
             </div>
+            {member.created_at && (
+              <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 text-right">
+                Joined: {formatDate(member.created_at)}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -113,7 +152,7 @@ export default function MembersClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [roleFilter, setRoleFilter] = useState("all");
+  const [membershipTypeFilter, setMembershipTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
 
   const router = useRouter();
@@ -148,7 +187,6 @@ export default function MembersClient() {
       const data = await response.json();
 
       if (data.status === "success") {
-        // Handle both paginated and non-paginated responses
         const membersData = data.data?.data || data.data || [];
         setMembers(Array.isArray(membersData) ? membersData : []);
       } else {
@@ -163,18 +201,18 @@ export default function MembersClient() {
     }
   };
 
-  const getRoleColor = (role: string) => {
-    switch (role.toLowerCase()) {
-      case "administrator":
-        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
-      case "president":
-        return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300";
-      case "board":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300";
-      case "member":
+  const getRoleColor = (membershipType: string) => {
+    switch (membershipType.toLowerCase()) {
+      case "full member":
         return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
-      case "pending":
-        return "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300";
+      case "associate member":
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300";
+      case "student member":
+        return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300";
+      case "honorary member":
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300";
+      case "corporate member":
+        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
       default:
         return "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300";
     }
@@ -192,46 +230,58 @@ export default function MembersClient() {
     router.push(`/members/${memberId}`);
   };
 
-  // Filter members based on search and filters
   const filteredMembers = members.filter((member) => {
+    const fullName = `${member.title || ""} ${member.first_name} ${
+      member.middle_name || ""
+    } ${member.surname}`.toLowerCase();
     const matchesSearch =
-      member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      member.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      member.national_ID.includes(searchTerm);
+      fullName.includes(searchTerm.toLowerCase()) ||
+      (member.email &&
+        member.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      member.membership_number
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      member.country_of_residency
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
 
-    const matchesRole =
-      roleFilter === "all" ||
-      member.role.toLowerCase() === roleFilter.toLowerCase();
+    const matchesMembershipType =
+      membershipTypeFilter === "all" ||
+      member.membership_type.toLowerCase() ===
+        membershipTypeFilter.toLowerCase();
 
     const matchesStatus =
       statusFilter === "all" ||
-      (statusFilter === "active" && member.active) ||
-      (statusFilter === "inactive" && !member.active) ||
-      (statusFilter === "verified" && member.verified) ||
-      (statusFilter === "unverified" && !member.verified);
+      (statusFilter === "approved" &&
+        member.certificate_status === "Approved") ||
+      (statusFilter === "pending" && member.application_status === "Pending") ||
+      (statusFilter === "compliant" && member.incompliance) ||
+      (statusFilter === "non-compliant" && !member.incompliance);
 
-    return matchesSearch && matchesRole && matchesStatus;
+    return matchesSearch && matchesMembershipType && matchesStatus;
   });
 
-  const getRoleStats = () => {
+  const getMembershipStats = () => {
     const stats = members.reduce(
       (acc, member) => {
-        const role = member.role.toLowerCase();
-        acc[role] = (acc[role] || 0) + 1;
+        const type = member.membership_type.toLowerCase();
+        acc[type] = (acc[type] || 0) + 1;
         acc.total++;
-        acc.active += member.active ? 1 : 0;
-        acc.verified += member.verified ? 1 : 0;
+        acc.approved += member.certificate_status === "Approved" ? 1 : 0;
+        acc.compliant += member.incompliance ? 1 : 0;
+        acc.pending += member.application_status === "Pending" ? 1 : 0;
         return acc;
       },
       {
         total: 0,
-        active: 0,
-        verified: 0,
-        administrator: 0,
-        president: 0,
-        board: 0,
-        member: 0,
+        approved: 0,
+        compliant: 0,
         pending: 0,
+        "full member": 0,
+        "associate member": 0,
+        "student member": 0,
+        "honorary member": 0,
+        "corporate member": 0,
       } as Record<string, number>
     );
     return stats;
@@ -276,12 +326,11 @@ export default function MembersClient() {
     );
   }
 
-  const stats = getRoleStats();
+  const stats = getMembershipStats();
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
             Members
@@ -291,7 +340,6 @@ export default function MembersClient() {
           </p>
         </div>
 
-        {/* Statistics Overview */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
             <div className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -303,21 +351,25 @@ export default function MembersClient() {
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
             <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-              {stats.active}
+              {stats.approved}
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Active</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Approved</p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
             <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-              {stats.verified}
+              {stats.compliant}
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Verified</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Compliant
+            </p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
             <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-              {stats.member || 0}
+              {stats["full member"] || 0}
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Members</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Full Members
+            </p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
             <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
@@ -327,10 +379,8 @@ export default function MembersClient() {
           </div>
         </div>
 
-        {/* Search and Filters */}
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Search */}
             <div>
               <label
                 htmlFor="search"
@@ -359,36 +409,34 @@ export default function MembersClient() {
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search by name, email, or ID..."
+                  placeholder="Search by name, email, membership number..."
                   className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent"
                 />
               </div>
             </div>
 
-            {/* Role Filter */}
             <div>
               <label
-                htmlFor="role-filter"
+                htmlFor="membership-type-filter"
                 className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
               >
-                Filter by Role
+                Filter by Membership Type
               </label>
               <select
-                id="role-filter"
-                value={roleFilter}
-                onChange={(e) => setRoleFilter(e.target.value)}
+                id="membership-type-filter"
+                value={membershipTypeFilter}
+                onChange={(e) => setMembershipTypeFilter(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent"
               >
-                <option value="all">All Roles</option>
-                <option value="administrator">Administrator</option>
-                <option value="president">President</option>
-                <option value="board">Board</option>
-                <option value="member">Member</option>
-                <option value="pending">Pending</option>
+                <option value="all">All Types</option>
+                <option value="full member">Full Member</option>
+                <option value="associate member">Associate Member</option>
+                <option value="student member">Student Member</option>
+                <option value="honorary member">Honorary Member</option>
+                <option value="corporate member">Corporate Member</option>
               </select>
             </div>
 
-            {/* Status Filter */}
             <div>
               <label
                 htmlFor="status-filter"
@@ -403,23 +451,21 @@ export default function MembersClient() {
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent"
               >
                 <option value="all">All Status</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-                <option value="verified">Verified</option>
-                <option value="unverified">Unverified</option>
+                <option value="approved">Approved</option>
+                <option value="pending">Pending</option>
+                <option value="compliant">Compliant</option>
+                <option value="non-compliant">Non-compliant</option>
               </select>
             </div>
           </div>
         </div>
 
-        {/* Results Summary */}
         <div className="mb-6">
           <p className="text-sm text-gray-600 dark:text-gray-400">
             Showing {filteredMembers.length} of {members.length} members
           </p>
         </div>
 
-        {/* Members Grid */}
         {filteredMembers.length === 0 ? (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8 text-center">
             <div className="text-gray-400 dark:text-gray-500 text-4xl mb-4">
@@ -429,7 +475,9 @@ export default function MembersClient() {
               No Members Found
             </h3>
             <p className="text-gray-600 dark:text-gray-400 text-sm">
-              {searchTerm || roleFilter !== "all" || statusFilter !== "all"
+              {searchTerm ||
+              membershipTypeFilter !== "all" ||
+              statusFilter !== "all"
                 ? "Try adjusting your search or filters"
                 : "No members are available"}
             </p>
@@ -448,7 +496,6 @@ export default function MembersClient() {
           </div>
         )}
 
-        {/* Refresh Button */}
         <div className="mt-8 text-center">
           <button
             onClick={fetchMembers}

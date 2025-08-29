@@ -255,7 +255,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
     ],
     Member: [
       {
-        name: "Applications",
+        name: "Application",
         href: "/my-application",
         permission: "view_own_payments",
         icon: "applications",
@@ -263,14 +263,14 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
       },
       {
         name: "Payments",
-        href: "/payments",
+        href: "/my-payments",
         permission: "view_own_payments",
         icon: "payments",
         description: "View your payment history",
       },
       {
         name: "Certificates",
-        href: "/certificates",
+        href: "/my-certificates",
         permission: "view_own_certificates",
         icon: "certificates",
         description: "View your certificates",
