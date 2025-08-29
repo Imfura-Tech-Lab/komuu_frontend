@@ -379,50 +379,22 @@ export default function MyCertificatesClient() {
       console.log("API URL:", `${apiUrl}membership/certificates?page=${page}`);
       console.log("Request timestamp:", new Date().toISOString());
 
-      const response = await fetch(`${apiUrl}membership/certificates?page=${page}`, {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await fetch(
+        `${apiUrl}membership/certificates?page=${page}`,
+        {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const responseData = await response.json();
-      
-      // Clean logging of the paginated response
-      console.log("Response Status:", response.status);
-      console.log("API Response Structure:", {
-        status: responseData.status,
-        message: responseData.message,
-        hasData: !!responseData.data,
-        pagination: {
-          currentPage: responseData.data?.current_page,
-          totalPages: responseData.data?.last_page,
-          totalCertificates: responseData.data?.total,
-          perPage: responseData.data?.per_page,
-          from: responseData.data?.from,
-          to: responseData.data?.to
-        }
-      });
-      
-      if (responseData.data?.data && Array.isArray(responseData.data.data)) {
-        console.log("Certificates Summary:", responseData.data.data.map((cert, index) => ({
-          index,
-          id: cert.id,
-          memberNumber: cert.member_number,
-          status: cert.status,
-          membershipTerm: cert.membership_term,
-          validUntil: cert.valid_until,
-          hasCertificateFile: !!cert.certificate,
-          hasPayment: !!cert.payment
-        })));
-      }
-      console.groupEnd();
-
       if (responseData.status === "success") {
         setCertificatesData(responseData.data);
       } else {
@@ -432,9 +404,11 @@ export default function MyCertificatesClient() {
       console.error("Failed to fetch certificates:", {
         page,
         error: err instanceof Error ? err.message : "Unknown error",
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
-      setError(err instanceof Error ? err.message : "Failed to fetch certificates");
+      setError(
+        err instanceof Error ? err.message : "Failed to fetch certificates"
+      );
       showErrorToast("Failed to load certificates");
     } finally {
       setLoading(false);
@@ -449,7 +423,7 @@ export default function MyCertificatesClient() {
 
     try {
       setDownloadingId(certificate.id);
-      
+
       // If certificate.certificate is a URL, open it
       if (certificate.certificate.startsWith("http")) {
         window.open(certificate.certificate, "_blank");
@@ -459,7 +433,7 @@ export default function MyCertificatesClient() {
         const downloadUrl = `${apiUrl}download/certificate/${certificate.certificate}`;
         window.open(downloadUrl, "_blank");
       }
-      
+
       showSuccessToast("Certificate download initiated");
     } catch (err) {
       console.error("Download error:", err);
@@ -500,21 +474,25 @@ export default function MyCertificatesClient() {
   };
 
   const getCertificateStats = () => {
-    if (!certificatesData?.data) return { total: 0, approved: 0, pending: 0, active: 0, expired: 0 };
-    
-    const stats = certificatesData.data.reduce((acc, cert) => {
-      acc.total++;
-      if (cert.status === "Approved") acc.approved++;
-      if (cert.status === "Pending") acc.pending++;
-      
-      const validUntil = new Date(cert.valid_until);
-      const today = new Date();
-      if (validUntil < today) acc.expired++;
-      else acc.active++;
-      
-      return acc;
-    }, { total: 0, approved: 0, pending: 0, active: 0, expired: 0 });
-    
+    if (!certificatesData?.data)
+      return { total: 0, approved: 0, pending: 0, active: 0, expired: 0 };
+
+    const stats = certificatesData.data.reduce(
+      (acc, cert) => {
+        acc.total++;
+        if (cert.status === "Approved") acc.approved++;
+        if (cert.status === "Pending") acc.pending++;
+
+        const validUntil = new Date(cert.valid_until);
+        const today = new Date();
+        if (validUntil < today) acc.expired++;
+        else acc.active++;
+
+        return acc;
+      },
+      { total: 0, approved: 0, pending: 0, active: 0, expired: 0 }
+    );
+
     return stats;
   };
 
@@ -528,9 +506,10 @@ export default function MyCertificatesClient() {
     return (
       <div className="flex items-center justify-between mt-6">
         <div className="text-sm text-gray-700 dark:text-gray-300">
-          Showing {certificatesData.from} to {certificatesData.to} of {certificatesData.total} certificates
+          Showing {certificatesData.from} to {certificatesData.to} of{" "}
+          {certificatesData.total} certificates
         </div>
-        
+
         <div className="flex items-center space-x-2">
           <button
             onClick={() => handlePageChange(currentPage - 1)}
@@ -539,8 +518,11 @@ export default function MyCertificatesClient() {
           >
             Previous
           </button>
-          
-          {Array.from({ length: certificatesData.last_page }, (_, i) => i + 1).map((page) => (
+
+          {Array.from(
+            { length: certificatesData.last_page },
+            (_, i) => i + 1
+          ).map((page) => (
             <button
               key={page}
               onClick={() => handlePageChange(page)}
@@ -553,7 +535,7 @@ export default function MyCertificatesClient() {
               {page}
             </button>
           ))}
-          
+
           <button
             onClick={() => handlePageChange(currentPage + 1)}
             disabled={!certificatesData.next_page_url}
@@ -594,6 +576,7 @@ export default function MyCertificatesClient() {
             </h3>
             <p className="text-red-600 dark:text-red-300 text-sm">{error}</p>
             <button
+              // @ts-ignore
               onClick={fetchCertificates}
               className="mt-4 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors"
             >
