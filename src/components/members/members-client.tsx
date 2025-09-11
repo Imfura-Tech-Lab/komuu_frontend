@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   showErrorToast,
   showSuccessToast,
 } from "@/components/layouts/auth-layer-out";
+import { BaseTable, BaseTableColumn } from "../ui/BaseTable";
 
 interface Member {
   id: string;
@@ -36,124 +37,10 @@ interface Member {
   updated_at?: string;
 }
 
-interface MemberCardProps {
-  member: Member;
-  onMemberClick: (memberId: string) => void;
-  getRoleColor: (role: string) => string;
-  formatDate: (dateString: string) => string;
-}
-
-function MemberCard({
-  member,
-  onMemberClick,
-  getRoleColor,
-  formatDate,
-}: MemberCardProps) {
-  const getUserInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .substring(0, 2)
-      .toUpperCase();
-  };
-
-  const getFullName = (member: Member) => {
-    const parts = [
-      member.title,
-      member.first_name,
-      member.middle_name,
-      member.surname,
-    ].filter(Boolean);
-    return parts.join(" ");
-  };
-
-  const fullName = getFullName(member);
-
-  return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow">
-      <div className="p-6">
-        <div className="flex items-start space-x-4">
-          <div className="w-12 h-12 bg-[#00B5A5] rounded-full flex items-center justify-center flex-shrink-0">
-            <span className="text-white font-semibold text-sm">
-              {getUserInitials(fullName)}
-            </span>
-          </div>
-
-          <div className="flex-1 min-w-0">
-            <button
-              onClick={() => onMemberClick(member.id)}
-              className="text-lg font-semibold text-gray-900 dark:text-white hover:text-[#00B5A5] transition-colors text-left truncate block w-full"
-            >
-              {fullName}
-            </button>
-
-            <p className="text-sm text-gray-600 dark:text-gray-400 truncate mt-1">
-              {member.email || "No email provided"}
-            </p>
-            {member.phone_number && (
-              <p className="text-sm text-gray-600 dark:text-gray-400 truncate mt-0.5">
-                Phone: {member.phone_number}
-              </p>
-            )}
-
-            <div className="flex flex-wrap items-center space-x-2 mt-2 gap-y-1">
-              <span
-                className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getRoleColor(
-                  member.membership_type
-                )}`}
-              >
-                {member.membership_type}
-              </span>
-
-              {member.certificate_status === "Approved" && (
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
-                  Approved
-                </span>
-              )}
-
-              {member.application_status === "Pending" && (
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300">
-                  Pending
-                </span>
-              )}
-
-              {!member.incompliance && (
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
-                  Non-compliant
-                </span>
-              )}
-
-              {member.verified && (
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-                  Verified
-                </span>
-              )}
-            </div>
-
-            <div className="flex items-center justify-between mt-3 text-xs text-gray-500 dark:text-gray-400">
-              <span>{member.membership_number}</span>
-              <span>{member.country_of_residency}</span>
-            </div>
-            {member.created_at && (
-              <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 text-right">
-                Joined: {formatDate(member.created_at)}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function MembersClient() {
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [membershipTypeFilter, setMembershipTypeFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
 
   const router = useRouter();
 
@@ -221,48 +108,234 @@ export default function MembersClient() {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
       year: "numeric",
-      month: "long",
+      month: "short",
       day: "numeric",
     });
   };
 
-  const handleMemberClick = (memberId: string) => {
-    router.push(`/members/${memberId}`);
+  const getFullName = (member: Member) => {
+    const parts = [
+      member.title,
+      member.first_name,
+      member.middle_name,
+      member.surname,
+    ].filter(Boolean);
+    return parts.join(" ");
   };
 
-  const filteredMembers = members.filter((member) => {
-    const fullName = `${member.title || ""} ${member.first_name} ${
-      member.middle_name || ""
-    } ${member.surname}`.toLowerCase();
-    const matchesSearch =
-      fullName.includes(searchTerm.toLowerCase()) ||
-      (member.email &&
-        member.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      member.membership_number
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase()) ||
-      member.country_of_residency
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase());
+  const getUserInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .substring(0, 2)
+      .toUpperCase();
+  };
 
-    const matchesMembershipType =
-      membershipTypeFilter === "all" ||
-      member.membership_type.toLowerCase() ===
-        membershipTypeFilter.toLowerCase();
+  // Enhanced data processing for table
+  const processedMembers = useMemo(() => {
+    return members.map((member) => ({
+      ...member,
+      fullName: getFullName(member),
+      initials: getUserInitials(getFullName(member)),
+    }));
+  }, [members]);
 
-    const matchesStatus =
-      statusFilter === "all" ||
-      (statusFilter === "approved" &&
-        member.certificate_status === "Approved") ||
-      (statusFilter === "pending" && member.application_status === "Pending") ||
-      (statusFilter === "compliant" && member.incompliance) ||
-      (statusFilter === "non-compliant" && !member.incompliance);
+  // Table columns configuration
+  const columns: BaseTableColumn<
+    Member & { fullName: string; initials: string }
+  >[] = [
+    {
+      key: "fullName",
+      label: "Member",
+      sortable: true,
+      filterable: true,
+      width: 300,
+      render: (member) => (
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 bg-[#00B5A5] rounded-full flex items-center justify-center flex-shrink-0">
+            <span className="text-white font-semibold text-xs">
+              {member.initials}
+            </span>
+          </div>
+          <div className="min-w-0 flex-1">
+            <button
+              onClick={() => router.push(`/members/${member.id}`)}
+              className="text-sm font-medium text-gray-900 dark:text-white hover:text-[#00B5A5] transition-colors text-left"
+            >
+              {member.fullName}
+            </button>
+            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+              {member.email || "No email"}
+            </p>
+          </div>
+        </div>
+      ),
+      exportRender: (member) => member.fullName,
+    },
+    {
+      key: "membership_number",
+      label: "Membership #",
+      sortable: true,
+      filterable: true,
+      width: 150,
+      render: (member, value) => (
+        <span className="font-mono text-sm">{value}</span>
+      ),
+    },
+    {
+      key: "membership_type",
+      label: "Type",
+      sortable: true,
+      filterable: true,
+      filterComponent: {
+        type: "select",
+        options: [
+          { label: "Full Member", value: "Full Member" },
+          { label: "Associate Member", value: "Associate Member" },
+          { label: "Student Member", value: "Student Member" },
+          { label: "Honorary Member", value: "Honorary Member" },
+          { label: "Corporate Member", value: "Corporate Member" },
+        ],
+      },
+      width: 150,
+      render: (member, value) => (
+        <span
+          className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getRoleColor(
+            value
+          )}`}
+        >
+          {value}
+        </span>
+      ),
+      exportRender: (member, value) => value,
+    },
+    {
+      key: "certificate_status",
+      label: "Certificate",
+      sortable: true,
+      filterable: true,
+      filterComponent: {
+        type: "select",
+        options: [
+          { label: "Approved", value: "Approved" },
+          { label: "Pending", value: "Pending" },
+          { label: "Rejected", value: "Rejected" },
+        ],
+      },
+      width: 120,
+      render: (member, value) => {
+        const getStatusColor = (status: string) => {
+          switch (status) {
+            case "Approved":
+              return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
+            case "Pending":
+              return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300";
+            case "Rejected":
+              return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
+            default:
+              return "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300";
+          }
+        };
+        return (
+          <span
+            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+              value
+            )}`}
+          >
+            {value}
+          </span>
+        );
+      },
+    },
+    {
+      key: "incompliance",
+      label: "Compliance",
+      sortable: true,
+      filterable: true,
+      filterComponent: {
+        type: "select",
+        options: [
+          { label: "Compliant", value: "true" },
+          { label: "Non-compliant", value: "false" },
+        ],
+      },
+      width: 120,
+      render: (member, value) => (
+        <span
+          className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+            value
+              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+              : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+          }`}
+        >
+          {value ? "Compliant" : "Non-compliant"}
+        </span>
+      ),
+      exportRender: (member, value) => (value ? "Compliant" : "Non-compliant"),
+    },
+    {
+      key: "country_of_residency",
+      label: "Country",
+      sortable: true,
+      filterable: true,
+      width: 150,
+    },
+    {
+      key: "verified",
+      label: "Verified",
+      sortable: true,
+      filterable: true,
+      filterComponent: {
+        type: "select",
+        options: [
+          { label: "Verified", value: "true" },
+          { label: "Unverified", value: "false" },
+        ],
+      },
+      width: 100,
+      render: (member, value) => (
+        <span
+          className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium ${
+            value
+              ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+              : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300"
+          }`}
+        >
+          {value ? "✓" : "✗"}
+        </span>
+      ),
+      exportRender: (member, value) => (value ? "Yes" : "No"),
+    },
+    {
+      key: "phone_number",
+      label: "Phone",
+      sortable: true,
+      filterable: true,
+      width: 150,
+      render: (member, value) => (
+        <span className="text-sm">{value || "-"}</span>
+      ),
+    },
+    {
+      key: "created_at",
+      label: "Joined",
+      sortable: true,
+      filterable: true,
+      filterComponent: { type: "date" },
+      width: 120,
+      render: (member, value) => (
+        <span className="text-sm text-gray-600 dark:text-gray-400">
+          {value ? formatDate(value) : "-"}
+        </span>
+      ),
+      exportRender: (member, value) => (value ? formatDate(value) : ""),
+    },
+  ];
 
-    return matchesSearch && matchesMembershipType && matchesStatus;
-  });
-
-  const getMembershipStats = () => {
-    const stats = members.reduce(
+  // Statistics
+  const stats = useMemo(() => {
+    return members.reduce(
       (acc, member) => {
         const type = member.membership_type.toLowerCase();
         acc[type] = (acc[type] || 0) + 1;
@@ -270,6 +343,7 @@ export default function MembersClient() {
         acc.approved += member.certificate_status === "Approved" ? 1 : 0;
         acc.compliant += member.incompliance ? 1 : 0;
         acc.pending += member.application_status === "Pending" ? 1 : 0;
+        acc.verified += member.verified ? 1 : 0;
         return acc;
       },
       {
@@ -277,6 +351,7 @@ export default function MembersClient() {
         approved: 0,
         compliant: 0,
         pending: 0,
+        verified: 0,
         "full member": 0,
         "associate member": 0,
         "student member": 0,
@@ -284,8 +359,55 @@ export default function MembersClient() {
         "corporate member": 0,
       } as Record<string, number>
     );
-    return stats;
-  };
+  }, [members]);
+
+  // Bulk actions
+  const bulkActions = [
+    {
+      label: "Export Selected",
+      action: (selectedMembers: Member[]) => {
+        console.log("Exporting selected members:", selectedMembers);
+        showSuccessToast(`Exporting ${selectedMembers.length} members`);
+      },
+      icon: (
+        <svg
+          className="h-4 w-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+          />
+        </svg>
+      ),
+    },
+    {
+      label: "Send Email",
+      action: (selectedMembers: Member[]) => {
+        console.log("Sending email to:", selectedMembers);
+        showSuccessToast(`Email sent to ${selectedMembers.length} members`);
+      },
+      icon: (
+        <svg
+          className="h-4 w-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+          />
+        </svg>
+      ),
+    },
+  ];
 
   if (loading) {
     return (
@@ -326,22 +448,47 @@ export default function MembersClient() {
     );
   }
 
-  const stats = getMembershipStats();
-
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header with Refresh Button */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Members
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Manage and view organization members
-          </p>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                Members
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400">
+                Manage and view organization members
+              </p>
+            </div>
+
+            <button
+              onClick={fetchMembers}
+              disabled={loading}
+              className="inline-flex items-center px-4 py-2 bg-[#00B5A5] hover:bg-[#009985] text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <svg
+                className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+              Refresh
+            </button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+        {/* Statistics Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
             <div className="text-2xl font-bold text-gray-900 dark:text-white">
               {stats.total}
             </div>
@@ -349,13 +496,13 @@ export default function MembersClient() {
               Total Members
             </p>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
             <div className="text-2xl font-bold text-green-600 dark:text-green-400">
               {stats.approved}
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400">Approved</p>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
             <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
               {stats.compliant}
             </div>
@@ -363,15 +510,21 @@ export default function MembersClient() {
               Compliant
             </p>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
             <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+              {stats.verified}
+            </div>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Verified</p>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+            <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
               {stats["full member"] || 0}
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Full Members
             </p>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
             <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
               {stats.pending || 0}
             </div>
@@ -379,145 +532,32 @@ export default function MembersClient() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label
-                htmlFor="search"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-              >
-                Search Members
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg
-                    className="h-5 w-5 text-gray-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                    />
-                  </svg>
-                </div>
-                <input
-                  id="search"
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search by name, email, membership number..."
-                  className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label
-                htmlFor="membership-type-filter"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-              >
-                Filter by Membership Type
-              </label>
-              <select
-                id="membership-type-filter"
-                value={membershipTypeFilter}
-                onChange={(e) => setMembershipTypeFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent"
-              >
-                <option value="all">All Types</option>
-                <option value="full member">Full Member</option>
-                <option value="associate member">Associate Member</option>
-                <option value="student member">Student Member</option>
-                <option value="honorary member">Honorary Member</option>
-                <option value="corporate member">Corporate Member</option>
-              </select>
-            </div>
-
-            <div>
-              <label
-                htmlFor="status-filter"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-              >
-                Filter by Status
-              </label>
-              <select
-                id="status-filter"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent"
-              >
-                <option value="all">All Status</option>
-                <option value="approved">Approved</option>
-                <option value="pending">Pending</option>
-                <option value="compliant">Compliant</option>
-                <option value="non-compliant">Non-compliant</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <div className="mb-6">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Showing {filteredMembers.length} of {members.length} members
-          </p>
-        </div>
-
-        {filteredMembers.length === 0 ? (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8 text-center">
-            <div className="text-gray-400 dark:text-gray-500 text-4xl mb-4">
-              👥
-            </div>
-            <h3 className="text-gray-900 dark:text-white font-medium mb-2">
-              No Members Found
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400 text-sm">
-              {searchTerm ||
-              membershipTypeFilter !== "all" ||
-              statusFilter !== "all"
-                ? "Try adjusting your search or filters"
-                : "No members are available"}
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredMembers.map((member) => (
-              <MemberCard
-                key={member.id}
-                member={member}
-                onMemberClick={handleMemberClick}
-                getRoleColor={getRoleColor}
-                formatDate={formatDate}
-              />
-            ))}
-          </div>
-        )}
-
-        <div className="mt-8 text-center">
-          <button
-            onClick={fetchMembers}
-            disabled={loading}
-            className="inline-flex items-center px-4 py-2 bg-[#00B5A5] hover:bg-[#009985] text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <svg
-              className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-            Refresh Members
-          </button>
-        </div>
+        {/* Enhanced Table */}
+        <BaseTable
+          data={processedMembers}
+          columns={columns}
+          loading={loading}
+          title="Members Directory"
+          exportFileName="members"
+          searchable={true}
+          searchFields={[
+            "fullName",
+            "membership_number",
+            "country_of_residency",
+          ]}
+          pagination={true}
+          pageSize={25}
+          onRowClick={(member) => router.push(`/members/${member.id}`)}
+          emptyMessage="No members found matching your criteria"
+          enableExcelExport={true}
+          enablePDFExport={true}
+          enableBulkSelection={true}
+          bulkActions={bulkActions}
+          virtualScrolling={members.length > 100}
+          enableColumnManagement={true}
+          stickyHeader={true}
+          className="shadow-lg"
+        />
       </div>
     </div>
   );

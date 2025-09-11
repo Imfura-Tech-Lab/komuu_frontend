@@ -8,6 +8,7 @@ import {
 } from "@/components/layouts/auth-layer-out";
 import { Application } from "@/types";
 import ApplicationCard from "../dashboard/application-card";
+import jsPDF from "jspdf";
 
 export default function ApplicationClient() {
   const [applications, setApplications] = useState<Application[]>([]);
@@ -16,11 +17,11 @@ export default function ApplicationClient() {
   const [userRole, setUserRole] = useState<string>("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   const router = useRouter();
 
   useEffect(() => {
-    // Get user role from localStorage
     const userData = localStorage.getItem("user_data");
     if (userData) {
       const parsedData = JSON.parse(userData);
@@ -43,8 +44,6 @@ export default function ApplicationClient() {
 
       const parsedUserData = userData ? JSON.parse(userData) : null;
       const isMember = parsedUserData?.role === "Member";
-
-      // Use different endpoints based on user role
       const endpoint = isMember ? "my-application" : "applications";
 
       const response = await fetch(`${apiUrl}${endpoint}`, {
@@ -62,13 +61,9 @@ export default function ApplicationClient() {
       const data = await response.json();
 
       if (data.status === "success") {
-        // Handle different response structures based on your API
         if (isMember) {
-          // Single application for members (my-application endpoint)
           setApplications(data.data ? [data.data] : []);
         } else {
-          // Multiple applications for non-members (applications endpoint)
-          // Your API returns data.data.data for paginated results
           const applicationsData = data.data?.data || [];
           setApplications(
             Array.isArray(applicationsData) ? applicationsData : []
@@ -85,6 +80,495 @@ export default function ApplicationClient() {
       showErrorToast("Failed to load application details");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Helper functions for PDF styling
+  const addStyledSection = (pdf: jsPDF, title: string, yPos: number, color = [0, 181, 165]) => {
+    const pageWidth = pdf.internal.pageSize.width;
+    
+    // Section header with colored background
+    pdf.setFillColor(color[0], color[1], color[2]);
+    pdf.rect(20, yPos - 5, pageWidth - 40, 12, 'F');
+    
+    // Section title
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFontSize(14);
+    pdf.setFont("helvetica", "bold");
+    pdf.text(title, 25, yPos + 2);
+    
+    // Reset text color
+    pdf.setTextColor(0, 0, 0);
+    
+    return yPos + 15;
+  };
+
+  const addField = (pdf: jsPDF, label: string, value: string, yPos: number, pageHeight: number) => {
+    if (yPos > pageHeight - 30) {
+      pdf.addPage();
+      yPos = 30;
+    }
+    
+    // Label in bold
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(10);
+    pdf.setTextColor(60, 60, 60);
+    pdf.text(label, 25, yPos);
+    
+    // Value in normal font
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(0, 0, 0);
+    const textLines = pdf.splitTextToSize(value, 120);
+    pdf.text(textLines, 80, yPos);
+    
+    return yPos + (textLines.length * 5) + 3;
+  };
+
+  const generateApplicationPDF = async (application: Application) => {
+    setIsGeneratingPDF(true);
+    try {
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pageWidth = pdf.internal.pageSize.width;
+      const pageHeight = pdf.internal.pageSize.height;
+      let yPosition = 30;
+
+      // Header with company branding
+      pdf.setFillColor(0, 181, 165);
+      pdf.rect(0, 0, pageWidth, 25, 'F');
+      
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFontSize(20);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("MEMBERSHIP APPLICATION", pageWidth / 2, 16, { align: "center" });
+      
+      yPosition = 35;
+      
+      // Application Overview Box
+      pdf.setDrawColor(0, 181, 165);
+      pdf.setLineWidth(1);
+      pdf.rect(20, yPosition, pageWidth - 40, 25);
+      
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFontSize(12);
+      pdf.setFont("helvetica", "bold");
+      pdf.text(`Application ID: ${application.id}`, 25, yPosition + 8);
+      
+      // Status with color coding
+      const status = application.application_status;
+      let statusColor = [128, 128, 128]; // Default gray
+      if (status === "Approved") statusColor = [34, 197, 94]; // Green
+      else if (status === "Rejected") statusColor = [239, 68, 68]; // Red
+      else if (status === "Pending") statusColor = [245, 158, 11]; // Yellow
+      else if (status.includes("Review")) statusColor = [59, 130, 246]; // Blue
+      
+      pdf.setTextColor(statusColor[0], statusColor[1], statusColor[2]);
+      pdf.text(`Status: ${status}`, pageWidth - 80, yPosition + 8);
+      
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFont("helvetica", "normal");
+      pdf.text(`Application Date: ${formatDate(application.application_date)}`, 25, yPosition + 18);
+      
+      yPosition += 35;
+
+      // Application Details Section
+      yPosition = addStyledSection(pdf, "APPLICATION DETAILS", yPosition);
+      
+      yPosition = addField(pdf, "Applicant Name:", application.member || application.member_details?.name || "N/A", yPosition, pageHeight);
+      yPosition = addField(pdf, "Membership Type:", application.membership_type || "N/A", yPosition, pageHeight);
+      yPosition = addField(pdf, "Organization:", `${application.name_of_organization || "N/A"} ${application.Abbreviation ? `(${application.Abbreviation})` : ""}`, yPosition, pageHeight);
+      yPosition = addField(pdf, "Country of Residency:", application.country_of_residency || "N/A", yPosition, pageHeight);
+      yPosition = addField(pdf, "Forensic Field of Practice:", application.forensic_field_of_practice || "N/A", yPosition, pageHeight);
+      yPosition = addField(pdf, "Company Email:", application.company_email || "N/A", yPosition, pageHeight);
+      
+      yPosition += 10;
+
+      // Member Information Section
+      if (application.member_details) {
+        if (yPosition > pageHeight - 80) {
+          pdf.addPage();
+          yPosition = 30;
+        }
+
+        yPosition = addStyledSection(pdf, "MEMBER INFORMATION", yPosition, [59, 130, 246]);
+        
+        yPosition = addField(pdf, "Full Name:", application.member_details.name || "N/A", yPosition, pageHeight);
+        yPosition = addField(pdf, "Email:", application.member_details.email || "N/A", yPosition, pageHeight);
+        yPosition = addField(pdf, "Phone Number:", application.member_details.phone_number || "N/A", yPosition, pageHeight);
+        yPosition = addField(pdf, "National ID:", application.member_details.national_ID || "N/A", yPosition, pageHeight);
+        yPosition = addField(pdf, "Date of Birth:", application.member_details.date_of_birth ? new Date(application.member_details.date_of_birth).toLocaleDateString() : "N/A", yPosition, pageHeight);
+        yPosition = addField(pdf, "Account Status:", application.member_details.verified ? "Verified" : "Pending Verification", yPosition, pageHeight);
+        
+        yPosition += 10;
+      }
+
+      // Declaration Section
+      if (yPosition > pageHeight - 70) {
+        pdf.addPage();
+        yPosition = 30;
+      }
+
+      yPosition = addStyledSection(pdf, "DECLARATION STATUS", yPosition, [168, 85, 247]);
+      
+      const declarations = [
+        ["Abide with Code of Conduct:", application.abide_with_code_of_conduct],
+        ["Comply with Constitution:", application.comply_with_current_constitution],
+        ["Declaration Signed:", application.declaration],
+        ["In Compliance:", application.incompliance],
+      ];
+
+      declarations.forEach(([label, value]) => {
+        if (yPosition > pageHeight - 30) {
+          pdf.addPage();
+          yPosition = 30;
+        }
+        
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(10);
+        pdf.setTextColor(60, 60, 60);
+        pdf.text(label, 25, yPosition);
+        
+        // Status indicator with color
+        const statusText = value ? "Yes" : "No";
+        const color = value ? [34, 197, 94] : [239, 68, 68];
+        pdf.setTextColor(color[0], color[1], color[2]);
+        pdf.setFont("helvetica", "bold");
+        pdf.text(statusText, 80, yPosition);
+        
+        yPosition += 8;
+      });
+      
+      pdf.setTextColor(0, 0, 0);
+      yPosition += 10;
+
+      // Countries of Practice
+      if (application.countriesOfPractice && application.countriesOfPractice.length > 0) {
+        if (yPosition > pageHeight - 60) {
+          pdf.addPage();
+          yPosition = 30;
+        }
+
+        yPosition = addStyledSection(pdf, "COUNTRIES OF PRACTICE", yPosition, [245, 158, 11]);
+        
+        application.countriesOfPractice.forEach((country, index) => {
+          if (yPosition > pageHeight - 30) {
+            pdf.addPage();
+            yPosition = 30;
+          }
+          
+          pdf.setFont("helvetica", "normal");
+          pdf.setFontSize(10);
+          pdf.text(`${index + 1}. ${country.country} (${country.region})`, 25, yPosition);
+          yPosition += 6;
+        });
+        
+        yPosition += 10;
+      }
+
+      // Documents Section
+      if (application.qualification || application.cv_resume) {
+        if (yPosition > pageHeight - 50) {
+          pdf.addPage();
+          yPosition = 30;
+        }
+
+        yPosition = addStyledSection(pdf, "DOCUMENTS", yPosition, [34, 197, 94]);
+        
+        if (application.qualification) {
+          pdf.setFont("helvetica", "normal");
+          pdf.setFontSize(10);
+          pdf.text("Qualification Document: Available", 25, yPosition);
+          yPosition += 6;
+        }
+
+        if (application.cv_resume) {
+          pdf.setFont("helvetica", "normal");
+          pdf.setFontSize(10);
+          pdf.text("CV/Resume: Available", 25, yPosition);
+          yPosition += 6;
+        }
+      }
+
+      // Footer
+      const footerY = pageHeight - 15;
+      pdf.setFillColor(240, 240, 240);
+      pdf.rect(0, footerY - 5, pageWidth, 20, 'F');
+      
+      pdf.setTextColor(100, 100, 100);
+      pdf.setFontSize(8);
+      pdf.setFont("helvetica", "normal");
+      pdf.text(`Generated on ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`, 20, footerY + 2);
+      // @ts-ignore
+      pdf.text(`Page 1 of ${pdf.getNumberOfPages()}`, pageWidth - 40, footerY + 2);
+
+      // Save the PDF
+      const applicantName = application.member || application.member_details?.name || "member";
+      const fileName = `application_${application.id}_${applicantName.replace(/\s+/g, "_")}.pdf`;
+      pdf.save(fileName);
+
+      showSuccessToast("PDF generated successfully!");
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      showErrorToast("Failed to generate PDF");
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
+  const generateAllApplicationsPDF = async () => {
+    if (filteredApplications.length === 0) {
+      showErrorToast("No applications to export");
+      return;
+    }
+
+    setIsGeneratingPDF(true);
+    try {
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pageWidth = pdf.internal.pageSize.width;
+      const pageHeight = pdf.internal.pageSize.height;
+      
+      // Cover Page
+      pdf.setFillColor(0, 181, 165);
+      pdf.rect(0, 0, pageWidth, pageHeight, 'F');
+      
+      // Title
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFontSize(28);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("MEMBERSHIP APPLICATIONS", pageWidth / 2, 80, { align: "center" });
+      pdf.text("COMPREHENSIVE REPORT", pageWidth / 2, 100, { align: "center" });
+      
+      // Report info
+      pdf.setFontSize(16);
+      pdf.setFont("helvetica", "normal");
+      pdf.text(`Total Applications: ${filteredApplications.length}`, pageWidth / 2, 130, { align: "center" });
+      pdf.text(`Generated on: ${new Date().toLocaleDateString()}`, pageWidth / 2, 145, { align: "center" });
+      pdf.text(`Report Time: ${new Date().toLocaleTimeString()}`, pageWidth / 2, 160, { align: "center" });
+
+      // Summary Statistics
+      const stats = getStatusStats();
+      pdf.setFontSize(14);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("STATUS SUMMARY", pageWidth / 2, 190, { align: "center" });
+      
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(12);
+      pdf.text(`Approved: ${stats.approved || 0}`, pageWidth / 2, 205, { align: "center" });
+      pdf.text(`Pending: ${stats.pending || 0}`, pageWidth / 2, 220, { align: "center" });
+      pdf.text(`Under Review: ${(stats["under_review"] || 0) + (stats["under review"] || 0)}`, pageWidth / 2, 235, { align: "center" });
+      pdf.text(`Rejected: ${stats.rejected || 0}`, pageWidth / 2, 250, { align: "center" });
+
+      // Table of Contents
+      pdf.addPage();
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFillColor(0, 181, 165);
+      pdf.rect(0, 0, pageWidth, 25, 'F');
+      
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFontSize(18);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("TABLE OF CONTENTS", pageWidth / 2, 16, { align: "center" });
+      
+      let tocY = 40;
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFontSize(12);
+      pdf.setFont("helvetica", "normal");
+      
+      filteredApplications.forEach((app, index) => {
+        const applicantName = app.member || app.member_details?.name || `Application ${app.id}`;
+        pdf.text(`${index + 1}. ${applicantName}`, 20, tocY);
+        pdf.text(`Page ${index + 3}`, pageWidth - 40, tocY);
+        tocY += 8;
+        
+        if (tocY > pageHeight - 30) {
+          pdf.addPage();
+          tocY = 30;
+        }
+      });
+
+      // Individual Application Pages - Full details for each
+      filteredApplications.forEach((application, appIndex) => {
+        pdf.addPage();
+        let yPosition = 30;
+
+        // Header
+        pdf.setFillColor(0, 181, 165);
+        pdf.rect(0, 0, pageWidth, 25, 'F');
+        
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFontSize(16);
+        pdf.setFont("helvetica", "bold");
+        pdf.text(`APPLICATION ${appIndex + 1} OF ${filteredApplications.length}`, pageWidth / 2, 16, { align: "center" });
+        
+        yPosition = 35;
+        
+        // Application Overview
+        pdf.setDrawColor(0, 181, 165);
+        pdf.setLineWidth(1);
+        pdf.rect(20, yPosition, pageWidth - 40, 30);
+        
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFontSize(14);
+        pdf.setFont("helvetica", "bold");
+        const applicantName = application.member || application.member_details?.name || "Unknown Applicant";
+        pdf.text(applicantName, 25, yPosition + 10);
+        
+        pdf.setFontSize(10);
+        pdf.setFont("helvetica", "normal");
+        pdf.text(`ID: ${application.id}`, 25, yPosition + 18);
+        pdf.text(`Organization: ${application.name_of_organization || "N/A"}`, 25, yPosition + 26);
+        
+        // Status with color
+        const status = application.application_status;
+        let statusColor = [128, 128, 128];
+        if (status === "Approved") statusColor = [34, 197, 94];
+        else if (status === "Rejected") statusColor = [239, 68, 68];
+        else if (status === "Pending") statusColor = [245, 158, 11];
+        else if (status.includes("Review")) statusColor = [59, 130, 246];
+        
+        pdf.setTextColor(statusColor[0], statusColor[1], statusColor[2]);
+        pdf.setFont("helvetica", "bold");
+        pdf.text(`Status: ${status}`, pageWidth - 80, yPosition + 10);
+        
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFont("helvetica", "normal");
+        pdf.text(`Date: ${formatDate(application.application_date)}`, pageWidth - 80, yPosition + 18);
+        
+        yPosition += 40;
+
+        // Full Application Details for each application
+        yPosition = addStyledSection(pdf, "APPLICATION DETAILS", yPosition);
+        
+        yPosition = addField(pdf, "Membership Type:", application.membership_type || "N/A", yPosition, pageHeight);
+        yPosition = addField(pdf, "Country:", application.country_of_residency || "N/A", yPosition, pageHeight);
+        yPosition = addField(pdf, "Field of Practice:", application.forensic_field_of_practice || "N/A", yPosition, pageHeight);
+        yPosition = addField(pdf, "Company Email:", application.company_email || "N/A", yPosition, pageHeight);
+        
+        yPosition += 5;
+
+        // Member Information
+        if (application.member_details) {
+          if (yPosition > pageHeight - 80) {
+            pdf.addPage();
+            yPosition = 30;
+          }
+
+          yPosition = addStyledSection(pdf, "MEMBER INFORMATION", yPosition, [59, 130, 246]);
+          
+          yPosition = addField(pdf, "Email:", application.member_details.email || "N/A", yPosition, pageHeight);
+          yPosition = addField(pdf, "Phone:", application.member_details.phone_number || "N/A", yPosition, pageHeight);
+          yPosition = addField(pdf, "National ID:", application.member_details.national_ID || "N/A", yPosition, pageHeight);
+          yPosition = addField(pdf, "Date of Birth:", application.member_details.date_of_birth ? new Date(application.member_details.date_of_birth).toLocaleDateString() : "N/A", yPosition, pageHeight);
+          yPosition = addField(pdf, "Verified:", application.member_details.verified ? "Yes" : "Pending", yPosition, pageHeight);
+          
+          yPosition += 5;
+        }
+
+        // Declaration Status
+        if (yPosition > pageHeight - 60) {
+          pdf.addPage();
+          yPosition = 30;
+        }
+
+        yPosition = addStyledSection(pdf, "DECLARATION STATUS", yPosition, [168, 85, 247]);
+        
+        const declarations = [
+          ["Code of Conduct:", application.abide_with_code_of_conduct],
+          ["Constitution:", application.comply_with_current_constitution],
+          ["Declaration:", application.declaration],
+          ["Compliance:", application.incompliance],
+        ];
+
+        declarations.forEach(([label, value]) => {
+          if (yPosition > pageHeight - 30) {
+            pdf.addPage();
+            yPosition = 30;
+          }
+          
+          pdf.setFont("helvetica", "bold");
+          pdf.setFontSize(10);
+          pdf.setTextColor(60, 60, 60);
+          pdf.text(label, 25, yPosition);
+          
+          const statusText = value ? "Yes" : "No";
+          const color = value ? [34, 197, 94] : [239, 68, 68];
+          pdf.setTextColor(color[0], color[1], color[2]);
+          pdf.setFont("helvetica", "bold");
+          pdf.text(statusText, 80, yPosition);
+          
+          yPosition += 8;
+        });
+        
+        pdf.setTextColor(0, 0, 0);
+
+        // Countries of Practice
+        if (application.countriesOfPractice && application.countriesOfPractice.length > 0) {
+          if (yPosition > pageHeight - 40) {
+            pdf.addPage();
+            yPosition = 30;
+          }
+
+          yPosition = addStyledSection(pdf, "COUNTRIES OF PRACTICE", yPosition, [245, 158, 11]);
+          
+          application.countriesOfPractice.forEach((country, index) => {
+            if (yPosition > pageHeight - 30) {
+              pdf.addPage();
+              yPosition = 30;
+            }
+            
+            pdf.setFont("helvetica", "normal");
+            pdf.setFontSize(10);
+            pdf.text(`${index + 1}. ${country.country} (${country.region})`, 25, yPosition);
+            yPosition += 6;
+          });
+        }
+
+        // Documents
+        if (application.qualification || application.cv_resume) {
+          if (yPosition > pageHeight - 40) {
+            pdf.addPage();
+            yPosition = 30;
+          }
+
+          yPosition = addStyledSection(pdf, "DOCUMENTS", yPosition, [34, 197, 94]);
+          
+          if (application.qualification) {
+            pdf.setFont("helvetica", "normal");
+            pdf.setFontSize(10);
+            pdf.text("Qualification Document: Available", 25, yPosition);
+            yPosition += 6;
+          }
+
+          if (application.cv_resume) {
+            pdf.setFont("helvetica", "normal");
+            pdf.setFontSize(10);
+            pdf.text("CV/Resume: Available", 25, yPosition);
+            yPosition += 6;
+          }
+        }
+
+        // Footer for each application page
+        const footerY = pageHeight - 15;
+        pdf.setFillColor(240, 240, 240);
+        pdf.rect(0, footerY - 5, pageWidth, 20, 'F');
+        
+        pdf.setTextColor(100, 100, 100);
+        pdf.setFontSize(8);
+        pdf.setFont("helvetica", "normal");
+        pdf.text(`Application ${appIndex + 1} of ${filteredApplications.length}`, 20, footerY + 2);
+        // @ts-ignore
+        pdf.text(`Page ${pdf.getNumberOfPages()}`, pageWidth - 40, footerY + 2);
+      });
+
+      // Save the PDF
+      const fileName = `applications_comprehensive_report_${new Date().toISOString().split("T")[0]}.pdf`;
+      pdf.save(fileName);
+
+      showSuccessToast("Comprehensive applications report generated successfully!");
+    } catch (error) {
+      console.error("Error generating applications PDF:", error);
+      showErrorToast("Failed to generate applications report");
+    } finally {
+      setIsGeneratingPDF(false);
     }
   };
 
@@ -133,34 +617,28 @@ export default function ApplicationClient() {
     return stats;
   };
 
-  // Normalize status for filtering (handle different formats from API)
   const normalizeStatus = (status: string): string => {
     if (!status) return "";
-    
     const statusMap: Record<string, string> = {
-      "pending": "pending",
-      "under_review": "under review", 
+      pending: "pending",
+      under_review: "under review",
       "under review": "under review",
-      "approved": "approved",
-      "rejected": "rejected",
+      approved: "approved",
+      rejected: "rejected",
       "waiting for payment": "waiting for payment",
-      "waiting_for_payment": "waiting for payment"
+      waiting_for_payment: "waiting for payment",
     };
-    
     return statusMap[status.toLowerCase()] || status.toLowerCase();
   };
 
-  // Filter applications based on status and search term
   const filteredApplications = applications.filter((app) => {
-    // Status filtering
     const normalizedAppStatus = normalizeStatus(app.application_status || "");
     const normalizedFilterStatus = filterStatus.toLowerCase();
     
-    const matchesStatus = 
-      normalizedFilterStatus === "all" || 
+    const matchesStatus =
+      normalizedFilterStatus === "all" ||
       normalizedAppStatus === normalizedFilterStatus;
 
-    // Search filtering
     const matchesSearch =
       searchTerm === "" ||
       (app.member || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -197,9 +675,7 @@ export default function ApplicationClient() {
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-6 text-center">
-            <div className="text-red-600 dark:text-red-400 text-2xl mb-2">
-              ⚠️
-            </div>
+            <div className="text-red-600 dark:text-red-400 text-2xl mb-2">⚠️</div>
             <h3 className="text-red-800 dark:text-red-200 font-medium mb-2">
               Error Loading Applications
             </h3>
@@ -220,10 +696,7 @@ export default function ApplicationClient() {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-8 text-center">
-            <div className="text-gray-400 dark:text-gray-500 text-4xl mb-4">
-              📋
-            </div>
+                      <div className="text-gray-400 dark:text-gray-500 text-4xl mb-4">📋</div>
             <h3 className="text-gray-900 dark:text-white font-medium mb-2 text-xl">
               No Applications Found
             </h3>
@@ -255,7 +728,6 @@ export default function ApplicationClient() {
             )}
           </div>
         </div>
-      </div>
     );
   }
 
@@ -281,26 +753,79 @@ export default function ApplicationClient() {
               </p>
             </div>
 
-            <button
-              onClick={fetchApplications}
-              disabled={loading}
-              className="inline-flex items-center px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <svg
-                className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+            <div className="flex gap-2">
+              {/* PDF Export Buttons */}
+              {!isSingleApplication && filteredApplications.length > 0 && (
+                <button
+                  onClick={generateAllApplicationsPDF}
+                  disabled={isGeneratingPDF}
+                  className="inline-flex items-center px-4 py-2 bg-[#00B5A5] hover:bg-[#009985] text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <svg
+                    className={`w-4 h-4 mr-2 ${
+                      isGeneratingPDF ? "animate-spin" : ""
+                    }`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    />
+                  </svg>
+                  Export All PDF
+                </button>
+              )}
+
+              {isSingleApplication && applications.length > 0 && (
+                <button
+                  onClick={() => generateApplicationPDF(applications[0])}
+                  disabled={isGeneratingPDF}
+                  className="inline-flex items-center px-4 py-2 bg-[#00B5A5] hover:bg-[#009985] text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <svg
+                    className={`w-4 h-4 mr-2 ${
+                      isGeneratingPDF ? "animate-spin" : ""
+                    }`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    />
+                  </svg>
+                  Export PDF
+                </button>
+              )}
+
+              <button
+                onClick={fetchApplications}
+                disabled={loading}
+                className="inline-flex items-center px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                />
-              </svg>
-              Refresh
-            </button>
+                <svg
+                  className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+                Refresh
+              </button>
+            </div>
           </div>
         </div>
 
@@ -417,7 +942,8 @@ export default function ApplicationClient() {
                   </div>
                   <div>
                     <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                      {(stats["under_review"] || 0) + (stats["under review"] || 0)}
+                      {(stats["under_review"] || 0) +
+                        (stats["under review"] || 0)}
                     </div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                       Under Review
@@ -475,7 +1001,9 @@ export default function ApplicationClient() {
                     <option value="under review">Under Review</option>
                     <option value="approved">Approved</option>
                     <option value="rejected">Rejected</option>
-                    <option value="waiting for payment">Waiting for Payment</option>
+                    <option value="waiting for payment">
+                      Waiting for Payment
+                    </option>
                   </select>
                 </div>
               </div>
@@ -507,7 +1035,7 @@ export default function ApplicationClient() {
                 formatDate={formatDate}
                 formatBoolean={formatBoolean}
                 router={router}
-                userRole = {userRole}
+                userRole={userRole}
               />
             ))
           )}
@@ -518,6 +1046,21 @@ export default function ApplicationClient() {
           <div className="mt-6 text-sm text-gray-600 dark:text-gray-400">
             Showing {filteredApplications.length} of {applications.length}{" "}
             applications
+          </div>
+        )}
+
+        {/* Loading overlay for PDF generation */}
+        {isGeneratingPDF && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 flex flex-col items-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00B5A5] mb-4"></div>
+              <p className="text-gray-900 dark:text-white font-medium">
+                Generating PDF...
+              </p>
+              <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
+                Please wait while we prepare your document
+              </p>
+            </div>
           </div>
         )}
       </div>
