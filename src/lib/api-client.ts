@@ -98,8 +98,6 @@ export class ApiClient {
           const errorData = await response.json().catch(() => ({
             message: `HTTP ${response.status}: ${response.statusText}`,
           }));
-
-          // Create ApiError object directly instead of JSON.stringify
           lastError = {
             message:
               errorData.message ||
@@ -283,7 +281,7 @@ export class ApiClient {
     }
 
     const headers = { ...this.defaultHeaders };
-    delete headers["Content-Type"]; // Let browser set Content-Type for FormData
+    delete headers["Content-Type"]; 
 
     return this.makeRequest<T>(
       url,
