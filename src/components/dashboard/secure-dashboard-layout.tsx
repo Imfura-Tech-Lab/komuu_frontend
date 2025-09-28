@@ -1,4 +1,5 @@
 "use client";
+
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import {
@@ -19,18 +20,17 @@ import {
 import { Header } from "./Header";
 import { Sidebar } from "./Sidebar";
 import { StatusAlerts } from "./StatusAlerts";
+import { useImprovedAutoLogout } from "@/lib/hooks/useImprovedAutoLogout";
+import { SessionWarningModal } from "./SessionWarningModal";
 
-// Environment constants
-export const isDev = process.env.NODE_ENV === 'development';
-export const isProd = process.env.NODE_ENV === 'production';
+export const isDev = process.env.NODE_ENV === "development";
+export const isProd = process.env.NODE_ENV === "production";
 
 interface SecureDashboardLayoutProps {
   children: React.ReactNode;
   requiredRoles?: UserRole[];
   requiredPermissions?: Permission[];
 }
-
-const AUTO_LOGOUT_TIMEOUT = 30 * 60 * 1000;
 
 export default function SecureDashboardLayout({
   children,
@@ -42,15 +42,12 @@ export default function SecureDashboardLayout({
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
-  const [lastActivity, setLastActivity] = useState(Date.now());
   const [authInitialized, setAuthInitialized] = useState(false);
   const [debugExpanded, setDebugExpanded] = useState(false);
 
   const router = useRouter();
   const pathname = usePathname();
   const dropdownRef = useRef<HTMLDivElement>(null);
-  // @ts-ignore
-  const activityTimeoutRef = useRef<NodeJS.Timeout>();
 
   // Memoized navigation items
   const navigationItems = useMemo(() => {
@@ -105,40 +102,11 @@ export default function SecureDashboardLayout({
     };
   }, []);
 
-  // Activity tracking for auto-logout
-  const updateLastActivity = useCallback(() => {
-    if (authInitialized) {
-      setLastActivity(Date.now());
-    }
-  }, [authInitialized]);
-
-  useEffect(() => {
-    if (!authInitialized) return;
-
-    const events = [
-      "mousedown",
-      "mousemove",
-      "keypress",
-      "scroll",
-      "touchstart",
-    ];
-
-    events.forEach((event) => {
-      document.addEventListener(event, updateLastActivity, true);
-    });
-
-    return () => {
-      events.forEach((event) => {
-        document.removeEventListener(event, updateLastActivity, true);
-      });
-    };
-  }, [updateLastActivity, authInitialized]);
-
   // Enhanced permission and role checking
   const hasPermission = useCallback(
     (permission: Permission): boolean => {
       if (!userData) return false;
-        // @ts-ignore
+      // @ts-ignore
       return ROLE_PERMISSIONS[userData.role]?.includes(permission) ?? false;
     },
     [userData]
@@ -156,13 +124,19 @@ export default function SecureDashboardLayout({
   const validateTokenWithBackend = useCallback(async (token: string) => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
       const response = await fetch(`${apiUrl}profile`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
@@ -198,10 +172,11 @@ export default function SecureDashboardLayout({
     }
   }, []);
 
-  // Cleaner logout function
+  // Improved logout function with better state management
   const handleLogout = useCallback(
     async (showMessage = true) => {
       if (isLoggingOut) return;
+
       setIsLoggingOut(true);
       setProfileDropdownOpen(false);
 
@@ -209,27 +184,32 @@ export default function SecureDashboardLayout({
         const token = localStorage.getItem("auth_token");
         const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
 
+        // Attempt to call logout API with timeout
         if (token && apiUrl) {
           try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
             await fetch(`${apiUrl}logout`, {
               method: "POST",
               headers: {
                 Authorization: `Bearer ${token}`,
                 "Content-Type": "application/json",
               },
+              signal: controller.signal,
             });
+
+            clearTimeout(timeoutId);
           } catch (error) {
             console.warn("Logout API call failed:", error);
+            // Continue with client-side cleanup even if API fails
           }
         }
       } finally {
+        // Always clean up regardless of API success/failure
         localStorage.removeItem("auth_token");
         localStorage.removeItem("user_data");
         localStorage.removeItem("refresh_token");
-
-        if (activityTimeoutRef.current) {
-          clearTimeout(activityTimeoutRef.current);
-        }
 
         setUserData(null);
         setAuthInitialized(false);
@@ -245,40 +225,21 @@ export default function SecureDashboardLayout({
     [isLoggingOut, router]
   );
 
-  // Auto-logout timer
-  useEffect(() => {
-    if (!userData || !authInitialized) return;
+  // Use the improved auto-logout hook
+  const {
+    lastActivity,
+    showWarningModal,
+    warningTimeRemaining,
+    extendSession,
+    forceLogout,
+  } = useImprovedAutoLogout({
+    onLogout: handleLogout,
+    isAuthenticated: authInitialized && !!userData,
+    timeoutDuration: 30 * 60 * 1000, // 30 minutes
+    warningDuration: 2 * 60 * 1000, // 2 minutes warning
+  });
 
-    const checkActivity = () => {
-      const now = Date.now();
-      const timeSinceLastActivity = now - lastActivity;
-
-      if (timeSinceLastActivity >= AUTO_LOGOUT_TIMEOUT) {
-        console.log("Auto-logout triggered due to inactivity");
-        showErrorToast(
-          "Session expired due to inactivity. Please login again."
-        );
-        handleLogout(false);
-        return;
-      }
-
-      const timeUntilLogout = AUTO_LOGOUT_TIMEOUT - timeSinceLastActivity;
-      activityTimeoutRef.current = setTimeout(
-        checkActivity,
-        Math.min(timeUntilLogout, 60000)
-      );
-    };
-
-    checkActivity();
-
-    return () => {
-      if (activityTimeoutRef.current) {
-        clearTimeout(activityTimeoutRef.current);
-      }
-    };
-  }, [userData, lastActivity, authInitialized, handleLogout]);
-
-  // Authentication check
+  // Authentication check (same as existing)
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -471,10 +432,9 @@ export default function SecureDashboardLayout({
         />
 
         {/* Account Status Alerts */}
-        
         <StatusAlerts 
         userData={userData} 
-        // @ts-ignore
+         // @ts-ignore
         router={router} />
 
         {/* Main content area */}
@@ -485,27 +445,44 @@ export default function SecureDashboardLayout({
         </main>
       </div>
 
+      {/* Session Warning Modal */}
+      <SessionWarningModal
+        isOpen={showWarningModal}
+        timeRemaining={warningTimeRemaining}
+        onExtendSession={extendSession}
+        onLogoutNow={forceLogout}
+      />
+
       {/* Debug panel - Only show in development */}
       {isDev && userData && (
-        <div className="fixed bottom-4 right-4 bg-gray-800 text-white rounded-lg overflow-hidden opacity-90 hover:opacity-100 transition-opacity z-50 shadow-lg">
+        <div className="fixed bottom-4 right-4 bg-gray-800 text-white rounded-lg overflow-hidden opacity-90 hover:opacity-100 transition-opacity z-40 shadow-lg">
           <button
             onClick={() => setDebugExpanded(!debugExpanded)}
             className="w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 flex items-center justify-between text-sm font-medium"
           >
             <span>Debug Info</span>
             <svg
-              className={`w-4 h-4 transform transition-transform ${debugExpanded ? 'rotate-180' : ''}`}
+              className={`w-4 h-4 transform transition-transform ${
+                debugExpanded ? "rotate-180" : ""
+              }`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
             </svg>
           </button>
-          
+
           {debugExpanded && (
             <div className="p-4 max-w-sm max-h-96 overflow-y-auto">
-              <h4 className="font-bold mb-2 text-xs uppercase tracking-wide">User Data</h4>
+              <h4 className="font-bold mb-2 text-xs uppercase tracking-wide">
+                User Data
+              </h4>
               <div className="space-y-1 text-xs">
                 <p>
                   <strong>ID:</strong> {userData.id}
@@ -514,7 +491,8 @@ export default function SecureDashboardLayout({
                   <strong>Role:</strong> {userData.role}
                 </p>
                 <p>
-                  <strong>Hierarchy Level:</strong> {ROLE_HIERARCHY[userData.role]}
+                  <strong>Hierarchy Level:</strong>{" "}
+                  {ROLE_HIERARCHY[userData.role]}
                 </p>
                 <p>
                   <strong>Verified:</strong> {userData.verified ? "Yes" : "No"}
@@ -546,7 +524,12 @@ export default function SecureDashboardLayout({
                   {new Date(lastActivity).toLocaleTimeString()}
                 </p>
                 <p>
-                  <strong>Environment:</strong> {isDev ? 'Development' : 'Production'}
+                  <strong>Environment:</strong>{" "}
+                  {isDev ? "Development" : "Production"}
+                </p>
+                <p>
+                  <strong>Session Warning:</strong>{" "}
+                  {showWarningModal ? "Active" : "Inactive"}
                 </p>
               </div>
             </div>

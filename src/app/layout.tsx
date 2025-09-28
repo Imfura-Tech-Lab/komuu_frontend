@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
-import GlobalThemeToggle from "@/components/global-theme-toggle";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -32,9 +31,6 @@ export default function RootLayout({
           disableTransitionOnChange={false}
           storageKey="afsa-theme"
         >
-          {/* Global Theme Toggle */}
-          <GlobalThemeToggle />
-
           {children}
         </ThemeProvider>
       </body>

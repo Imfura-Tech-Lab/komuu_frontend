@@ -77,14 +77,14 @@ export const membershipService = {
   },
 
   getFieldsOfPractice: async () => {
-    const response = await apiClient.get<TypesApiResponse>(
-      "/fields-of-practices"
-    );
+    const response = await apiClient.get("/get-fields-of-practices");
+    const fieldsData = response.data.data?.data || [];
+
     return {
       ...response,
-      data: response.data.types.map((field) => ({
-        id: field,
-        name: field,
+      data: fieldsData.map((field: any) => ({
+        id: field.id || field.name || field,
+        name: field.name || field,
       })),
     };
   },

@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
-import { Check, Menu, X, Sun, Moon } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { Check, Menu, X, Sun, Moon, Monitor, ChevronDown } from "lucide-react";
+import { useTheme } from "next-themes";
 
 interface Step {
   id: number;
@@ -16,31 +17,141 @@ interface MembershipLayoutProps {
   currentStepDescription?: string;
 }
 
+// Theme Toggle Component for Membership Layout
+const MembershipThemeToggle = () => {
+  const { theme, setTheme, resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse" />
+    );
+  }
+
+  const themes = [
+    { value: "light", label: "Light", icon: Sun, description: "Light mode" },
+    { value: "dark", label: "Dark", icon: Moon, description: "Dark mode" },
+    {
+      value: "system",
+      label: "System",
+      icon: Monitor,
+      description: "Follow system preference",
+    },
+  ];
+
+  const currentTheme = themes.find((t) => t.value === theme) || themes[2];
+  const CurrentIcon = currentTheme.icon;
+
+  return (
+    <div ref={dropdownRef} className="relative">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center justify-center w-8 h-8 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors group border border-gray-200 dark:border-gray-600"
+        aria-label="Toggle theme"
+        title="Change theme"
+      >
+        <CurrentIcon
+          size={16}
+          className="text-gray-600 dark:text-gray-300 group-hover:text-[#00B5A5] dark:group-hover:text-[#00D4C7] transition-colors"
+        />
+      </button>
+
+      {isOpen && (
+        <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden z-50">
+          <div className="py-1">
+            {themes.map((themeOption) => {
+              const Icon = themeOption.icon;
+              const isActive = theme === themeOption.value;
+
+              return (
+                <button
+                  key={themeOption.value}
+                  onClick={() => {
+                    setTheme(themeOption.value);
+                    setIsOpen(false);
+                  }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                    isActive
+                      ? "bg-[#00B5A5]/10 dark:bg-[#00D4C7]/10 text-[#00B5A5] dark:text-[#00D4C7]"
+                      : "text-gray-700 dark:text-gray-200"
+                  }`}
+                >
+                  <Icon
+                    size={16}
+                    className={
+                      isActive
+                        ? "text-[#00B5A5] dark:text-[#00D4C7]"
+                        : "text-gray-500 dark:text-gray-400"
+                    }
+                  />
+                  <div className="flex-1 text-left">
+                    <div
+                      className={`font-medium ${
+                        isActive ? "text-[#00B5A5] dark:text-[#00D4C7]" : ""
+                      }`}
+                    >
+                      {themeOption.label}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      {themeOption.description}
+                    </div>
+                  </div>
+                  {isActive && (
+                    <div className="w-2 h-2 bg-[#00B5A5] dark:bg-[#00D4C7] rounded-full" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {theme === "system" && (
+            <div className="border-t border-gray-200 dark:border-gray-700 px-4 py-2 bg-gray-50 dark:bg-gray-750">
+              <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                <div
+                  className={`w-2 h-2 rounded-full ${
+                    resolvedTheme === "dark" ? "bg-blue-500" : "bg-yellow-500"
+                  }`}
+                />
+                <span>
+                  System: {resolvedTheme === "dark" ? "Dark" : "Light"}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const MembershipLayout: React.FC<MembershipLayoutProps> = ({
   children,
   currentStep,
-  steps = [], // Default to empty array
+  steps = [],
   currentStepTitle = "",
   currentStepDescription = "",
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
-
-  // Initialize dark mode from localStorage or system preference
-  useEffect(() => {
-    const savedTheme = localStorage.getItem("theme");
-    const systemPrefersDark = window.matchMedia(
-      "(prefers-color-scheme: dark)"
-    ).matches;
-
-    if (savedTheme === "dark" || (!savedTheme && systemPrefersDark)) {
-      setDarkMode(true);
-      document.documentElement.classList.add("dark");
-    } else {
-      setDarkMode(false);
-      document.documentElement.classList.remove("dark");
-    }
-  }, []);
 
   // Sidebar component for progress steps
   const renderSidebar = () => (
@@ -177,11 +288,22 @@ const MembershipLayout: React.FC<MembershipLayoutProps> = ({
         </div>
       </div>
 
-      {/* Motivational footer */}
-      <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-gradient-to-r from-[#00B5A5] to-[#008A7C] dark:from-[#00D4C7] dark:to-[#00B5A5] rounded-lg shadow-lg dark:shadow-[#00B5A5]/20">
-        <p className="text-white text-sm text-center font-medium">
-          🎉 You're doing great! Keep going!
-        </p>
+      {/* Footer with theme toggle */}
+      <div className="mt-4 sm:mt-6 space-y-3">
+        {/* Theme toggle section */}
+        <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            Theme
+          </span>
+          <MembershipThemeToggle />
+        </div>
+
+        {/* Motivational footer */}
+        <div className="p-3 sm:p-4 bg-gradient-to-r from-[#00B5A5] to-[#008A7C] dark:from-[#00D4C7] dark:to-[#00B5A5] rounded-lg shadow-lg dark:shadow-[#00B5A5]/20">
+          <p className="text-white text-sm text-center font-medium">
+            🎉 You're doing great! Keep going!
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -201,7 +323,7 @@ const MembershipLayout: React.FC<MembershipLayoutProps> = ({
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Mobile Header with Menu Button */}
+        {/* Mobile Header with Menu Button and Theme Toggle */}
         <div className="lg:hidden bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center justify-between">
           <button
             onClick={() => setIsSidebarOpen(true)}
@@ -209,13 +331,17 @@ const MembershipLayout: React.FC<MembershipLayoutProps> = ({
           >
             <Menu size={24} />
           </button>
-          <div className="flex items-center">
-            <span className="text-sm font-medium text-gray-600 dark:text-gray-400 mr-2">
-              Step
-            </span>
-            <span className="text-sm font-bold text-gray-900 dark:text-white">
-              {currentStep}/{steps?.length || 0}
-            </span>
+
+          <div className="flex items-center gap-4">
+            <div className="flex items-center">
+              <span className="text-sm font-medium text-gray-600 dark:text-gray-400 mr-2">
+                Step
+              </span>
+              <span className="text-sm font-bold text-gray-900 dark:text-white">
+                {currentStep}/{steps?.length || 0}
+              </span>
+            </div>
+            <MembershipThemeToggle />
           </div>
         </div>
 
@@ -232,32 +358,40 @@ const MembershipLayout: React.FC<MembershipLayoutProps> = ({
               </p>
             </div>
 
-            {/* Progress indicator */}
-            <div className="lg:ml-8 lg:min-w-[200px] w-full lg:w-auto">
-              <div className="flex justify-between items-center text-sm mb-2">
-                <span className="text-gray-600 dark:text-gray-400">
-                  Progress
-                </span>
-                <span className="text-gray-900 dark:text-white font-semibold">
-                  Step {currentStep} of {steps?.length || 0}
-                </span>
+            {/* Progress indicator and theme toggle (desktop) */}
+            <div className="lg:ml-8 lg:min-w-[200px] w-full lg:w-auto flex flex-col lg:flex-row lg:items-center gap-4">
+              {/* Progress bar */}
+              <div className="flex-1">
+                <div className="flex justify-between items-center text-sm mb-2">
+                  <span className="text-gray-600 dark:text-gray-400">
+                    Progress
+                  </span>
+                  <span className="text-gray-900 dark:text-white font-semibold">
+                    Step {currentStep} of {steps?.length || 0}
+                  </span>
+                </div>
+                <div className="bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                  <div
+                    className="bg-[#00B5A5] dark:bg-[#00D4C7] rounded-full h-2 transition-all duration-300 shadow-sm"
+                    style={{
+                      width: `${(currentStep / (steps?.length || 1)) * 100}%`,
+                    }}
+                  />
+                </div>
+                <div className="flex justify-between text-xs mt-1">
+                  <span className="text-gray-500 dark:text-gray-500">
+                    {Math.round((currentStep / (steps?.length || 1)) * 100)}%
+                    Complete
+                  </span>
+                  <span className="text-gray-500 dark:text-gray-500">
+                    {(steps?.length || 0) - currentStep} remaining
+                  </span>
+                </div>
               </div>
-              <div className="bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                <div
-                  className="bg-[#00B5A5] dark:bg-[#00D4C7] rounded-full h-2 transition-all duration-300 shadow-sm"
-                  style={{
-                    width: `${(currentStep / (steps?.length || 1)) * 100}%`,
-                  }}
-                />
-              </div>
-              <div className="flex justify-between text-xs mt-1">
-                <span className="text-gray-500 dark:text-gray-500">
-                  {Math.round((currentStep / (steps?.length || 1)) * 100)}%
-                  Complete
-                </span>
-                <span className="text-gray-500 dark:text-gray-500">
-                  {(steps?.length || 0) - currentStep} remaining
-                </span>
+
+              {/* Theme toggle (desktop only) */}
+              <div className="hidden lg:block">
+                <MembershipThemeToggle />
               </div>
             </div>
           </div>

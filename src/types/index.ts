@@ -98,6 +98,7 @@ export type Permission = (typeof ROLE_PERMISSIONS)[UserRole][number];
 
 // Navigation Item Type
 export interface NavigationItemType {
+  _order: number;
   name: string;
   href: string;
   permission: Permission; // Use the Permission type here
@@ -115,6 +116,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
       permission: "member_dashboard",
       icon: "dashboard",
       description: "Overview and summary",
+      _order: 0
     },
     {
       name: "Profile",
@@ -122,6 +124,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
       permission: "view_profile",
       icon: "profile",
       description: "Personal information",
+      _order: 0
     },
   ];
 
@@ -134,6 +137,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         icon: "applications",
         description: "Review and approve membership applications",
         badge: "pending_count",
+        _order: 0
       },
       {
         name: "Member Management",
@@ -141,6 +145,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "manage_users",
         icon: "members",
         description: "Manage all members and their details",
+        _order: 0
       },
       {
         name: "Payment Overview",
@@ -148,6 +153,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "view_all_payments",
         icon: "payments",
         description: "View all member payments and transactions",
+        _order: 0
       },
       {
         name: "Certificates",
@@ -155,6 +161,15 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "view_all_certificates",
         icon: "certificates",
         description: "View all member certificates",
+        _order: 0
+      },
+      {
+        name: "Fields of Practice",
+        href: "/fields-of-practice",
+        permission: "view_all_members", 
+        icon: "fields_of_practice",
+        description: "Manage forensic practice specializations",
+        _order: 0
       },
       {
         name: "Analytics & Reports",
@@ -162,6 +177,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "view_all_analytics",
         icon: "analytics",
         description: "Comprehensive system analytics",
+        _order: 0
       },
       {
         name: "Notifications",
@@ -169,6 +185,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "send_notifications",
         icon: "notifications",
         description: "Send notifications to members",
+        _order: 0
       },
       {
         name: "System Settings",
@@ -176,6 +193,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "system_settings",
         icon: "settings",
         description: "Configure system settings",
+        _order: 0
       },
     ],
     President: [
@@ -186,6 +204,15 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         icon: "certificate_sign",
         description: "Sign and authorize member certificates",
         badge: "unsigned_count",
+        _order: 0
+      },
+      {
+        name: "Fields of Practice",
+        href: "/fields-of-practice",
+        permission: "view_all_members", 
+        icon: "fields_of_practice",
+        description: "Manage forensic practice specializations",
+        _order: 0
       },
       {
         name: "Applications",
@@ -193,6 +220,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "view_all_applications",
         icon: "applications",
         description: "Review membership applications",
+        _order: 0
       },
       {
         name: "Members",
@@ -200,6 +228,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "view_all_members",
         icon: "members",
         description: "All members overview",
+        _order: 0
       },
       {
         name: "Financial",
@@ -207,6 +236,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "view_all_payments",
         icon: "payments",
         description: "Financial transactions overview",
+        _order: 0
       },
       {
         name: "Settings",
@@ -214,6 +244,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "view_all_analytics",
         icon: "settings",
         description: "applications settings",
+        _order: 0
       },
     ],
     Board: [
@@ -223,6 +254,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "view_all_applications",
         icon: "applications",
         description: "View membership applications",
+        _order: 0
       },
       {
         name: "Member",
@@ -230,6 +262,15 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "view_all_members",
         icon: "members",
         description: "View all members",
+        _order: 0
+      },
+      {
+        name: "Fields of Practice",
+        href: "/fields-of-practice",
+        permission: "view_all_members",
+        icon: "fields_of_practice",
+        description: "Manage forensic practice specializations",
+        _order: 0
       },
       {
         name: "Payment",
@@ -237,6 +278,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "view_all_payments",
         icon: "payments",
         description: "View payment records",
+        _order: 0
       },
       {
         name: "Certificates",
@@ -244,6 +286,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "view_all_certificates",
         icon: "certificates",
         description: "View issued certificates",
+        _order: 0
       },
       {
         name: "Policy Management",
@@ -251,6 +294,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "policy_decisions",
         icon: "policies",
         description: "Organizational policies",
+        _order: 0
       },
     ],
     Member: [
@@ -260,6 +304,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "view_own_payments",
         icon: "applications",
         description: "View your payment history",
+        _order: 0
       },
       {
         name: "Payments",
@@ -267,6 +312,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "view_own_payments",
         icon: "payments",
         description: "View your payment history",
+        _order: 0
       },
       {
         name: "Certificates",
@@ -274,6 +320,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "view_own_certificates",
         icon: "certificates",
         description: "View your certificates",
+        _order: 0
       },
       {
         name: "Resources",
@@ -281,6 +328,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "member_resources",
         icon: "resources",
         description: "Member resources and downloads",
+        _order: 0
       },
       {
         name: "Events",
@@ -288,6 +336,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "member_events",
         icon: "events",
         description: "Upcoming events and activities",
+        _order: 0
       },
       {
         name: "Community",
@@ -295,6 +344,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "member_community",
         icon: "community",
         description: "Connect with other members",
+        _order: 0
       },
     ],
     Pending: [
@@ -304,6 +354,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "application_status",
         icon: "status",
         description: "Check your application status",
+        _order: 0
       },
       {
         name: "Help & Support",
@@ -311,6 +362,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "application_help",
         icon: "help",
         description: "Get help with your application",
+        _order: 0
       },
     ],
   };
