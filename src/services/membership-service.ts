@@ -2,56 +2,114 @@ import { apiClient } from "@/lib/api-client";
 
 export interface Country {
   id: number;
-  country: string;
+  name: string;
 }
 
-export interface Title {
+export interface Organization {
+  id: string;
   name: string;
+  abbreviation: string;
+  logo: string;
 }
 
 export interface ApplicationType {
-  name: string;
-  price?: number;
-  fee?: number;
-  description?: string;
+  id: number;
+  category: string;
+  price: number;
+  frequency: string;
+  currency: string;
+  can_be_applied: boolean;
 }
 
 export interface FieldOfPractice {
+  id: number;
   name: string;
-  description?: string;
+  code: string;
 }
 
-export interface AssociateCategory {
+export interface Title {
+  id: string;
   name: string;
 }
 
-// API Response interfaces
 interface CountriesApiResponse {
   status: string;
   message: string;
-  countries: Country[];
+  countries: Array<{ id: number; country: string }>;
 }
 
-interface TypesApiResponse {
+interface OrganizationsApiResponse {
+  status: string;
+  message: string;
+  types: Array<{
+    id: string;
+    company_name: string;
+    company_abbreviation: string;
+    company_logo: string;
+  }>;
+}
+
+interface ApplicationTypesApiResponse {
+  status: string;
+  message: string;
+  types: Array<{
+    id: number;
+    category: string;
+    price: string;
+    frequency: string;
+    currency: string;
+    can_be_applied: boolean;
+  }>;
+}
+
+interface TitlesApiResponse {
   status: string;
   message: string;
   types: string[];
 }
 
+interface FieldsOfPracticeApiResponse {
+  status: string;
+  message: string;
+  data: {
+    data: Array<{
+      id: number;
+      field: string;
+      code: string;
+      sub_fields: any[];
+    }>;
+  };
+}
+
 export const membershipService = {
+  getOrganizations: async () => {
+    const response = await apiClient.get<OrganizationsApiResponse>(
+      "/organizations"
+    );
+    return {
+      ...response,
+      data: response.data.types.map((org) => ({
+        id: org.id,
+        name: org.company_name,
+        abbreviation: org.company_abbreviation,
+        logo: org.company_logo,
+      })),
+    };
+  },
+
   getCountries: async () => {
     const response = await apiClient.get<CountriesApiResponse>("/countries");
     return {
       ...response,
       data: response.data.countries.map((country) => ({
-        id: country.id.toString(),
+        id: country.id,
         name: country.country,
       })),
     };
   },
 
   getTitles: async () => {
-    const response = await apiClient.get<TypesApiResponse>("/titles");
+    const response = await apiClient.get<TitlesApiResponse>("/titles");
     return {
       ...response,
       data: response.data.types.map((title) => ({
@@ -61,85 +119,53 @@ export const membershipService = {
     };
   },
 
-  getApplicationTypes: async () => {
-    const response = await apiClient.get<TypesApiResponse>(
-      "/application-types"
+  getApplicationTypes: async (organizationId: string) => {
+    const response = await apiClient.get<ApplicationTypesApiResponse>(
+      `/${organizationId}/application-types`
     );
     return {
       ...response,
       data: response.data.types.map((type) => ({
-        id: type,
-        name: type,
-        // Add default pricing based on membership type
-        price: getMembershipPrice(type),
+        id: type.id,
+        category: type.category,
+        price: parseFloat(type.price),
+        frequency: type.frequency,
+        currency: type.currency,
+        can_be_applied: type.can_be_applied,
       })),
     };
   },
 
-  getFieldsOfPractice: async () => {
-    const response = await apiClient.get("/get-fields-of-practices");
+  getFieldsOfPractice: async (organizationId: string) => {
+    const response = await apiClient.get<FieldsOfPracticeApiResponse>(
+      `/${organizationId}/get-fields-of-practices`
+    );
     const fieldsData = response.data.data?.data || [];
 
     return {
       ...response,
-      data: fieldsData.map((field: any) => ({
-        id: field.id || field.name || field,
-        name: field.name || field,
+      data: fieldsData.map((field) => ({
+        id: field.id,
+        name: field.field,
+        code: field.code,
       })),
     };
   },
 
-  getAssociateMembershipCategories: async () => {
-    const response = await apiClient.get<TypesApiResponse>(
-      "/associate-membership-categories"
-    );
-    return {
-      ...response,
-      data: response.data.types.map((category) => ({
-        id: category,
-        name: category,
-      })),
-    };
-  },
-
-  // Method to fetch all master data at once
-  getAllMasterData: async () => {
-    const [
-      countriesRes,
-      titlesRes,
-      applicationTypesRes,
-      fieldsRes,
-      categoriesRes,
-    ] = await Promise.all([
-      membershipService.getCountries(),
-      membershipService.getTitles(),
-      membershipService.getApplicationTypes(),
-      membershipService.getFieldsOfPractice(),
-      membershipService.getAssociateMembershipCategories(),
-    ]);
+  getAllMasterData: async (organizationId: string) => {
+    const [countriesRes, titlesRes, applicationTypesRes, fieldsRes] =
+      await Promise.all([
+        membershipService.getCountries(),
+        membershipService.getTitles(),
+        membershipService.getApplicationTypes(organizationId),
+        membershipService.getFieldsOfPractice(organizationId),
+      ]);
 
     return {
       countries: countriesRes.data,
       titles: titlesRes.data,
       membershipTypes: applicationTypesRes.data,
       fieldsOfPractice: fieldsRes.data,
-      associateCategories: categoriesRes.data,
     };
   },
 };
-
-// Helper function to get membership pricing
-function getMembershipPrice(membershipType: string): number {
-  switch (membershipType) {
-    case "Full Member":
-      return 100;
-    case "Associate Member":
-      return 75;
-    case "Student Member":
-      return 25;
-    case "Affiliate Member":
-      return 50;
-    default:
-      return 0;
-  }
-}

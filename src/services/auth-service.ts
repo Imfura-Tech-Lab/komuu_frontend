@@ -141,39 +141,65 @@ export class AuthService {
   /**
    * Register a new user with form data
    */
-  async register(formData: FormData): Promise<ApiResponse> {
-   try {
-     console.log("Registering user with form data:", formData);
-     const response = await fetch(
-       `${process.env.NEXT_PUBLIC_BACKEND_API_URL}membership-signup`,
-       {
-         method: "POST",
-         body: formData,
-         headers: {
-           Accept: "application/json",
-         },
-       }
-     );
-
-     if (!response.ok) {
-       const errorData = await response.json();
-       throw {
-         message: errorData.message || `HTTP ${response.status}`,
-         status: response.status,
-         errors: errorData.errors,
-       };
-     }
-
-     const data = await response.json();
-     return {
-       data,
-       status: response.status,
-       message: data.message,
-     };
-   } catch (error) {
-     throw error;
-   }
+  async register(formData: FormData, organizationId: string): Promise<ApiResponse> {
+  // Validation
+  if (!organizationId) {
+    throw {
+      message: 'Organization ID is required',
+      status: 400,
+      errors: { organization_id: ['Organization ID is required'] }
+    };
   }
+
+  if (!process.env.NEXT_PUBLIC_BACKEND_API_URL) {
+    throw {
+      message: 'API configuration error',
+      status: 500,
+      errors: {}
+    };
+  }
+
+  try {
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_BACKEND_API_URL}${organizationId}/membership-signup`,
+      {
+        method: "POST",
+        body: formData,
+        headers: {
+          Accept: "application/json",
+        },
+      }
+    );
+
+    const responseData = await response.json();
+
+    if (!response.ok) {
+      throw {
+        message: responseData.message || `HTTP ${response.status}`,
+        status: response.status,
+        errors: responseData.errors || {},
+      };
+    }
+
+    return {
+      data: responseData,
+      status: response.status,
+      message: responseData.message,
+    };
+  } catch (error: any) {
+    // If it's already our standardized error format, re-throw
+    if (error.status !== undefined && error.errors !== undefined) {
+      throw error;
+    }
+
+    // Network errors or JSON parse failures
+    throw {
+      message: error.message || 'Network error occurred',
+      status: 0,
+      errors: {},
+    };
+  }
+}
 }
 
 // Create singleton instance

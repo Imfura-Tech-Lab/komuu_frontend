@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Check, Menu, X, Sun, Moon, Monitor, ChevronDown } from "lucide-react";
+import { Check, Menu, X, Sun, Moon, Monitor } from "lucide-react";
 import { useTheme } from "next-themes";
+import { Toaster } from "react-hot-toast";
 
 interface Step {
   id: number;
@@ -152,6 +153,7 @@ const MembershipLayout: React.FC<MembershipLayoutProps> = ({
   currentStepDescription = "",
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const { resolvedTheme } = useTheme();
 
   // Sidebar component for progress steps
   const renderSidebar = () => (
@@ -211,7 +213,7 @@ const MembershipLayout: React.FC<MembershipLayoutProps> = ({
                       <Check size={20} />
                     ) : (
                       <span className="font-bold text-sm sm:text-base">
-                        {step.id}
+                        {step.id + 1}
                       </span>
                     )}
                   </div>
@@ -301,7 +303,7 @@ const MembershipLayout: React.FC<MembershipLayoutProps> = ({
         {/* Motivational footer */}
         <div className="p-3 sm:p-4 bg-gradient-to-r from-[#00B5A5] to-[#008A7C] dark:from-[#00D4C7] dark:to-[#00B5A5] rounded-lg shadow-lg dark:shadow-[#00B5A5]/20">
           <p className="text-white text-sm text-center font-medium">
-            🎉 You're doing great! Keep going!
+            You're doing great! Keep going!
           </p>
         </div>
       </div>
@@ -309,104 +311,134 @@ const MembershipLayout: React.FC<MembershipLayoutProps> = ({
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col lg:flex-row transition-colors duration-300">
-      {/* Mobile overlay */}
-      {isSidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 dark:bg-black dark:bg-opacity-70 z-40 lg:hidden transition-opacity duration-300"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
+    <>
+      {/* Toast Container with Theme Support - using react-hot-toast */}
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: resolvedTheme === "dark" ? "#1f2937" : "#ffffff",
+            color: resolvedTheme === "dark" ? "#f9fafb" : "#111827",
+            border: `1px solid ${
+              resolvedTheme === "dark" ? "#374151" : "#e5e7eb"
+            }`,
+            borderRadius: "8px",
+            fontSize: "16px",
+            fontWeight: "500",
+            padding: "16px 20px",
+            minWidth: "300px",
+            boxShadow:
+              resolvedTheme === "dark"
+                ? "0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2)"
+                : "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+          },
+        }}
+      />
 
-      {/* Sidebar */}
-      {renderSidebar()}
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col lg:flex-row transition-colors duration-300">
+        {/* Mobile overlay */}
+        {isSidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 dark:bg-black dark:bg-opacity-70 z-40 lg:hidden transition-opacity duration-300"
+            onClick={() => setIsSidebarOpen(false)}
+          />
+        )}
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Mobile Header with Menu Button and Theme Toggle */}
-        <div className="lg:hidden bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center justify-between">
-          <button
-            onClick={() => setIsSidebarOpen(true)}
-            className="p-2 rounded-md text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-          >
-            <Menu size={24} />
-          </button>
+        {/* Sidebar */}
+        {renderSidebar()}
 
-          <div className="flex items-center gap-4">
-            <div className="flex items-center">
-              <span className="text-sm font-medium text-gray-600 dark:text-gray-400 mr-2">
-                Step
-              </span>
-              <span className="text-sm font-bold text-gray-900 dark:text-white">
-                {currentStep}/{steps?.length || 0}
-              </span>
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Mobile Header with Menu Button and Theme Toggle */}
+          <div className="lg:hidden bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center justify-between">
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="p-2 rounded-md text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            >
+              <Menu size={24} />
+            </button>
+
+            <div className="flex items-center gap-4">
+              <div className="flex items-center">
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400 mr-2">
+                  Step
+                </span>
+                <span className="text-sm font-bold text-gray-900 dark:text-white">
+                  {currentStep + 1}/{steps?.length || 0}
+                </span>
+              </div>
+              <MembershipThemeToggle />
             </div>
-            <MembershipThemeToggle />
           </div>
-        </div>
 
-        {/* Header with Progress and Step Info */}
-        <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 sm:px-8 py-4 sm:py-6 transition-colors duration-300">
-          <div className="max-w-4xl flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 lg:gap-8">
-            {/* Step title and description column */}
-            <div className="flex-1">
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-                {currentStepTitle}
-              </h2>
-              <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm sm:text-base">
-                {currentStepDescription}
-              </p>
-            </div>
-
-            {/* Progress indicator and theme toggle (desktop) */}
-            <div className="lg:ml-8 lg:min-w-[200px] w-full lg:w-auto flex flex-col lg:flex-row lg:items-center gap-4">
-              {/* Progress bar */}
+          {/* Header with Progress and Step Info */}
+          <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 sm:px-8 py-4 sm:py-6 transition-colors duration-300">
+            <div className="max-w-4xl flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 lg:gap-8">
+              {/* Step title and description column */}
               <div className="flex-1">
-                <div className="flex justify-between items-center text-sm mb-2">
-                  <span className="text-gray-600 dark:text-gray-400">
-                    Progress
-                  </span>
-                  <span className="text-gray-900 dark:text-white font-semibold">
-                    Step {currentStep} of {steps?.length || 0}
-                  </span>
-                </div>
-                <div className="bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                  <div
-                    className="bg-[#00B5A5] dark:bg-[#00D4C7] rounded-full h-2 transition-all duration-300 shadow-sm"
-                    style={{
-                      width: `${(currentStep / (steps?.length || 1)) * 100}%`,
-                    }}
-                  />
-                </div>
-                <div className="flex justify-between text-xs mt-1">
-                  <span className="text-gray-500 dark:text-gray-500">
-                    {Math.round((currentStep / (steps?.length || 1)) * 100)}%
-                    Complete
-                  </span>
-                  <span className="text-gray-500 dark:text-gray-500">
-                    {(steps?.length || 0) - currentStep} remaining
-                  </span>
-                </div>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                  {currentStepTitle}
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm sm:text-base">
+                  {currentStepDescription}
+                </p>
               </div>
 
-              {/* Theme toggle (desktop only) */}
-              <div className="hidden lg:block">
-                <MembershipThemeToggle />
+              {/* Progress indicator and theme toggle (desktop) */}
+              <div className="lg:ml-8 lg:min-w-[200px] w-full lg:w-auto flex flex-col lg:flex-row lg:items-center gap-4">
+                {/* Progress bar */}
+                <div className="flex-1">
+                  <div className="flex justify-between items-center text-sm mb-2">
+                    <span className="text-gray-600 dark:text-gray-400">
+                      Progress
+                    </span>
+                    <span className="text-gray-900 dark:text-white font-semibold">
+                      Step {currentStep + 1} of {steps?.length || 0}
+                    </span>
+                  </div>
+                  <div className="bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                    <div
+                      className="bg-[#00B5A5] dark:bg-[#00D4C7] rounded-full h-2 transition-all duration-300 shadow-sm"
+                      style={{
+                        width: `${
+                          ((currentStep + 1) / (steps?.length || 1)) * 100
+                        }%`,
+                      }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-xs mt-1">
+                    <span className="text-gray-500 dark:text-gray-500">
+                      {Math.round(
+                        ((currentStep + 1) / (steps?.length || 1)) * 100
+                      )}
+                      % Complete
+                    </span>
+                    <span className="text-gray-500 dark:text-gray-500">
+                      {(steps?.length || 0) - (currentStep + 1)} remaining
+                    </span>
+                  </div>
+                </div>
+
+                {/* Theme toggle (desktop only) */}
+                <div className="hidden lg:block">
+                  <MembershipThemeToggle />
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Form Content */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="max-w-4xl mx-auto px-4 sm:px-8 py-6 sm:py-8">
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 sm:p-8 shadow-sm dark:shadow-lg transition-colors duration-300">
-              {children}
+          {/* Form Content */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="max-w-4xl mx-auto px-4 sm:px-8 py-6 sm:py-8">
+              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 sm:p-8 shadow-sm dark:shadow-lg transition-colors duration-300">
+                {children}
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 

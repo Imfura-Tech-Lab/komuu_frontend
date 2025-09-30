@@ -13,25 +13,28 @@ import {
 } from "lucide-react";
 import MembershipLayout from "@/components/layouts/membership-layout";
 import { authService } from "@/services/auth-service";
-import { membershipService } from "@/services/membership-service";
+import { membershipService, Organization } from "@/services/membership-service";
 import { ApiError } from "@/lib/api-client";
 import {
   showErrorToast,
   showSuccessToast,
 } from "@/components/layouts/auth-layer-out";
-
+import { useRouter } from "next/navigation";
 // Type Definitions
 export type CountryOfOperation = {
-  country: string;
+  country: number;
   isPrimary: boolean;
 };
 
 export type FieldOfPractice = {
-  field: string;
+  field: number;
   isPrimary: boolean;
 };
 
 export type FormDataType = {
+  // Organization
+  organization_id: string;
+
   // Personal Information
   title: string;
   first_name: string;
@@ -48,7 +51,8 @@ export type FormDataType = {
 
   // Membership Details
   membership_type: string;
-  country_of_residence: string;
+  membership_category: number;
+  country_of_residence: number;
   field_of_practice: FieldOfPractice[];
   associate_category: string;
 
@@ -56,7 +60,7 @@ export type FormDataType = {
   university: string;
   degree: string;
   degree_year: string;
-  country_of_study: string;
+  country_of_study: number;
   proof_of_registration: File | null;
 
   // Full Member Fields
@@ -71,7 +75,6 @@ export type FormDataType = {
   abide_with_code_of_conduct: boolean;
   comply_with_current_constitution: boolean;
   declaration: boolean;
-  incompliance: boolean;
 
   // Payment
   amount_paid: number;
@@ -80,11 +83,17 @@ export type FormDataType = {
 };
 
 interface MasterData {
-  countries: Array<{ id: string; name: string }>;
+  countries: Array<{ id: number; name: string }>;
   titles: Array<{ id: string; name: string }>;
-  membershipTypes: Array<{ id: string; name: string; price?: number }>;
-  fieldsOfPractice: Array<{ id: string; name: string }>;
-  associateCategories: Array<{ id: string; name: string }>;
+  membershipTypes: Array<{
+    id: number;
+    category: string;
+    price: number;
+    frequency: string;
+    currency: string;
+    can_be_applied: boolean;
+  }>;
+  fieldsOfPractice: Array<{ id: number; name: string; code: string }>;
 }
 
 interface RequirementsPreviewProps {
@@ -146,7 +155,6 @@ const RequirementsPreview: React.FC<RequirementsPreviewProps> = ({
           description: "Membership for forensic-related professionals",
           documents: [],
           information: [
-            "Professional category specification",
             "Field of practice in forensic-related area",
             "Country of residence and practice",
           ],
@@ -601,10 +609,12 @@ const StudentInformationStep: React.FC<{
         </label>
         <select
           value={formData.country_of_study}
-          onChange={(e) => onInputChange("country_of_study", e.target.value)}
+          onChange={(e) =>
+            onInputChange("country_of_study", parseInt(e.target.value))
+          }
           className={selectStyles}
         >
-          <option value="">Select Country</option>
+          <option value="0">Select Country</option>
           {masterData.countries.map((country) => (
             <option key={country.id} value={country.id}>
               {country.name}
@@ -686,7 +696,7 @@ const FullMemberInformationStep: React.FC<{
   removeCountryOfOperation: (index: number) => void;
   updateCountryOfOperation: (
     index: number,
-    countryId: string,
+    countryId: number,
     isPrimary: boolean
   ) => void;
 }> = ({
@@ -785,13 +795,13 @@ const FullMemberInformationStep: React.FC<{
                 onChange={(e) =>
                   updateCountryOfOperation(
                     index,
-                    e.target.value,
+                    parseInt(e.target.value),
                     country.isPrimary
                   )
                 }
                 className={`flex-1 ${selectStyles}`}
               >
-                <option value="">Select Country</option>
+                <option value="0">Select Country</option>
                 {masterData.countries.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
@@ -943,10 +953,13 @@ const FullMemberInformationStep: React.FC<{
 
 // Main Form Component
 const MembershipSignupForm = () => {
-  const [currentStep, setCurrentStep] = useState(1);
+  const [currentStep, setCurrentStep] = useState(0);
   const [showRequirements, setShowRequirements] = useState(false);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [isLoadingOrganizations, setIsLoadingOrganizations] = useState(true);
+
   const [formData, setFormData] = useState<FormDataType>({
-    // Personal Information
+    organization_id: "",
     title: "",
     first_name: "",
     middle_name: "",
@@ -959,35 +972,25 @@ const MembershipSignupForm = () => {
     whatsapp_number: "",
     national_id: "",
     passport: "",
-
-    // Membership Details
     membership_type: "",
-    country_of_residence: "",
+    membership_category: 0,
+    country_of_residence: 0,
     field_of_practice: [],
     associate_category: "",
-
-    // Student Fields
     university: "",
     degree: "",
     degree_year: "",
-    country_of_study: "",
+    country_of_study: 0,
     proof_of_registration: null,
-
-    // Full Member Fields
     qualification: null,
     cv_resume: null,
     name_of_organization: "",
     Abbreviation: "",
     countries_of_operation: [],
     company_email: "",
-
-    // Declarations
     abide_with_code_of_conduct: false,
     comply_with_current_constitution: false,
     declaration: false,
-    incompliance: false,
-
-    // Payment
     amount_paid: 0,
     payment_method: "Credit Card",
     transaction_number: "",
@@ -996,24 +999,53 @@ const MembershipSignupForm = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Master data state
   const [masterData, setMasterData] = useState<MasterData>({
     countries: [],
     titles: [],
     membershipTypes: [],
     fieldsOfPractice: [],
-    associateCategories: [],
   });
-  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [isLoadingData, setIsLoadingData] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
 
-  // Fetch master data on component mount
+  // Fetch organizations on mount
   useEffect(() => {
+    const fetchOrganizations = async () => {
+      try {
+        setIsLoadingOrganizations(true);
+        const orgsRes = await membershipService.getOrganizations();
+        setOrganizations(orgsRes.data);
+
+        // Auto-select if only one organization
+        if (orgsRes.data.length === 1) {
+          setFormData((prev) => ({
+            ...prev,
+            organization_id: orgsRes.data[0].id,
+          }));
+          setCurrentStep(1);
+        }
+      } catch (error) {
+        console.error("Failed to fetch organizations:", error);
+        setDataError("Failed to load organizations. Please refresh the page.");
+      } finally {
+        setIsLoadingOrganizations(false);
+      }
+    };
+
+    fetchOrganizations();
+  }, []);
+
+  // Fetch master data when organization is selected
+  useEffect(() => {
+    if (!formData.organization_id) return;
+
     const fetchMasterData = async () => {
       try {
         setIsLoadingData(true);
         setDataError(null);
-        const data = await membershipService.getAllMasterData();
+        const data = await membershipService.getAllMasterData(
+          formData.organization_id
+        );
         setMasterData(data);
       } catch (error) {
         console.error("Failed to fetch master data:", error);
@@ -1027,9 +1059,15 @@ const MembershipSignupForm = () => {
     };
 
     fetchMasterData();
-  }, []);
+  }, [formData.organization_id]);
 
   const steps = [
+    {
+      id: 0,
+      title: "Select Organization",
+      description: "Choose your organization",
+      icon: "🏢",
+    },
     {
       id: 1,
       title: "Membership Category",
@@ -1062,19 +1100,19 @@ const MembershipSignupForm = () => {
     },
   ];
 
-  // Show loading state while fetching data
-  if (isLoadingData) {
+  // Show loading state while fetching organizations
+  if (isLoadingOrganizations) {
     return (
       <MembershipLayout
-        currentStep={1}
+        currentStep={0}
         steps={steps}
         currentStepTitle="Loading..."
-        currentStepDescription="Fetching form data..."
+        currentStepDescription="Fetching organizations..."
       >
         <div className="flex justify-center items-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00B5A5]"></div>
           <span className="ml-3 text-gray-600 dark:text-gray-400">
-            Loading form data...
+            Loading organizations...
           </span>
         </div>
       </MembershipLayout>
@@ -1082,10 +1120,10 @@ const MembershipSignupForm = () => {
   }
 
   // Show error state if data fetch failed
-  if (dataError) {
+  if (dataError && !formData.organization_id) {
     return (
       <MembershipLayout
-        currentStep={1}
+        currentStep={0}
         steps={steps}
         currentStepTitle="Error"
         currentStepDescription="Failed to load data"
@@ -1109,7 +1147,6 @@ const MembershipSignupForm = () => {
       [name]: value,
     }));
 
-    // Clear error for the field if it exists
     if (errors[name]) {
       setErrors((prev) => {
         const newErrors = { ...prev };
@@ -1118,7 +1155,6 @@ const MembershipSignupForm = () => {
       });
     }
 
-    // Show requirements preview when membership type changes
     if (
       name === "membership_type" &&
       value &&
@@ -1143,13 +1179,12 @@ const MembershipSignupForm = () => {
     }
   };
 
-  // Field of practice management
   const addFieldOfPractice = () => {
     setFormData((prev) => ({
       ...prev,
       field_of_practice: [
         ...prev.field_of_practice,
-        { field: "", isPrimary: false },
+        { field: 0, isPrimary: false },
       ],
     }));
   };
@@ -1163,7 +1198,7 @@ const MembershipSignupForm = () => {
 
   const updateFieldOfPractice = (
     index: number,
-    fieldId: string,
+    fieldId: number,
     isPrimary: boolean = false
   ) => {
     setFormData((prev) => ({
@@ -1174,13 +1209,12 @@ const MembershipSignupForm = () => {
     }));
   };
 
-  // Countries of operation management
   const addCountryOfOperation = () => {
     setFormData((prev) => ({
       ...prev,
       countries_of_operation: [
         ...prev.countries_of_operation,
-        { country: "", isPrimary: false },
+        { country: 0, isPrimary: false },
       ],
     }));
   };
@@ -1196,7 +1230,7 @@ const MembershipSignupForm = () => {
 
   const updateCountryOfOperation = (
     index: number,
-    countryId: string,
+    countryId: number,
     isPrimary: boolean = false
   ) => {
     setFormData((prev) => ({
@@ -1211,9 +1245,18 @@ const MembershipSignupForm = () => {
     const newErrors: Record<string, string> = {};
 
     switch (step) {
+      case 0:
+        if (!formData.organization_id) {
+          newErrors.organization_id = "Please select an organization";
+        }
+        break;
+
       case 1:
         if (!formData.membership_type) {
           newErrors.membership_type = "Membership type is required";
+        }
+        if (!formData.membership_category) {
+          newErrors.membership_category = "Membership category is required";
         }
         if (!formData.country_of_residence) {
           newErrors.country_of_residence = "Country of residence is required";
@@ -1227,13 +1270,6 @@ const MembershipSignupForm = () => {
         } else if (formData.field_of_practice.some((f) => !f.field)) {
           newErrors.field_of_practice =
             "Please select valid fields for all entries";
-        }
-
-        if (
-          formData.membership_type === "Associate Member" &&
-          !formData.associate_category
-        ) {
-          newErrors.associate_category = "Associate category is required";
         }
         break;
 
@@ -1345,7 +1381,6 @@ const MembershipSignupForm = () => {
             label: "You must agree to comply with the constitution",
           },
           { key: "declaration", label: "You must agree to the declaration" },
-          { key: "incompliance", label: "You must confirm compliance" },
         ];
 
         declarationFields.forEach(({ key, label }) => {
@@ -1359,14 +1394,16 @@ const MembershipSignupForm = () => {
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
+  const router = useRouter();
 
   const navigateToErrorStep = (fieldName: string) => {
     const stepFieldMap = {
+      0: ["organization_id"],
       1: [
         "membership_type",
+        "membership_category",
         "country_of_residence",
         "field_of_practice",
-        "associate_category",
       ],
       2: [
         "title",
@@ -1399,7 +1436,6 @@ const MembershipSignupForm = () => {
         "abide_with_code_of_conduct",
         "comply_with_current_constitution",
         "declaration",
-        "incompliance",
       ],
       5: ["amount_paid", "payment_method", "transaction_number"],
     };
@@ -1419,12 +1455,12 @@ const MembershipSignupForm = () => {
   };
 
   const prevStep = () => {
-    setCurrentStep((prev) => Math.max(prev - 1, 1));
+    setCurrentStep((prev) => Math.max(prev - 1, 0));
   };
 
   const getMembershipFee = () => {
     const selectedType = masterData.membershipTypes.find(
-      (type) => type.name === formData.membership_type
+      (type) => type.category === formData.membership_type
     );
     return selectedType?.price || 0;
   };
@@ -1444,175 +1480,245 @@ const MembershipSignupForm = () => {
     }
   };
 
-  const handleSubmit = async () => {
-    // Validate all steps before submission
-    let hasErrors = false;
-    for (let step = 1; step <= steps.length - 1; step++) {
-      if (!validateStep(step)) {
-        hasErrors = true;
-        setCurrentStep(step);
-        break;
-      }
-    }
+ const handleSubmit = async () => {
+   // Validate all steps before submission
+   let hasErrors = false;
+   for (let step = 0; step <= steps.length - 2; step++) {
+     if (!validateStep(step)) {
+       hasErrors = true;
+       setCurrentStep(step);
+       break;
+     }
+   }
 
-    if (hasErrors) {
-      showErrorToast(
-        "Please correct the errors in the form before submitting."
-      );
-      return;
-    }
+   if (hasErrors) {
+     showErrorToast("Please correct the errors in the form before submitting.");
+     return;
+   }
 
-    setIsSubmitting(true);
+   setIsSubmitting(true);
 
-    try {
-      const submitFormData = new FormData();
+   try {
+     const submitFormData = new FormData();
 
-      // Handle text fields
-      const textFields = [
-        "title",
-        "first_name",
-        "middle_name",
-        "surname",
-        "email",
-        "secondary_email",
-        "date_of_birth",
-        "phone_number",
-        "alternative_phone",
-        "whatsapp_number",
-        "national_id",
-        "passport",
-        "membership_type",
-        "country_of_residence",
-        "associate_category",
-        "university",
-        "degree",
-        "degree_year",
-        "country_of_study",
-        "name_of_organization",
-        "Abbreviation",
-        "company_email",
-        "payment_method",
-        "transaction_number",
-      ];
+     // Text fields
+     const textFields = [
+       "title",
+       "first_name",
+       "middle_name",
+       "surname",
+       "email",
+       "secondary_email",
+       "date_of_birth",
+       "phone_number",
+       "alternative_phone",
+       "whatsapp_number",
+       "national_id",
+       "passport",
+       "membership_type",
+       "associate_category",
+       "university",
+       "degree",
+       "degree_year",
+       "name_of_organization",
+       "Abbreviation",
+       "company_email",
+       "payment_method",
+       "transaction_number",
+     ];
 
-      textFields.forEach((field) => {
-        const value = formData[field as keyof FormDataType];
-        submitFormData.append(field, value ? String(value) : "");
-      });
+     textFields.forEach((field) => {
+       const value = formData[field as keyof FormDataType];
+       submitFormData.append(field, value ? String(value) : "");
+     });
 
-      // Handle boolean fields
-      const booleanFields = [
-        "abide_with_code_of_conduct",
-        "comply_with_current_constitution",
-        "declaration",
-        "incompliance",
-      ];
+     // Numeric fields - ALWAYS send, even if 0
+     submitFormData.append(
+       "membership_category",
+       formData.membership_category.toString()
+     );
+     submitFormData.append(
+       "country_of_residence",
+       formData.country_of_residence.toString()
+     );
+     // Boolean fields
+     const booleanFields = [
+       "abide_with_code_of_conduct",
+       "comply_with_current_constitution",
+       "declaration",
+     ];
 
-      booleanFields.forEach((field) => {
-        const value = formData[field as keyof FormDataType] as boolean;
-        submitFormData.append(field, value ? "1" : "0");
-      });
+     booleanFields.forEach((field) => {
+       const value = formData[field as keyof FormDataType] as boolean;
+       submitFormData.append(field, value ? "1" : "0");
+     });
 
-      // Handle field_of_practice array
-      if (formData.field_of_practice && formData.field_of_practice.length > 0) {
-        formData.field_of_practice
-          .filter((field) => field.field)
-          .forEach((field, index) => {
-            submitFormData.append(
-              `field_of_practice[${index}][field]`,
-              field.field
-            );
-            submitFormData.append(
-              `field_of_practice[${index}][isPrimary]`,
-              field.isPrimary ? "1" : "0"
-            );
-          });
-      }
+     // Field of practice array
+     if (formData.field_of_practice && formData.field_of_practice.length > 0) {
+       formData.field_of_practice
+         .filter((field) => field.field)
+         .forEach((field, index) => {
+           submitFormData.append(
+             `field_of_practice[${index}][field]`,
+             field.field.toString()
+           );
+           submitFormData.append(
+             `field_of_practice[${index}][isPrimary]`,
+             field.isPrimary ? "1" : "0"
+           );
+         });
+     }
 
-      // Handle countries_of_operation array
-      if (
-        formData.countries_of_operation &&
-        formData.countries_of_operation.length > 0
-      ) {
-        formData.countries_of_operation
-          .filter((country) => country.country)
-          .forEach((country, index) => {
-            submitFormData.append(
-              `countries_of_operation[${index}][country]`,
-              country.country
-            );
-            submitFormData.append(
-              `countries_of_operation[${index}][isPrimary]`,
-              country.isPrimary ? "1" : "0"
-            );
-          });
-      }
+     // Countries of operation array
+     if (
+       formData.countries_of_operation &&
+       formData.countries_of_operation.length > 0
+     ) {
+       formData.countries_of_operation
+         .filter((country) => country.country)
+         .forEach((country, index) => {
+           submitFormData.append(
+             `countries_of_operation[${index}][country]`,
+             country.country.toString()
+           );
+           submitFormData.append(
+             `countries_of_operation[${index}][isPrimary]`,
+             country.isPrimary ? "1" : "0"
+           );
+         });
+     }
 
-      // Handle file uploads
-      if (formData.qualification) {
-        submitFormData.append("qualification", formData.qualification);
-      }
-      if (formData.cv_resume) {
-        submitFormData.append("cv_resume", formData.cv_resume);
-      }
-      if (formData.proof_of_registration) {
-        submitFormData.append(
-          "proof_of_registration",
-          formData.proof_of_registration
-        );
-      }
+     // File uploads
+     if (formData.qualification) {
+       submitFormData.append("qualification", formData.qualification);
+     }
+     if (formData.cv_resume) {
+       submitFormData.append("cv_resume", formData.cv_resume);
+     }
+     if (formData.proof_of_registration) {
+       submitFormData.append(
+         "proof_of_registration",
+         formData.proof_of_registration
+       );
+     }
 
-      // Set amount_paid
-      const membershipFee = getMembershipFee();
-      submitFormData.append("amount_paid", membershipFee.toString());
+     // Membership fee
+     const membershipFee = getMembershipFee();
+     submitFormData.append("amount_paid", membershipFee.toString());
 
-      const response = await authService.register(submitFormData);
-      showSuccessToast(
-        "Registration successful! Your application has been submitted."
-      );
-    } catch (error: any) {
-      console.error("Registration failed:", error);
+     // Submit with organization ID
+     const response = await authService.register(
+       submitFormData,
+       formData.organization_id
+     );
 
-      if (error.response?.data?.errors) {
-        const backendErrors = error.response.data.errors;
+     showSuccessToast(
+       response.message ||
+         "Registration successful! Your application has been submitted."
+     );
+     setTimeout(() => router.push('/login'), 2000);
+   } catch (error: any) {
+     console.error("Registration failed:", error);
 
-        const fieldMap: Record<string, string> = {
-          "field_of_practice.0.field": "field_of_practice",
-          "countries_of_operation.0.country": "countries_of_operation",
-        };
+     // Handle backend validation errors
+     if (error.errors && Object.keys(error.errors).length > 0) {
+       const backendErrors = error.errors;
 
-        const processedErrors: Record<string, string> = {};
-        Object.keys(backendErrors).forEach((key) => {
-          const frontendField = fieldMap[key] || key;
-          const errorArray = backendErrors[key];
-          processedErrors[frontendField] = Array.isArray(errorArray)
-            ? errorArray[0]
-            : errorArray;
-        });
+       const fieldMap: Record<string, string> = {
+         "field_of_practice.0.field": "field_of_practice",
+         "countries_of_operation.0.country": "countries_of_operation",
+       };
 
-        setErrors(processedErrors);
-        const firstErrorField = Object.keys(processedErrors)[0];
-        navigateToErrorStep(firstErrorField);
+       const processedErrors: Record<string, string> = {};
+       Object.keys(backendErrors).forEach((key) => {
+         const frontendField = fieldMap[key] || key;
+         const errorArray = backendErrors[key];
+         processedErrors[frontendField] = Array.isArray(errorArray)
+           ? errorArray[0]
+           : errorArray;
+       });
 
-        showErrorToast(
-          "Registration failed due to validation errors. Please check the form."
-        );
-      } else {
-        showErrorToast("Registration failed. Please try again later.");
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+       setErrors(processedErrors);
+       const firstErrorField = Object.keys(processedErrors)[0];
+       navigateToErrorStep(firstErrorField);
 
-  // Style definitions
+       // Show specific error message
+       const firstErrorMessage = Object.values(processedErrors)[0];
+       showErrorToast(firstErrorMessage);
+     } else {
+       // Handle network/server errors
+       showErrorToast(
+         error.message || "Registration failed. Please try again later."
+       );
+     }
+   } finally {
+     setIsSubmitting(false);
+   }
+ };
   const inputStyles =
     "w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#00B5A5] dark:focus:ring-[#00D4C7] focus:border-[#00B5A5] dark:focus:border-[#00D4C7] text-gray-900 dark:text-white bg-white dark:bg-gray-800 placeholder-gray-500 dark:placeholder-gray-400 transition-all duration-300";
 
   const selectStyles =
     "w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#00B5A5] dark:focus:ring-[#00D4C7] focus:border-[#00B5A5] dark:focus:border-[#00D4C7] text-gray-900 dark:text-white bg-white dark:bg-gray-800 transition-all duration-300";
 
-  // Membership Category Render Function
+  const renderOrganizationSelection = () => (
+    <div className="space-y-6">
+      <div className="text-center mb-8">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+          Select Your Organization
+        </h2>
+        <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+          Choose the organization you wish to register with. Each organization
+          may have different membership types and requirements.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {organizations.map((org) => (
+          <div
+            key={org.id}
+            className={`cursor-pointer rounded-lg border-2 p-6 transition-all duration-300 ${
+              formData.organization_id === org.id
+                ? "border-[#00B5A5] dark:border-[#00D4C7] bg-[#00B5A5]/5 dark:bg-[#00D4C7]/5 shadow-lg"
+                : "border-gray-200 dark:border-gray-700 hover:border-[#00B5A5] dark:hover:border-[#00D4C7] hover:shadow-md"
+            } bg-white dark:bg-gray-800`}
+            onClick={() => handleInputChange("organization_id", org.id)}
+          >
+            <div className="flex items-center space-x-4">
+              {org.logo && (
+                <img
+                  src={org.logo}
+                  alt={org.name}
+                  className="w-16 h-16 object-contain"
+                />
+              )}
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {org.name}
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  {org.abbreviation}
+                </p>
+              </div>
+              {formData.organization_id === org.id && (
+                <Check
+                  className="text-[#00B5A5] dark:text-[#00D4C7]"
+                  size={24}
+                />
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {errors.organization_id && (
+        <p className="text-red-500 dark:text-red-400 text-sm text-center">
+          {errors.organization_id}
+        </p>
+      )}
+    </div>
+  );
+
   const renderMembershipCategory = () => (
     <div className="space-y-6">
       <div className="text-center mb-8">
@@ -1626,195 +1732,189 @@ const MembershipSignupForm = () => {
         </p>
       </div>
 
-      {/* Membership Type Selection */}
-      <div className="space-y-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
-            Select Your Membership Type <span className="text-red-500">*</span>
-          </label>
+      {isLoadingData ? (
+        <div className="flex justify-center items-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00B5A5]"></div>
+          <span className="ml-3 text-gray-600 dark:text-gray-400">
+            Loading membership types...
+          </span>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
+              Select Your Membership Type{" "}
+              <span className="text-red-500">*</span>
+            </label>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {masterData.membershipTypes.map((type) => (
-              <div
-                key={type.id}
-                className={`relative cursor-pointer rounded-lg border-2 p-6 transition-all duration-300 ${
-                  formData.membership_type === type.name
-                    ? "border-[#00B5A5] dark:border-[#00D4C7] bg-[#00B5A5]/5 dark:bg-[#00D4C7]/5 shadow-lg"
-                    : "border-gray-200 dark:border-gray-700 hover:border-[#00B5A5] dark:hover:border-[#00D4C7] hover:shadow-md"
-                } bg-white dark:bg-gray-800`}
-                onClick={() => handleInputChange("membership_type", type.name)}
-              >
-                <div className="flex items-center">
-                  <input
-                    type="radio"
-                    name="membership_type"
-                    value={type.name}
-                    checked={formData.membership_type === type.name}
-                    onChange={() =>
-                      handleInputChange("membership_type", type.name)
-                    }
-                    className="h-4 w-4 text-[#00B5A5] dark:text-[#00D4C7] focus:ring-[#00B5A5] dark:focus:ring-[#00D4C7] border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
-                  />
-                  <div className="ml-3 flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                      {type.name}
-                    </h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                      {getMembershipDescription(type.name)}
-                    </p>
-                    <div className="mt-2 text-sm font-medium text-[#00B5A5] dark:text-[#00D4C7]">
-                      ${type.price || 0}/year
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {masterData.membershipTypes.map((type) => (
+                <div
+                  key={type.id}
+                  className={`relative cursor-pointer rounded-lg border-2 p-6 transition-all duration-300 ${
+                    formData.membership_type === type.category
+                      ? "border-[#00B5A5] dark:border-[#00D4C7] bg-[#00B5A5]/5 dark:bg-[#00D4C7]/5 shadow-lg"
+                      : "border-gray-200 dark:border-gray-700 hover:border-[#00B5A5] dark:hover:border-[#00D4C7] hover:shadow-md"
+                  } bg-white dark:bg-gray-800`}
+                  onClick={() => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      membership_type: type.category,
+                      membership_category: type.id,
+                      amount_paid: type.price,
+                    }));
+                  }}
+                >
+                  <div className="flex items-center">
+                    <input
+                      type="radio"
+                      name="membership_type"
+                      value={type.category}
+                      checked={formData.membership_type === type.category}
+                      onChange={() => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          membership_type: type.category,
+                          membership_category: type.id,
+                          amount_paid: type.price,
+                        }));
+                      }}
+                      className="h-4 w-4 text-[#00B5A5] dark:text-[#00D4C7] focus:ring-[#00B5A5] dark:focus:ring-[#00D4C7] border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
+                    />
+                    <div className="ml-3 flex-1">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {type.category}
+                      </h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                        {getMembershipDescription(type.category)}
+                      </p>
+                      <div className="mt-2 text-sm font-medium text-[#00B5A5] dark:text-[#00D4C7]">
+                        ${type.price}/{type.frequency.toLowerCase()}
+                      </div>
                     </div>
                   </div>
+                  {formData.membership_type === type.category && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowRequirements(true);
+                      }}
+                      className="mt-4 w-full bg-[#00B5A5] dark:bg-[#00D4C7] text-white py-2 px-4 rounded-lg text-sm hover:bg-[#008A7C] dark:hover:bg-[#00B5A5] transition-colors duration-300"
+                    >
+                      View Requirements
+                    </button>
+                  )}
                 </div>
-                {formData.membership_type === type.name && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowRequirements(true);
-                    }}
-                    className="mt-4 w-full bg-[#00B5A5] dark:bg-[#00D4C7] text-white py-2 px-4 rounded-lg text-sm hover:bg-[#008A7C] dark:hover:bg-[#00B5A5] transition-colors duration-300"
-                  >
-                    View Requirements
-                  </button>
-                )}
-              </div>
-            ))}
+              ))}
+            </div>
+            {errors.membership_type && (
+              <p className="text-red-500 dark:text-red-400 text-sm mt-2">
+                {errors.membership_type}
+              </p>
+            )}
           </div>
-          {errors.membership_type && (
-            <p className="text-red-500 dark:text-red-400 text-sm mt-2">
-              {errors.membership_type}
-            </p>
-          )}
-        </div>
 
-        {/* Additional fields after membership type is selected */}
-        {formData.membership_type && (
-          <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {formData.membership_type && (
+            <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Country of Residence <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={formData.country_of_residence}
+                    onChange={(e) =>
+                      handleInputChange(
+                        "country_of_residence",
+                        parseInt(e.target.value)
+                      )
+                    }
+                    className={selectStyles}
+                  >
+                    <option value="0">Select Country</option>
+                    {masterData.countries.map((country) => (
+                      <option key={country.id} value={country.id}>
+                        {country.name}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.country_of_residence && (
+                    <p className="text-red-500 dark:text-red-400 text-sm mt-1">
+                      {errors.country_of_residence}
+                    </p>
+                  )}
+                </div>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Country of Residence <span className="text-red-500">*</span>
+                  Field of Practice <span className="text-red-500">*</span>
                 </label>
-                <select
-                  value={formData.country_of_residence}
-                  onChange={(e) =>
-                    handleInputChange("country_of_residence", e.target.value)
-                  }
-                  className={selectStyles}
-                >
-                  <option value="">Select Country</option>
-                  {masterData.countries.map((country) => (
-                    <option key={country.id} value={country.id}>
-                      {country.name}
-                    </option>
-                  ))}
-                </select>
-                {errors.country_of_residence && (
-                  <p className="text-red-500 dark:text-red-400 text-sm mt-1">
-                    {errors.country_of_residence}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Field of Practice */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Field of Practice <span className="text-red-500">*</span>
-              </label>
-              <div className="space-y-2">
-                {formData.field_of_practice.map((field, index) => (
-                  <div key={index} className="flex items-center space-x-2">
-                    <select
-                      value={field.field}
-                      onChange={(e) =>
-                        updateFieldOfPractice(
-                          index,
-                          e.target.value,
-                          field.isPrimary
-                        )
-                      }
-                      className={`flex-1 ${selectStyles}`}
-                    >
-                      <option value="">Select Field</option>
-                      {masterData.fieldsOfPractice.map((f) => (
-                        <option key={f.id} value={f.id}>
-                          {f.name}
-                        </option>
-                      ))}
-                    </select>
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={field.isPrimary}
+                <div className="space-y-2">
+                  {formData.field_of_practice.map((field, index) => (
+                    <div key={index} className="flex items-center space-x-2">
+                      <select
+                        value={field.field}
                         onChange={(e) =>
                           updateFieldOfPractice(
                             index,
-                            field.field,
-                            e.target.checked
+                            parseInt(e.target.value),
+                            field.isPrimary
                           )
                         }
-                        className="mr-1"
-                      />
-                      Primary
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => removeFieldOfPractice(index)}
-                      className="p-2 text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors duration-300"
-                    >
-                      <X size={20} />
-                    </button>
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={addFieldOfPractice}
-                  className="w-full p-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-500 dark:text-gray-400 hover:border-[#00B5A5] dark:hover:border-[#00D4C7] hover:text-[#00B5A5] dark:hover:text-[#00D4C7] transition-colors duration-300 bg-white dark:bg-gray-800"
-                >
-                  + Add Field of Practice
-                </button>
-              </div>
-              {errors.field_of_practice && (
-                <p className="text-red-500 dark:text-red-400 text-sm mt-1">
-                  {errors.field_of_practice}
-                </p>
-              )}
-            </div>
-
-            {formData.membership_type === "Associate Member" && (
-              <div className="animate-in slide-in-from-top-2 duration-300">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Associate Category <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={formData.associate_category}
-                  onChange={(e) =>
-                    handleInputChange("associate_category", e.target.value)
-                  }
-                  className={selectStyles}
-                >
-                  <option value="">Select Category</option>
-                  {masterData.associateCategories.map((category) => (
-                    <option key={category.id} value={category.name}>
-                      {category.name}
-                    </option>
+                        className={`flex-1 ${selectStyles}`}
+                      >
+                        <option value="0">Select Field</option>
+                        {masterData.fieldsOfPractice.map((f) => (
+                          <option key={f.id} value={f.id}>
+                            {f.name}
+                          </option>
+                        ))}
+                      </select>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={field.isPrimary}
+                          onChange={(e) =>
+                            updateFieldOfPractice(
+                              index,
+                              field.field,
+                              e.target.checked
+                            )
+                          }
+                          className="mr-1"
+                        />
+                        Primary
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => removeFieldOfPractice(index)}
+                        className="p-2 text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors duration-300"
+                      >
+                        <X size={20} />
+                      </button>
+                    </div>
                   ))}
-                </select>
-                {errors.associate_category && (
+                  <button
+                    type="button"
+                    onClick={addFieldOfPractice}
+                    className="w-full p-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-500 dark:text-gray-400 hover:border-[#00B5A5] dark:hover:border-[#00D4C7] hover:text-[#00B5A5] dark:hover:text-[#00D4C7] transition-colors duration-300 bg-white dark:bg-gray-800"
+                  >
+                    + Add Field of Practice
+                  </button>
+                </div>
+                {errors.field_of_practice && (
                   <p className="text-red-500 dark:text-red-400 text-sm mt-1">
-                    {errors.associate_category}
+                    {errors.field_of_practice}
                   </p>
                 )}
               </div>
-            )}
-          </div>
-        )}
-      </div>
+            </div>
+          )}
+        </div>
+      )}
 
-      {/* Membership Benefits Preview */}
       {formData.membership_type && (
         <div className="mt-8 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 animate-in slide-in-from-top-2 duration-300">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
@@ -1907,7 +2007,6 @@ const MembershipSignupForm = () => {
     </div>
   );
 
-  // Additional Information Step Render Function
   const renderAdditionalInfo = () => (
     <div className="space-y-6">
       {formData.membership_type === "Student Member" && (
@@ -1972,7 +2071,6 @@ const MembershipSignupForm = () => {
     </div>
   );
 
-  // Declarations Step Render Function
   const renderDeclarations = () => (
     <div className="space-y-6">
       <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 p-6 rounded-lg">
@@ -2062,37 +2160,11 @@ const MembershipSignupForm = () => {
               {errors.declaration}
             </p>
           )}
-
-          <label className="flex items-start space-x-3 cursor-pointer group">
-            <input
-              type="checkbox"
-              checked={formData.incompliance}
-              onChange={(e) =>
-                handleInputChange("incompliance", e.target.checked)
-              }
-              className="mt-1 w-4 h-4 text-[#00B5A5] dark:text-[#00D4C7] bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-[#00B5A5] dark:focus:ring-[#00D4C7]"
-            />
-            <div>
-              <span className="text-sm font-medium text-gray-900 dark:text-gray-100 group-hover:text-[#00B5A5] dark:group-hover:text-[#00D4C7] transition-colors duration-300">
-                Compliance confirmation <span className="text-red-500">*</span>
-              </span>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                I confirm that I am in compliance with all applicable laws and
-                regulations in my jurisdiction.
-              </p>
-            </div>
-          </label>
-          {errors.incompliance && (
-            <p className="text-red-500 dark:text-red-400 text-sm">
-              {errors.incompliance}
-            </p>
-          )}
         </div>
       </div>
     </div>
   );
 
-  // Payment Step Render Function
   const renderPayment = () => (
     <div className="space-y-6">
       <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-6 rounded-lg">
@@ -2202,9 +2274,10 @@ const MembershipSignupForm = () => {
     </div>
   );
 
-  // Main render function
   const renderCurrentStep = () => {
     switch (currentStep) {
+      case 0:
+        return renderOrganizationSelection();
       case 1:
         return renderMembershipCategory();
       case 2:
@@ -2233,10 +2306,9 @@ const MembershipSignupForm = () => {
     <MembershipLayout
       currentStep={currentStep}
       steps={steps}
-      currentStepTitle={steps[currentStep - 1].title}
-      currentStepDescription={steps[currentStep - 1].description}
+      currentStepTitle={steps[currentStep].title}
+      currentStepDescription={steps[currentStep].description}
     >
-      {/* Requirements Preview Modal */}
       {showRequirements && formData.membership_type && (
         <RequirementsPreview
           membershipType={formData.membership_type}
@@ -2246,14 +2318,13 @@ const MembershipSignupForm = () => {
 
       {renderCurrentStep()}
 
-      {/* Navigation Buttons */}
       <div className="flex justify-between mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
         <button
           type="button"
           onClick={prevStep}
-          disabled={currentStep === 1}
+          disabled={currentStep === 0}
           className={`flex items-center px-6 py-3 rounded-lg font-medium transition-all duration-300 ${
-            currentStep === 1
+            currentStep === 0
               ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed"
               : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 shadow-sm hover:shadow-md"
           }`}
@@ -2262,11 +2333,16 @@ const MembershipSignupForm = () => {
           Previous
         </button>
 
-        {currentStep < steps.length ? (
+        {currentStep < steps.length - 1 ? (
           <button
             type="button"
             onClick={nextStep}
-            className="flex items-center px-6 py-3 bg-gradient-to-r from-[#00B5A5] to-[#008A7C] dark:from-[#00D4C7] dark:to-[#00B5A5] text-white rounded-lg font-medium hover:from-[#008A7C] hover:to-[#006D5D] dark:hover:from-[#00B5A5] dark:hover:to-[#008A7C] transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
+            disabled={currentStep === 0 && !formData.organization_id}
+            className={`flex items-center px-6 py-3 rounded-lg font-medium transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 ${
+              currentStep === 0 && !formData.organization_id
+                ? "bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                : "bg-gradient-to-r from-[#00B5A5] to-[#008A7C] dark:from-[#00D4C7] dark:to-[#00B5A5] text-white hover:from-[#008A7C] hover:to-[#006D5D] dark:hover:from-[#00B5A5] dark:hover:to-[#008A7C]"
+            }`}
           >
             Next
             <ChevronRight size={20} className="ml-2" />
