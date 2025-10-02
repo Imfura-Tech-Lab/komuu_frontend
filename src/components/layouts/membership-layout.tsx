@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Check, Menu, X, Sun, Moon, Monitor } from "lucide-react";
 import { useTheme } from "next-themes";
+import { useRouter } from "next/navigation";
 import { Toaster } from "react-hot-toast";
 
 interface Step {
@@ -154,6 +155,7 @@ const MembershipLayout: React.FC<MembershipLayoutProps> = ({
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { resolvedTheme } = useTheme();
+  const router = useRouter();
 
   // Sidebar component for progress steps
   const renderSidebar = () => (
@@ -290,8 +292,31 @@ const MembershipLayout: React.FC<MembershipLayoutProps> = ({
         </div>
       </div>
 
-      {/* Footer with theme toggle */}
+      {/* Footer with navigation, theme toggle */}
       <div className="mt-4 sm:mt-6 space-y-3">
+        {/* Navigation buttons */}
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => router.push('/')}
+            className="flex items-center justify-center gap-2 p-3 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750 border border-gray-200 dark:border-gray-700 rounded-lg transition-colors text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+            </svg>
+            Home
+          </button>
+          
+          <button
+            onClick={() => router.push('/login')}
+            className="flex items-center justify-center gap-2 p-3 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750 border border-gray-200 dark:border-gray-700 rounded-lg transition-colors text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+            </svg>
+            Login
+          </button>
+        </div>
+
         {/* Theme toggle section */}
         <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
           <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -359,7 +384,7 @@ const MembershipLayout: React.FC<MembershipLayoutProps> = ({
               <Menu size={24} />
             </button>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
               <div className="flex items-center">
                 <span className="text-sm font-medium text-gray-600 dark:text-gray-400 mr-2">
                   Step
@@ -368,6 +393,27 @@ const MembershipLayout: React.FC<MembershipLayoutProps> = ({
                   {currentStep + 1}/{steps?.length || 0}
                 </span>
               </div>
+              
+              <button
+                onClick={() => router.push('/')}
+                className="p-2 rounded-md text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                title="Home"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+              </button>
+              
+              <button
+                onClick={() => router.push('/login')}
+                className="p-2 rounded-md text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                title="Login"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                </svg>
+              </button>
+              
               <MembershipThemeToggle />
             </div>
           </div>
@@ -420,8 +466,28 @@ const MembershipLayout: React.FC<MembershipLayoutProps> = ({
                   </div>
                 </div>
 
-                {/* Theme toggle (desktop only) */}
-                <div className="hidden lg:block">
+                {/* Navigation and theme toggle (desktop only) */}
+                <div className="hidden lg:flex items-center gap-2">
+                  <button
+                    onClick={() => router.push('/')}
+                    className="p-2 rounded-md text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    title="Home"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                    </svg>
+                  </button>
+                  
+                  <button
+                    onClick={() => router.push('/login')}
+                    className="p-2 rounded-md text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    title="Login"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                    </svg>
+                  </button>
+                  
                   <MembershipThemeToggle />
                 </div>
               </div>

@@ -1394,7 +1394,7 @@ const MembershipSignupForm = () => {
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-  const router = useRouter();
+
 
   const navigateToErrorStep = (fieldName: string) => {
     const stepFieldMap = {
@@ -1616,6 +1616,7 @@ const MembershipSignupForm = () => {
        response.message ||
          "Registration successful! Your application has been submitted."
      );
+    const router = useRouter();
      setTimeout(() => router.push('/login'), 2000);
    } catch (error: any) {
      console.error("Registration failed:", error);

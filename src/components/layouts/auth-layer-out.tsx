@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Toaster, toast } from "react-hot-toast";
 import { useTheme } from "next-themes";
+import { useRouter } from "next/navigation";
 import { Sun, Moon, Monitor, ChevronDown } from "lucide-react";
 
 interface AuthLayoutProps {
@@ -143,6 +144,7 @@ export default function AuthLayout({
   showFooterLinks = true,
 }: AuthLayoutProps) {
   const { resolvedTheme } = useTheme();
+  const router = useRouter();
 
   return (
     <>
@@ -171,8 +173,48 @@ export default function AuthLayout({
       <div className="min-h-screen flex transition-colors duration-300">
         {/* Left Side - Description */}
         <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#00B5A5] to-[#008A7C] dark:from-[#00D4C7] dark:to-[#00B5A5] relative overflow-hidden">
-          {/* Theme Toggle - Positioned in top-right of left panel */}
-          <div className="absolute top-6 right-6 z-20">
+          {/* Navigation buttons - Positioned in top-right of left panel */}
+          <div className="absolute top-6 right-6 z-20 flex items-center gap-2">
+            <button
+              onClick={() => router.push("/")}
+              className="flex items-center justify-center w-10 h-10 bg-white/10 hover:bg-white/20 dark:bg-white/20 dark:hover:bg-white/30 backdrop-blur-sm rounded-lg transition-all duration-200 hover:scale-105 border border-white/20"
+              title="Home"
+            >
+              <svg
+                className="w-5 h-5 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+                />
+              </svg>
+            </button>
+
+            <button
+              onClick={() => router.push("/register")}
+              className="flex items-center justify-center w-10 h-10 bg-white/10 hover:bg-white/20 dark:bg-white/20 dark:hover:bg-white/30 backdrop-blur-sm rounded-lg transition-all duration-200 hover:scale-105 border border-white/20"
+              title="Create Account"
+            >
+              <svg
+                className="w-5 h-5 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
+                />
+              </svg>
+            </button>
+
             <AuthThemeToggle />
           </div>
 
@@ -242,8 +284,48 @@ export default function AuthLayout({
 
         {/* Right Side - Form */}
         <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white dark:bg-gray-900 transition-colors duration-300 relative">
-          {/* Theme Toggle for mobile/when left panel is hidden */}
-          <div className="lg:hidden absolute top-6 right-6">
+          {/* Navigation buttons for mobile/when left panel is hidden */}
+          <div className="lg:hidden absolute top-6 right-6 flex items-center gap-2">
+            <button
+              onClick={() => router.push("/")}
+              className="p-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              title="Home"
+            >
+              <svg
+                className="w-5 h-5 text-gray-600 dark:text-gray-300"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+                />
+              </svg>
+            </button>
+
+            <button
+              onClick={() => router.push("/register")}
+              className="p-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              title="Create Account"
+            >
+              <svg
+                className="w-5 h-5 text-gray-600 dark:text-gray-300"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
+                />
+              </svg>
+            </button>
+
             <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
               <AuthThemeToggle />
             </div>
