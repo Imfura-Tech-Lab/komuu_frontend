@@ -1,3 +1,5 @@
+import { FieldOfPractice } from "@/services/membership-service";
+
 export interface UserData {
   id: number;
   name: string;
@@ -379,7 +381,7 @@ export interface Application {
   membership_type: string;
   membership_number: string | null;
   employement: string | null;
-  forensic_field_of_practice: string;
+  forensic_field_of_practice?: string | null; 
   qualification: string;
   cv_resume: string;
   associate_category: string;
@@ -414,15 +416,15 @@ export interface Application {
     passport: string | null;
     public_profile: string;
   };
-  fieldsOfPractices: any[];
-  sectorOfEmployments: any[];
+  fieldsOfPractices: FieldOfPractice[]; 
   countriesOfPractice: Array<{
     id: number;
     country: string;
     region: string;
+    is_primary?: boolean; 
   }>;
+  documents?: any[]; 
 }
-
 export interface ApplicationResponse {
   status: string;
   message: string;

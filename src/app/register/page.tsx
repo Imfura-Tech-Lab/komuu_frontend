@@ -953,6 +953,7 @@ const FullMemberInformationStep: React.FC<{
 
 // Main Form Component
 const MembershipSignupForm = () => {
+  const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
   const [showRequirements, setShowRequirements] = useState(false);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -1395,7 +1396,6 @@ const MembershipSignupForm = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-
   const navigateToErrorStep = (fieldName: string) => {
     const stepFieldMap = {
       0: ["organization_id"],
@@ -1480,182 +1480,183 @@ const MembershipSignupForm = () => {
     }
   };
 
- const handleSubmit = async () => {
-   // Validate all steps before submission
-   let hasErrors = false;
-   for (let step = 0; step <= steps.length - 2; step++) {
-     if (!validateStep(step)) {
-       hasErrors = true;
-       setCurrentStep(step);
-       break;
-     }
-   }
+  const handleSubmit = async () => {
+    // Validate all steps before submission
+    let hasErrors = false;
+    for (let step = 0; step <= steps.length - 2; step++) {
+      if (!validateStep(step)) {
+        hasErrors = true;
+        setCurrentStep(step);
+        break;
+      }
+    }
 
-   if (hasErrors) {
-     showErrorToast("Please correct the errors in the form before submitting.");
-     return;
-   }
+    if (hasErrors) {
+      showErrorToast(
+        "Please correct the errors in the form before submitting."
+      );
+      return;
+    }
 
-   setIsSubmitting(true);
+    setIsSubmitting(true);
 
-   try {
-     const submitFormData = new FormData();
+    try {
+      const submitFormData = new FormData();
 
-     // Text fields
-     const textFields = [
-       "title",
-       "first_name",
-       "middle_name",
-       "surname",
-       "email",
-       "secondary_email",
-       "date_of_birth",
-       "phone_number",
-       "alternative_phone",
-       "whatsapp_number",
-       "national_id",
-       "passport",
-       "membership_type",
-       "associate_category",
-       "university",
-       "degree",
-       "degree_year",
-       "name_of_organization",
-       "Abbreviation",
-       "company_email",
-       "payment_method",
-       "transaction_number",
-     ];
+      // Text fields
+      const textFields = [
+        "title",
+        "first_name",
+        "middle_name",
+        "surname",
+        "email",
+        "secondary_email",
+        "date_of_birth",
+        "phone_number",
+        "alternative_phone",
+        "whatsapp_number",
+        "national_id",
+        "passport",
+        "membership_type",
+        "associate_category",
+        "university",
+        "degree",
+        "degree_year",
+        "name_of_organization",
+        "Abbreviation",
+        "company_email",
+        "payment_method",
+        "transaction_number",
+      ];
 
-     textFields.forEach((field) => {
-       const value = formData[field as keyof FormDataType];
-       submitFormData.append(field, value ? String(value) : "");
-     });
+      textFields.forEach((field) => {
+        const value = formData[field as keyof FormDataType];
+        submitFormData.append(field, value ? String(value) : "");
+      });
 
-     // Numeric fields - ALWAYS send, even if 0
-     submitFormData.append(
-       "membership_category",
-       formData.membership_category.toString()
-     );
-     submitFormData.append(
-       "country_of_residence",
-       formData.country_of_residence.toString()
-     );
-     // Boolean fields
-     const booleanFields = [
-       "abide_with_code_of_conduct",
-       "comply_with_current_constitution",
-       "declaration",
-     ];
+      // Numeric fields - ALWAYS send, even if 0
+      submitFormData.append(
+        "membership_category",
+        formData.membership_category.toString()
+      );
+      submitFormData.append(
+        "country_of_residence",
+        formData.country_of_residence.toString()
+      );
+      // Boolean fields
+      const booleanFields = [
+        "abide_with_code_of_conduct",
+        "comply_with_current_constitution",
+        "declaration",
+      ];
 
-     booleanFields.forEach((field) => {
-       const value = formData[field as keyof FormDataType] as boolean;
-       submitFormData.append(field, value ? "1" : "0");
-     });
+      booleanFields.forEach((field) => {
+        const value = formData[field as keyof FormDataType] as boolean;
+        submitFormData.append(field, value ? "1" : "0");
+      });
 
-     // Field of practice array
-     if (formData.field_of_practice && formData.field_of_practice.length > 0) {
-       formData.field_of_practice
-         .filter((field) => field.field)
-         .forEach((field, index) => {
-           submitFormData.append(
-             `field_of_practice[${index}][field]`,
-             field.field.toString()
-           );
-           submitFormData.append(
-             `field_of_practice[${index}][isPrimary]`,
-             field.isPrimary ? "1" : "0"
-           );
-         });
-     }
+      // Field of practice array
+      if (formData.field_of_practice && formData.field_of_practice.length > 0) {
+        formData.field_of_practice
+          .filter((field) => field.field)
+          .forEach((field, index) => {
+            submitFormData.append(
+              `field_of_practice[${index}][field]`,
+              field.field.toString()
+            );
+            submitFormData.append(
+              `field_of_practice[${index}][isPrimary]`,
+              field.isPrimary ? "1" : "0"
+            );
+          });
+      }
 
-     // Countries of operation array
-     if (
-       formData.countries_of_operation &&
-       formData.countries_of_operation.length > 0
-     ) {
-       formData.countries_of_operation
-         .filter((country) => country.country)
-         .forEach((country, index) => {
-           submitFormData.append(
-             `countries_of_operation[${index}][country]`,
-             country.country.toString()
-           );
-           submitFormData.append(
-             `countries_of_operation[${index}][isPrimary]`,
-             country.isPrimary ? "1" : "0"
-           );
-         });
-     }
+      // Countries of operation array
+      if (
+        formData.countries_of_operation &&
+        formData.countries_of_operation.length > 0
+      ) {
+        formData.countries_of_operation
+          .filter((country) => country.country)
+          .forEach((country, index) => {
+            submitFormData.append(
+              `countries_of_operation[${index}][country]`,
+              country.country.toString()
+            );
+            submitFormData.append(
+              `countries_of_operation[${index}][isPrimary]`,
+              country.isPrimary ? "1" : "0"
+            );
+          });
+      }
 
-     // File uploads
-     if (formData.qualification) {
-       submitFormData.append("qualification", formData.qualification);
-     }
-     if (formData.cv_resume) {
-       submitFormData.append("cv_resume", formData.cv_resume);
-     }
-     if (formData.proof_of_registration) {
-       submitFormData.append(
-         "proof_of_registration",
-         formData.proof_of_registration
-       );
-     }
+      // File uploads
+      if (formData.qualification) {
+        submitFormData.append("qualification", formData.qualification);
+      }
+      if (formData.cv_resume) {
+        submitFormData.append("cv_resume", formData.cv_resume);
+      }
+      if (formData.proof_of_registration) {
+        submitFormData.append(
+          "proof_of_registration",
+          formData.proof_of_registration
+        );
+      }
 
-     // Membership fee
-     const membershipFee = getMembershipFee();
-     submitFormData.append("amount_paid", membershipFee.toString());
+      // Membership fee
+      const membershipFee = getMembershipFee();
+      submitFormData.append("amount_paid", membershipFee.toString());
 
-     // Submit with organization ID
-     const response = await authService.register(
-       submitFormData,
-       formData.organization_id
-     );
+      // Submit with organization ID
+      const response = await authService.register(
+        submitFormData,
+        formData.organization_id
+      );
 
-     showSuccessToast(
-       response.message ||
-         "Registration successful! Your application has been submitted."
-     );
-    const router = useRouter();
-     setTimeout(() => router.push('/login'), 2000);
-   } catch (error: any) {
-     console.error("Registration failed:", error);
+      showSuccessToast(
+        response.message ||
+          "Registration successful! Your application has been submitted."
+      );
+      setTimeout(() => router.push("/login"), 2000);
+    } catch (error: any) {
+      console.error("Registration failed:", error);
 
-     // Handle backend validation errors
-     if (error.errors && Object.keys(error.errors).length > 0) {
-       const backendErrors = error.errors;
+      // Handle backend validation errors
+      if (error.errors && Object.keys(error.errors).length > 0) {
+        const backendErrors = error.errors;
 
-       const fieldMap: Record<string, string> = {
-         "field_of_practice.0.field": "field_of_practice",
-         "countries_of_operation.0.country": "countries_of_operation",
-       };
+        const fieldMap: Record<string, string> = {
+          "field_of_practice.0.field": "field_of_practice",
+          "countries_of_operation.0.country": "countries_of_operation",
+        };
 
-       const processedErrors: Record<string, string> = {};
-       Object.keys(backendErrors).forEach((key) => {
-         const frontendField = fieldMap[key] || key;
-         const errorArray = backendErrors[key];
-         processedErrors[frontendField] = Array.isArray(errorArray)
-           ? errorArray[0]
-           : errorArray;
-       });
+        const processedErrors: Record<string, string> = {};
+        Object.keys(backendErrors).forEach((key) => {
+          const frontendField = fieldMap[key] || key;
+          const errorArray = backendErrors[key];
+          processedErrors[frontendField] = Array.isArray(errorArray)
+            ? errorArray[0]
+            : errorArray;
+        });
 
-       setErrors(processedErrors);
-       const firstErrorField = Object.keys(processedErrors)[0];
-       navigateToErrorStep(firstErrorField);
+        setErrors(processedErrors);
+        const firstErrorField = Object.keys(processedErrors)[0];
+        navigateToErrorStep(firstErrorField);
 
-       // Show specific error message
-       const firstErrorMessage = Object.values(processedErrors)[0];
-       showErrorToast(firstErrorMessage);
-     } else {
-       // Handle network/server errors
-       showErrorToast(
-         error.message || "Registration failed. Please try again later."
-       );
-     }
-   } finally {
-     setIsSubmitting(false);
-   }
- };
+        // Show specific error message
+        const firstErrorMessage = Object.values(processedErrors)[0];
+        showErrorToast(firstErrorMessage);
+      } else {
+        // Handle network/server errors
+        showErrorToast(
+          error.message || "Registration failed. Please try again later."
+        );
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
   const inputStyles =
     "w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#00B5A5] dark:focus:ring-[#00D4C7] focus:border-[#00B5A5] dark:focus:border-[#00D4C7] text-gray-900 dark:text-white bg-white dark:bg-gray-800 placeholder-gray-500 dark:placeholder-gray-400 transition-all duration-300";
 

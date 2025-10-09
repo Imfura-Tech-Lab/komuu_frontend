@@ -94,7 +94,7 @@ export function CreateFieldModal({ onClose, onSubmit, existingFields }: CreateFi
                 <option value="">Select a parent field</option>
                 {mainFields.map((field) => (
                   <option key={field.id} value={field.id}>
-                    {field.field_of_practice} ({field.code})
+                    {field.field} ({field.code})
                   </option>
                 ))}
               </select>

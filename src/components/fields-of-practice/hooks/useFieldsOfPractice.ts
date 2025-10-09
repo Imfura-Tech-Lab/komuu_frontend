@@ -8,12 +8,14 @@ export interface SubField {
   id: number;
   field: string;
   code: string;
+  description?:string;
 }
 
 export interface FieldOfPractice {
   id: number;
   field: string;
   code: string;
+  description?:string;
   sub_fields: SubField[];
 }
 

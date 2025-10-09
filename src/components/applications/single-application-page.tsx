@@ -105,6 +105,7 @@ export default function SingleApplicationPage({
       }
 
       const data = await response.json();
+      console.log(data);
 
       if (data.status === "success") {
         setApplication(data.data);

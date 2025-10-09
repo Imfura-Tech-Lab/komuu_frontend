@@ -77,6 +77,26 @@ export default function FieldsOfPracticeClient() {
       exportRender: (field, value) => value,
     },
     {
+      key: "description",
+      label: "Description",
+      sortable: true,
+      filterable: true,
+      width: 300,
+      render: (field, value) => (
+        <div
+          className="text-sm text-gray-600 dark:text-gray-400 max-w-xs truncate"
+          title={field?.description}
+        >
+          {field?.description || (
+            <span className="italic text-gray-400 dark:text-gray-500">
+              No description
+            </span>
+          )}
+        </div>
+      ),
+      exportRender: (field) => field?.description || "No description",
+    },
+    {
       key: "sub_fields",
       label: "Sub-fields",
       sortable: false,
@@ -84,7 +104,8 @@ export default function FieldsOfPracticeClient() {
       width: 150,
       render: (field) => (
         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-          {field.sub_fields.length} sub-field{field.sub_fields.length !== 1 ? 's' : ''}
+          {field.sub_fields.length} sub-field
+          {field.sub_fields.length !== 1 ? "s" : ""}
         </span>
       ),
       exportRender: (field) => `${field.sub_fields.length} sub-fields`,
@@ -312,7 +333,7 @@ export default function FieldsOfPracticeClient() {
           title="Fields of Practice"
           exportFileName="fields-of-practice"
           searchable={true}
-          searchFields={["field", "code"]}
+          searchFields={["field", "code", "description"]}
           pagination={true}
           pageSize={25}
           emptyMessage="No fields of practice found"
@@ -343,6 +364,7 @@ export default function FieldsOfPracticeClient() {
             setEditingField(null);
           }}
           onSubmit={updateField}
+          existingFields={fields}
         />
       )}
 
@@ -361,14 +383,14 @@ export default function FieldsOfPracticeClient() {
       {showSubFieldsModal && selectedField && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           {/* Backdrop */}
-          <div 
+          <div
             className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm transition-opacity"
             onClick={() => setShowSubFieldsModal(false)}
           />
-          
+
           {/* Modal */}
           <div className="flex min-h-full items-center justify-center p-4">
-            <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-4xl w-full transform transition-all">
+            <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-5xl w-full transform transition-all">
               {/* Header */}
               <div className="px-6 pt-6 pb-4 border-b border-gray-200 dark:border-gray-700">
                 <div className="flex items-center justify-between">
@@ -377,15 +399,26 @@ export default function FieldsOfPracticeClient() {
                       Sub-fields of {selectedField.field}
                     </h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                      Code: <span className="font-mono">{selectedField.code}</span>
+                      Code:{" "}
+                      <span className="font-mono">{selectedField.code}</span>
                     </p>
                   </div>
                   <button
                     onClick={() => setShowSubFieldsModal(false)}
                     className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                   >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    <svg
+                      className="w-6 h-6"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
                     </svg>
                   </button>
                 </div>
@@ -408,13 +441,19 @@ export default function FieldsOfPracticeClient() {
                             Field Name
                           </th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Description
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             Actions
                           </th>
                         </tr>
                       </thead>
                       <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                         {selectedField.sub_fields.map((subField, index) => (
-                          <tr key={subField.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                          <tr
+                            key={subField.id}
+                            className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                          >
                             <td className="px-4 py-3 whitespace-nowrap">
                               <div className="flex items-center justify-center w-6 h-6 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full font-semibold text-xs">
                                 {index + 1}
@@ -430,41 +469,74 @@ export default function FieldsOfPracticeClient() {
                                 {subField.field}
                               </div>
                             </td>
+                            <td className="px-4 py-3 max-w-xs">
+                              <div
+                                className="text-sm text-gray-600 dark:text-gray-400 truncate"
+                                title={subField.description}
+                              >
+                                {subField.description || (
+                                  <span className="italic text-gray-400 dark:text-gray-500">
+                                    No description
+                                  </span>
+                                )}
+                              </div>
+                            </td>
                             <td className="px-4 py-3 whitespace-nowrap">
                               <div className="flex space-x-2">
                                 <button
                                   onClick={() => {
-                                    handleEdit({ 
+                                    handleEdit({
                                       id: subField.id,
                                       field: subField.field,
                                       code: subField.code,
+                                      description: subField.description,
                                       main_field: selectedField.id,
-                                      sub_fields: []
+                                      sub_fields: [],
                                     });
                                     setShowSubFieldsModal(false);
                                   }}
                                   className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 p-2"
                                   title="Edit"
                                 >
-                                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                  <svg
+                                    className="h-4 w-4"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                    />
                                   </svg>
                                 </button>
                                 <button
                                   onClick={() => {
-                                    handleDelete({ 
+                                    handleDelete({
                                       id: subField.id,
                                       field: subField.field,
                                       code: subField.code,
-                                      main_field: selectedField.id
+                                      main_field: selectedField.id,
                                     });
                                     setShowSubFieldsModal(false);
                                   }}
                                   className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 p-2"
                                   title="Delete"
                                 >
-                                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  <svg
+                                    className="h-4 w-4"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                    />
                                   </svg>
                                 </button>
                               </div>
@@ -476,10 +548,22 @@ export default function FieldsOfPracticeClient() {
                   </div>
                 ) : (
                   <div className="text-center py-12">
-                    <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                    <svg
+                      className="mx-auto h-12 w-12 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
+                      />
                     </svg>
-                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">No sub-fields found</p>
+                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                      No sub-fields found
+                    </p>
                   </div>
                 )}
               </div>

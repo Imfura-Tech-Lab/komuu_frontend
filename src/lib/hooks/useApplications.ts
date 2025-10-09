@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
-import { Application } from "@/types";
+import { useState, useEffect, useCallback } from "react";
 import { showErrorToast } from "@/components/layouts/auth-layer-out";
+import { Application } from "@/types";
 
 export const useApplications = () => {
   const [applications, setApplications] = useState<Application[]>([]);
@@ -11,21 +11,27 @@ export const useApplications = () => {
   useEffect(() => {
     const userData = localStorage.getItem("user_data");
     if (userData) {
-      const parsedData = JSON.parse(userData);
-      setUserRole(parsedData.role);
+      try {
+        const parsedData = JSON.parse(userData);
+        setUserRole(parsedData.role || "");
+      } catch (e) {
+        console.error("Failed to parse user data:", e);
+      }
     }
     fetchApplications();
   }, []);
 
-  const fetchApplications = async () => {
+  const fetchApplications = useCallback(async () => {
     try {
       setLoading(true);
+      setError(null);
+
       const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
       const token = localStorage.getItem("auth_token");
       const userData = localStorage.getItem("user_data");
 
       if (!token) {
-        showErrorToast("Please login to view applications");
+        showErrorToast("Authentication required. Please login to continue.");
         return;
       }
 
@@ -41,30 +47,51 @@ export const useApplications = () => {
         },
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
       const data = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          showErrorToast("Session expired. Please login again.");
+        } else if (response.status === 403) {
+          showErrorToast("You don't have permission to view applications.");
+        } else if (response.status === 404) {
+          showErrorToast("Applications endpoint not found.");
+        } else if (response.status >= 500) {
+          showErrorToast("Server error. Please try again later.");
+        } else {
+          showErrorToast(data.message || `Error: ${response.status}`);
+        }
+        throw new Error(
+          data.message || `HTTP error! status: ${response.status}`
+        );
+      }
 
       if (data.status === "success") {
         if (isMember) {
+          // For member: my-application returns single object
           setApplications(data.data ? [data.data] : []);
         } else {
-          const applicationsData = data.data?.data || [];
-          setApplications(Array.isArray(applicationsData) ? applicationsData : []);
+          // For admin: applications returns array
+          const applicationsData = Array.isArray(data.data) ? data.data : [];
+          setApplications(applicationsData);
         }
       } else {
+        showErrorToast(data.message || "Failed to load applications");
         throw new Error(data.message || "Failed to fetch applications");
       }
     } catch (err) {
       console.error("Failed to fetch applications:", err);
-      setError(err instanceof Error ? err.message : "Failed to fetch applications");
-      showErrorToast("Failed to load application details");
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to fetch applications";
+      setError(errorMessage);
+
+      if (err instanceof Error && !err.message.includes("HTTP error")) {
+        showErrorToast("Network error. Please check your connection.");
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   return {
     applications,
@@ -72,6 +99,6 @@ export const useApplications = () => {
     error,
     userRole,
     fetchApplications,
-    setApplications
+    setApplications,
   };
 };
