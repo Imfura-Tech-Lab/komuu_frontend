@@ -21,6 +21,7 @@ export function CreateFieldModal({ onClose, onSubmit, existingFields }: CreateFi
   const mainFields = existingFields.filter(field => {
     // Assuming a field is "main" if it's not a subfield of another
     // You may need to adjust this logic based on your data structure
+    // @ts-ignore
     return !existingFields.some(f => f.id === field.main_field);
   });
 
