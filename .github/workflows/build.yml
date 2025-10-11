@@ -28,7 +28,8 @@ jobs:
         run: npm ci
       
       - name: Run TypeScript type check
-        run: npm run type-check || npx tsc --noEmit  
+        run: npm run type-check || npx tsc --noEmit
+      
       - name: Build Next.js application
         run: npm run build
         env:
@@ -73,7 +74,7 @@ jobs:
           tags: |
             type=ref,event=branch
             type=ref,event=pr
-            type=sha,prefix={{branch}}-
+            type=sha,prefix=sha-
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
       
@@ -142,7 +143,6 @@ jobs:
             
             ### Build Results
             - ✅ TypeScript type check passed
-            - ✅ Linting passed
             - ✅ Next.js build successful
             - ✅ Docker image built and tested
             
@@ -192,3 +192,12 @@ jobs:
             - Test failures
             - Build configuration issues
             - Docker build errors
+            
+            <sub>Failed at ${new Date().toUTCString()}</sub>`;
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: output
+            });
