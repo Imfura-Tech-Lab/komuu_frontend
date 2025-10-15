@@ -326,7 +326,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
       },
       {
         name: "Resources",
-        href: "/resources",
+        href: "/my-resources",
         permission: "member_resources",
         icon: "resources",
         description: "Member resources and downloads",
@@ -334,7 +334,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
       },
       {
         name: "Events",
-        href: "/events",
+        href: "/my-events",
         permission: "member_events",
         icon: "events",
         description: "Upcoming events and activities",
@@ -342,7 +342,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
       },
       {
         name: "Community",
-        href: "/community",
+        href: "/my-communities",
         permission: "member_community",
         icon: "community",
         description: "Connect with other members",
