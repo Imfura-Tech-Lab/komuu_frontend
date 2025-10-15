@@ -21,6 +21,7 @@ import {
   Marker,
   ZoomableGroup,
   Line,
+  //@ts-ignore
 } from "react-simple-maps";
 import { useState, useMemo } from "react";
 
