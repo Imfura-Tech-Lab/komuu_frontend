@@ -31,22 +31,6 @@ export function NavigationItem({
         <span className="truncate">{item.name}</span>
       </div>
 
-      {/* Badge for notifications/counts */}
-      {item.badge && (
-        <span
-          className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-            isActive
-              ? "bg-white bg-opacity-20 text-white"
-              : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300"
-          }`}
-        >
-          {item.badge === "pending_count" && "3"}{" "}
-          {/* This would come from props/state */}
-          {item.badge === "unsigned_count" && "2"}{" "}
-          {/* This would come from props/state */}
-        </span>
-      )}
-
       {/* Active indicator */}
       {isActive && (
         <div className="absolute inset-y-0 left-0 w-1 bg-white rounded-r-md"></div>

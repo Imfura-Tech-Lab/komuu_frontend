@@ -1,5 +1,8 @@
-import React, { useState, useEffect } from "react";
-import { Check, Menu, X, Sun, Moon } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { Check, Menu, X, Sun, Moon, Monitor } from "lucide-react";
+import { useTheme } from "next-themes";
+import { useRouter } from "next/navigation";
+import { Toaster } from "react-hot-toast";
 
 interface Step {
   id: number;
@@ -16,31 +19,143 @@ interface MembershipLayoutProps {
   currentStepDescription?: string;
 }
 
+// Theme Toggle Component for Membership Layout
+const MembershipThemeToggle = () => {
+  const { theme, setTheme, resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse" />
+    );
+  }
+
+  const themes = [
+    { value: "light", label: "Light", icon: Sun, description: "Light mode" },
+    { value: "dark", label: "Dark", icon: Moon, description: "Dark mode" },
+    {
+      value: "system",
+      label: "System",
+      icon: Monitor,
+      description: "Follow system preference",
+    },
+  ];
+
+  const currentTheme = themes.find((t) => t.value === theme) || themes[2];
+  const CurrentIcon = currentTheme.icon;
+
+  return (
+    <div ref={dropdownRef} className="relative">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center justify-center w-8 h-8 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors group border border-gray-200 dark:border-gray-600"
+        aria-label="Toggle theme"
+        title="Change theme"
+      >
+        <CurrentIcon
+          size={16}
+          className="text-gray-600 dark:text-gray-300 group-hover:text-[#00B5A5] dark:group-hover:text-[#00D4C7] transition-colors"
+        />
+      </button>
+
+      {isOpen && (
+        <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden z-50">
+          <div className="py-1">
+            {themes.map((themeOption) => {
+              const Icon = themeOption.icon;
+              const isActive = theme === themeOption.value;
+
+              return (
+                <button
+                  key={themeOption.value}
+                  onClick={() => {
+                    setTheme(themeOption.value);
+                    setIsOpen(false);
+                  }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                    isActive
+                      ? "bg-[#00B5A5]/10 dark:bg-[#00D4C7]/10 text-[#00B5A5] dark:text-[#00D4C7]"
+                      : "text-gray-700 dark:text-gray-200"
+                  }`}
+                >
+                  <Icon
+                    size={16}
+                    className={
+                      isActive
+                        ? "text-[#00B5A5] dark:text-[#00D4C7]"
+                        : "text-gray-500 dark:text-gray-400"
+                    }
+                  />
+                  <div className="flex-1 text-left">
+                    <div
+                      className={`font-medium ${
+                        isActive ? "text-[#00B5A5] dark:text-[#00D4C7]" : ""
+                      }`}
+                    >
+                      {themeOption.label}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      {themeOption.description}
+                    </div>
+                  </div>
+                  {isActive && (
+                    <div className="w-2 h-2 bg-[#00B5A5] dark:bg-[#00D4C7] rounded-full" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {theme === "system" && (
+            <div className="border-t border-gray-200 dark:border-gray-700 px-4 py-2 bg-gray-50 dark:bg-gray-750">
+              <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                <div
+                  className={`w-2 h-2 rounded-full ${
+                    resolvedTheme === "dark" ? "bg-blue-500" : "bg-yellow-500"
+                  }`}
+                />
+                <span>
+                  System: {resolvedTheme === "dark" ? "Dark" : "Light"}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const MembershipLayout: React.FC<MembershipLayoutProps> = ({
   children,
   currentStep,
-  steps = [], // Default to empty array
+  steps = [],
   currentStepTitle = "",
   currentStepDescription = "",
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
-
-  // Initialize dark mode from localStorage or system preference
-  useEffect(() => {
-    const savedTheme = localStorage.getItem("theme");
-    const systemPrefersDark = window.matchMedia(
-      "(prefers-color-scheme: dark)"
-    ).matches;
-
-    if (savedTheme === "dark" || (!savedTheme && systemPrefersDark)) {
-      setDarkMode(true);
-      document.documentElement.classList.add("dark");
-    } else {
-      setDarkMode(false);
-      document.documentElement.classList.remove("dark");
-    }
-  }, []);
+  const { resolvedTheme } = useTheme();
+  const router = useRouter();
 
   // Sidebar component for progress steps
   const renderSidebar = () => (
@@ -100,7 +215,7 @@ const MembershipLayout: React.FC<MembershipLayoutProps> = ({
                       <Check size={20} />
                     ) : (
                       <span className="font-bold text-sm sm:text-base">
-                        {step.id}
+                        {step.id + 1}
                       </span>
                     )}
                   </div>
@@ -177,102 +292,219 @@ const MembershipLayout: React.FC<MembershipLayoutProps> = ({
         </div>
       </div>
 
-      {/* Motivational footer */}
-      <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-gradient-to-r from-[#00B5A5] to-[#008A7C] dark:from-[#00D4C7] dark:to-[#00B5A5] rounded-lg shadow-lg dark:shadow-[#00B5A5]/20">
-        <p className="text-white text-sm text-center font-medium">
-          🎉 You're doing great! Keep going!
-        </p>
+      {/* Footer with navigation, theme toggle */}
+      <div className="mt-4 sm:mt-6 space-y-3">
+        {/* Navigation buttons */}
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => router.push('/')}
+            className="flex items-center justify-center gap-2 p-3 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750 border border-gray-200 dark:border-gray-700 rounded-lg transition-colors text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+            </svg>
+            Home
+          </button>
+          
+          <button
+            onClick={() => router.push('/login')}
+            className="flex items-center justify-center gap-2 p-3 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750 border border-gray-200 dark:border-gray-700 rounded-lg transition-colors text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+            </svg>
+            Login
+          </button>
+        </div>
+
+        {/* Theme toggle section */}
+        <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            Theme
+          </span>
+          <MembershipThemeToggle />
+        </div>
+
+        {/* Motivational footer */}
+        <div className="p-3 sm:p-4 bg-gradient-to-r from-[#00B5A5] to-[#008A7C] dark:from-[#00D4C7] dark:to-[#00B5A5] rounded-lg shadow-lg dark:shadow-[#00B5A5]/20">
+          <p className="text-white text-sm text-center font-medium">
+            You're doing great! Keep going!
+          </p>
+        </div>
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col lg:flex-row transition-colors duration-300">
-      {/* Mobile overlay */}
-      {isSidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 dark:bg-black dark:bg-opacity-70 z-40 lg:hidden transition-opacity duration-300"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
+    <>
+      {/* Toast Container with Theme Support - using react-hot-toast */}
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: resolvedTheme === "dark" ? "#1f2937" : "#ffffff",
+            color: resolvedTheme === "dark" ? "#f9fafb" : "#111827",
+            border: `1px solid ${
+              resolvedTheme === "dark" ? "#374151" : "#e5e7eb"
+            }`,
+            borderRadius: "8px",
+            fontSize: "16px",
+            fontWeight: "500",
+            padding: "16px 20px",
+            minWidth: "300px",
+            boxShadow:
+              resolvedTheme === "dark"
+                ? "0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2)"
+                : "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+          },
+        }}
+      />
 
-      {/* Sidebar */}
-      {renderSidebar()}
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col lg:flex-row transition-colors duration-300">
+        {/* Mobile overlay */}
+        {isSidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 dark:bg-black dark:bg-opacity-70 z-40 lg:hidden transition-opacity duration-300"
+            onClick={() => setIsSidebarOpen(false)}
+          />
+        )}
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Mobile Header with Menu Button */}
-        <div className="lg:hidden bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center justify-between">
-          <button
-            onClick={() => setIsSidebarOpen(true)}
-            className="p-2 rounded-md text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-          >
-            <Menu size={24} />
-          </button>
-          <div className="flex items-center">
-            <span className="text-sm font-medium text-gray-600 dark:text-gray-400 mr-2">
-              Step
-            </span>
-            <span className="text-sm font-bold text-gray-900 dark:text-white">
-              {currentStep}/{steps?.length || 0}
-            </span>
-          </div>
-        </div>
+        {/* Sidebar */}
+        {renderSidebar()}
 
-        {/* Header with Progress and Step Info */}
-        <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 sm:px-8 py-4 sm:py-6 transition-colors duration-300">
-          <div className="max-w-4xl flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 lg:gap-8">
-            {/* Step title and description column */}
-            <div className="flex-1">
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-                {currentStepTitle}
-              </h2>
-              <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm sm:text-base">
-                {currentStepDescription}
-              </p>
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Mobile Header with Menu Button and Theme Toggle */}
+          <div className="lg:hidden bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center justify-between">
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="p-2 rounded-md text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            >
+              <Menu size={24} />
+            </button>
+
+            <div className="flex items-center gap-2">
+              <div className="flex items-center">
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400 mr-2">
+                  Step
+                </span>
+                <span className="text-sm font-bold text-gray-900 dark:text-white">
+                  {currentStep + 1}/{steps?.length || 0}
+                </span>
+              </div>
+              
+              <button
+                onClick={() => router.push('/')}
+                className="p-2 rounded-md text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                title="Home"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+              </button>
+              
+              <button
+                onClick={() => router.push('/login')}
+                className="p-2 rounded-md text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                title="Login"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                </svg>
+              </button>
+              
+              <MembershipThemeToggle />
             </div>
+          </div>
 
-            {/* Progress indicator */}
-            <div className="lg:ml-8 lg:min-w-[200px] w-full lg:w-auto">
-              <div className="flex justify-between items-center text-sm mb-2">
-                <span className="text-gray-600 dark:text-gray-400">
-                  Progress
-                </span>
-                <span className="text-gray-900 dark:text-white font-semibold">
-                  Step {currentStep} of {steps?.length || 0}
-                </span>
+          {/* Header with Progress and Step Info */}
+          <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 sm:px-8 py-4 sm:py-6 transition-colors duration-300">
+            <div className="max-w-4xl flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 lg:gap-8">
+              {/* Step title and description column */}
+              <div className="flex-1">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                  {currentStepTitle}
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm sm:text-base">
+                  {currentStepDescription}
+                </p>
               </div>
-              <div className="bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                <div
-                  className="bg-[#00B5A5] dark:bg-[#00D4C7] rounded-full h-2 transition-all duration-300 shadow-sm"
-                  style={{
-                    width: `${(currentStep / (steps?.length || 1)) * 100}%`,
-                  }}
-                />
-              </div>
-              <div className="flex justify-between text-xs mt-1">
-                <span className="text-gray-500 dark:text-gray-500">
-                  {Math.round((currentStep / (steps?.length || 1)) * 100)}%
-                  Complete
-                </span>
-                <span className="text-gray-500 dark:text-gray-500">
-                  {(steps?.length || 0) - currentStep} remaining
-                </span>
+
+              {/* Progress indicator and theme toggle (desktop) */}
+              <div className="lg:ml-8 lg:min-w-[200px] w-full lg:w-auto flex flex-col lg:flex-row lg:items-center gap-4">
+                {/* Progress bar */}
+                <div className="flex-1">
+                  <div className="flex justify-between items-center text-sm mb-2">
+                    <span className="text-gray-600 dark:text-gray-400">
+                      Progress
+                    </span>
+                    <span className="text-gray-900 dark:text-white font-semibold">
+                      Step {currentStep + 1} of {steps?.length || 0}
+                    </span>
+                  </div>
+                  <div className="bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                    <div
+                      className="bg-[#00B5A5] dark:bg-[#00D4C7] rounded-full h-2 transition-all duration-300 shadow-sm"
+                      style={{
+                        width: `${
+                          ((currentStep + 1) / (steps?.length || 1)) * 100
+                        }%`,
+                      }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-xs mt-1">
+                    <span className="text-gray-500 dark:text-gray-500">
+                      {Math.round(
+                        ((currentStep + 1) / (steps?.length || 1)) * 100
+                      )}
+                      % Complete
+                    </span>
+                    <span className="text-gray-500 dark:text-gray-500">
+                      {(steps?.length || 0) - (currentStep + 1)} remaining
+                    </span>
+                  </div>
+                </div>
+
+                {/* Navigation and theme toggle (desktop only) */}
+                <div className="hidden lg:flex items-center gap-2">
+                  <button
+                    onClick={() => router.push('/')}
+                    className="p-2 rounded-md text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    title="Home"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                    </svg>
+                  </button>
+                  
+                  <button
+                    onClick={() => router.push('/login')}
+                    className="p-2 rounded-md text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    title="Login"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                    </svg>
+                  </button>
+                  
+                  <MembershipThemeToggle />
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Form Content */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="max-w-4xl mx-auto px-4 sm:px-8 py-6 sm:py-8">
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 sm:p-8 shadow-sm dark:shadow-lg transition-colors duration-300">
-              {children}
+          {/* Form Content */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="max-w-4xl mx-auto px-4 sm:px-8 py-6 sm:py-8">
+              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 sm:p-8 shadow-sm dark:shadow-lg transition-colors duration-300">
+                {children}
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 
