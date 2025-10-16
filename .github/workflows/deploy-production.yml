@@ -12,7 +12,6 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
   AWS_REGION: eu-north-1
   ENVIRONMENT: production
   EC2_HOST: ${{ secrets.PRODUCTION_EC2_HOST }}
@@ -24,10 +23,11 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: production
+    timeout-minutes: 30
     
     permissions:
       contents: read
-      packages: read
+      packages: write
     
     steps:
       - name: Checkout code
@@ -40,22 +40,20 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
       
-      - name: Verify AWS Connection
-        run: |
-          echo "✓ Connected as:"
-          aws sts get-caller-identity
-      
       - name: Determine Docker Tag
         id: docker-tag
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ inputs.docker_tag }}" ]; then
-            TAG="${{ inputs.docker_tag }}"
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ github.event.inputs.docker_tag }}" ]; then
+            TAG="${{ github.event.inputs.docker_tag }}"
           else
             TAG="production-$(echo ${{ github.sha }} | cut -c1-7)"
           fi
           
-          FULL_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$TAG"
+          FULL_IMAGE="${{ env.REGISTRY }}/${REPO_LOWER}:$TAG"
           
+          echo "repo_lower=$REPO_LOWER" >> $GITHUB_OUTPUT
           echo "tag=$TAG" >> $GITHUB_OUTPUT
           echo "full_image=$FULL_IMAGE" >> $GITHUB_OUTPUT
           echo "Using Docker image: $FULL_IMAGE"
@@ -65,8 +63,6 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.PRODUCTION_SSH_PRIVATE_KEY }}" > ~/.ssh/production_key
           chmod 600 ~/.ssh/production_key
-          
-          # Add EC2 host to known_hosts
           ssh-keyscan -H ${{ env.EC2_HOST }} >> ~/.ssh/known_hosts
       
       - name: Check EC2 Connectivity
@@ -78,198 +74,146 @@ jobs:
               ${{ env.EC2_USER }}@${{ env.EC2_HOST }} \
               "echo '✓ SSH connection successful' && uname -a"
       
-      - name: Create Backup of Current Production
+      - name: Create Backup
         run: |
-          echo "📦 Creating backup of current production container..."
-          
-          ssh -i ~/.ssh/production_key \
-              ${{ env.EC2_USER }}@${{ env.EC2_HOST }} << 'ENDSSH'
-          
-          # Check if container exists
-          if docker ps -a --format '{{.Names}}' | grep -q "^${{ env.CONTAINER_NAME }}$"; then
-            # Get current image
-            CURRENT_IMAGE=$(docker inspect ${{ env.CONTAINER_NAME }} --format='{{.Config.Image}}')
-            echo "Current production image: $CURRENT_IMAGE"
-            
-            # Tag it as backup
-            docker tag $CURRENT_IMAGE ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:production-backup-$(date +%Y%m%d-%H%M%S)
-            
-            echo "✓ Backup created"
-          else
-            echo "ℹ No existing container to backup"
-          fi
-          
-          ENDSSH
+          echo "📦 Creating backup of current production..."
+          ssh -i ~/.ssh/production_key ${{ env.EC2_USER }}@${{ env.EC2_HOST }} "
+            set -e
+            if docker ps -a --format '{{.Names}}' | grep -q '^${{ env.CONTAINER_NAME }}$'; then
+              CURRENT_IMAGE=\$(docker inspect ${{ env.CONTAINER_NAME }} --format='{{.Config.Image}}' 2>/dev/null || echo '')
+              if [ -n \"\$CURRENT_IMAGE\" ]; then
+                BACKUP_TAG=\"production-backup-\$(date +%Y%m%d-%H%M%S)\"
+                echo \"Current image: \$CURRENT_IMAGE\"
+                echo \"Backup tag: \$BACKUP_TAG\"
+                docker tag \"\$CURRENT_IMAGE\" \"${{ steps.docker-tag.outputs.repo_lower }}:\$BACKUP_TAG\"
+                echo '✓ Backup created: '\$BACKUP_TAG
+              else
+                echo '⚠️ Could not get current image info'
+              fi
+            else
+              echo 'ℹ No existing container to backup'
+            fi
+          "
       
       - name: Deploy to EC2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
+          FULL_IMAGE: ${{ steps.docker-tag.outputs.full_image }}
+          BACKEND_URL: ${{ secrets.PRODUCTION_BACKEND_API_URL }}
+          COMMIT_SHA: ${{ github.sha }}
         run: |
           echo "🚀 Deploying to EC2 production server..."
-          
-          ssh -i ~/.ssh/production_key \
-              ${{ env.EC2_USER }}@${{ env.EC2_HOST }} << 'ENDSSH'
-          
-          set -e
-          
-          echo "→ Logging in to GitHub Container Registry..."
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-          
-          echo "→ Pulling latest image: ${{ steps.docker-tag.outputs.full_image }}"
-          docker pull ${{ steps.docker-tag.outputs.full_image }}
-          
-          echo "→ Stopping old container..."
-          docker stop ${{ env.CONTAINER_NAME }} 2>/dev/null || true
-          docker rm ${{ env.CONTAINER_NAME }} 2>/dev/null || true
-          
-          echo "→ Starting new container..."
-          docker run -d \
-            --name ${{ env.CONTAINER_NAME }} \
-            -p ${{ env.APP_PORT }}:3000 \
-            -e NEXT_PUBLIC_BACKEND_API_URL="${{ secrets.PRODUCTION_BACKEND_API_URL }}" \
-            -e NODE_ENV=production \
-            -e NEXT_PUBLIC_APP_VERSION="${{ github.sha }}" \
-            -e NEXT_PUBLIC_BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            -e NEXT_PUBLIC_ENV=production \
-            --restart unless-stopped \
-            --log-driver json-file \
-            --log-opt max-size=10m \
-            --log-opt max-file=5 \
-            --memory="2g" \
-            --cpus="1.5" \
-            ${{ steps.docker-tag.outputs.full_image }}
-          
-          echo "→ Waiting for container to start..."
-          sleep 10
-          
-          echo "→ Checking container status..."
-          docker ps --filter "name=${{ env.CONTAINER_NAME }}" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-          
-          echo "→ Container logs (last 30 lines):"
-          docker logs --tail 30 ${{ env.CONTAINER_NAME }}
-          
-          echo "✓ Deployment complete"
-          
-          ENDSSH
+          ssh -i ~/.ssh/production_key ${{ env.EC2_USER }}@${{ env.EC2_HOST }} "
+            set -e
+            
+            echo '→ Logging in to GitHub Container Registry...'
+            echo '$GITHUB_TOKEN' | docker login ghcr.io -u '$GITHUB_ACTOR' --password-stdin
+            
+            echo '→ Pulling latest image: $FULL_IMAGE'
+            docker pull '$FULL_IMAGE'
+            
+            echo '→ Stopping old container...'
+            docker stop '$CONTAINER_NAME' 2>/dev/null || true
+            docker rm '$CONTAINER_NAME' 2>/dev/null || true
+            
+            echo '→ Starting new container...'
+            docker run -d \
+              --name '$CONTAINER_NAME' \
+              -p '${APP_PORT}:3000' \
+              -e NEXT_PUBLIC_BACKEND_API_URL='$BACKEND_URL' \
+              -e NODE_ENV=production \
+              -e NEXT_PUBLIC_APP_VERSION='$COMMIT_SHA' \
+              -e NEXT_PUBLIC_BUILD_TIME=\"\$(date -u +%Y-%m-%dT%H:%M:%SZ)\" \
+              -e NEXT_PUBLIC_ENV=production \
+              --restart unless-stopped \
+              --log-driver json-file \
+              --log-opt max-size=10m \
+              --log-opt max-file=5 \
+              --memory='2g' \
+              --cpus='1.5' \
+              '$FULL_IMAGE'
+            
+            echo '→ Waiting for container to start...'
+            sleep 15
+            
+            echo '→ Container status:'
+            docker ps --filter 'name=$CONTAINER_NAME'
+            
+            echo '→ Container logs (last 30 lines):'
+            docker logs --tail 30 '$CONTAINER_NAME'
+            
+            echo '✓ Deployment complete'
+          "
       
-      - name: Cleanup Old Docker Images on EC2
+      - name: Cleanup Old Images
         run: |
-          echo "Cleaning up old Docker images..."
-          
-          ssh -i ~/.ssh/production_key \
-              ${{ env.EC2_USER }}@${{ env.EC2_HOST }} << 'ENDSSH'
-          
-          # Keep only last 5 production images
-          docker images ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} \
-            --format "{{.ID}} {{.CreatedAt}}" | \
-            sort -rk 2 | \
-            awk 'NR>5 {print $1}' | \
-            xargs -r docker rmi -f || true
-          
-          # Prune dangling images
-          docker image prune -f
-          
-          echo "✓ Cleanup complete"
-          
-          ENDSSH
+          ssh -i ~/.ssh/production_key ${{ env.EC2_USER }}@${{ env.EC2_HOST }} "
+            # Keep last 5 production images
+            docker images '${{ steps.docker-tag.outputs.repo_lower }}' \
+              --format '{{.ID}} {{.CreatedAt}}' | \
+              grep -v backup | \
+              sort -rk 2 | \
+              awk 'NR>5 {print \$1}' | \
+              xargs --no-run-if-empty docker rmi -f 2>/dev/null || true
+            
+            # Keep last 3 backup images
+            docker images '${{ steps.docker-tag.outputs.repo_lower }}' \
+              --format '{{.ID}} {{.CreatedAt}} {{.Tag}}' | \
+              grep backup | \
+              sort -rk 2 | \
+              awk 'NR>3 {print \$1}' | \
+              xargs --no-run-if-empty docker rmi -f 2>/dev/null || true
+            
+            docker image prune -f
+            
+            echo '✓ Cleanup complete'
+          "
       
       - name: Health Check
         run: |
           echo "Waiting for application to stabilize..."
-          sleep 20
+          sleep 30
           
           PRODUCTION_URL="${{ secrets.PRODUCTION_URL }}"
-          MAX_RETRIES=20
-          RETRY_COUNT=0
+          MAX_RETRIES=15
+          RETRY_DELAY=10
           
-          echo "Running health checks against: $PRODUCTION_URL"
-          
-          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-            echo "Health check attempt $((RETRY_COUNT + 1))/$MAX_RETRIES"
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "Health check attempt $i/$MAX_RETRIES"
             
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$PRODUCTION_URL" || echo "000")
+            # Check multiple endpoints
+            HEALTH_ENDPOINTS=("/" "/api/health")
+            ALL_HEALTHY=true
             
-            if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "301" ] || [ "$HTTP_CODE" = "302" ]; then
-              echo "✓ Application is healthy (HTTP $HTTP_CODE)"
+            for endpoint in "${HEALTH_ENDPOINTS[@]}"; do
+              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "${PRODUCTION_URL}${endpoint}" || echo "000")
+              
+              if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "301" ] || [ "$HTTP_CODE" = "302" ]; then
+                echo "✓ Endpoint ${endpoint} healthy (HTTP $HTTP_CODE)"
+              else
+                echo "❌ Endpoint ${endpoint} unhealthy (HTTP $HTTP_CODE)"
+                ALL_HEALTHY=false
+              fi
+            done
+            
+            if [ "$ALL_HEALTHY" = true ]; then
+              echo "✓ All health checks passed"
               exit 0
             fi
             
-            echo "Got HTTP $HTTP_CODE, retrying..."
-            RETRY_COUNT=$((RETRY_COUNT + 1))
-            sleep 15
+            if [ $i -lt $MAX_RETRIES ]; then
+              echo "Retrying in ${RETRY_DELAY}s..."
+              sleep $RETRY_DELAY
+            fi
           done
           
           echo "❌ Health check failed after $MAX_RETRIES attempts"
-          
-          # Show container logs for debugging
-          ssh -i ~/.ssh/production_key \
-              ${{ env.EC2_USER }}@${{ env.EC2_HOST }} \
-              "docker logs --tail 100 ${{ env.CONTAINER_NAME }}"
-          
+          echo "Fetching container logs for debugging..."
+          ssh -i ~/.ssh/production_key ${{ env.EC2_USER }}@${{ env.EC2_HOST }} "docker logs --tail 100 ${{ env.CONTAINER_NAME }}"
           exit 1
       
-      - name: Run Smoke Tests
-        run: |
-          echo "Running smoke tests against production..."
-          
-          PRODUCTION_URL="${{ secrets.PRODUCTION_URL }}"
-          
-          # Test homepage
-          echo "→ Testing homepage..."
-          curl -f -s "$PRODUCTION_URL" > /dev/null && echo "✓ Homepage accessible"
-          
-          # Test response time
-          echo "→ Testing response time..."
-          RESPONSE_TIME=$(curl -o /dev/null -s -w '%{time_total}' "$PRODUCTION_URL")
-          echo "Response time: ${RESPONSE_TIME}s"
-          
-          # Test that env vars are present
-          echo "→ Checking environment variables..."
-          RESPONSE=$(curl -s "$PRODUCTION_URL")
-          
-          if echo "$RESPONSE" | grep -q "membership-portal-master-s83ce2.laravel.cloud"; then
-            echo "✓ Backend API URL configured correctly"
-          else
-            echo "⚠️  Backend API URL not found in bundle"
-          fi
-          
-          # Test backend API connectivity
-          echo "→ Testing backend API..."
-          curl -f -s "${{ secrets.PRODUCTION_BACKEND_API_URL }}/health" > /dev/null \
-            && echo "✓ Backend API reachable" \
-            || echo "⚠️  Backend API unreachable (may be expected)"
-          
-          echo "✓ All smoke tests passed"
-      
-      - name: Get Deployment Info
-        if: success()
-        run: |
-          ssh -i ~/.ssh/production_key \
-              ${{ env.EC2_USER }}@${{ env.EC2_HOST }} << 'ENDSSH'
-          
-          echo "=== Production Deployment Information ==="
-          echo "Container: ${{ env.CONTAINER_NAME }}"
-          docker inspect ${{ env.CONTAINER_NAME }} \
-            --format 'Image: {{.Config.Image}}
-            Created: {{.Created}}
-            Status: {{.State.Status}}
-            Memory Limit: {{.HostConfig.Memory}}
-            CPU Limit: {{.HostConfig.NanoCpus}}
-            RestartPolicy: {{.HostConfig.RestartPolicy.Name}}'
-          
-          echo ""
-          echo "=== Resource Usage ==="
-          docker stats --no-stream ${{ env.CONTAINER_NAME }}
-          
-          echo ""
-          echo "=== Environment Variables ==="
-          docker exec ${{ env.CONTAINER_NAME }} env | grep NEXT_PUBLIC || true
-          
-          echo ""
-          echo "=== Disk Usage ==="
-          df -h | grep -E '(Filesystem|/$)'
-          
-          ENDSSH
-      
-      - name: Notify Deployment Success
+      - name: Notify Success
         if: success()
         run: |
           echo "✅ Production deployment successful!"
@@ -279,76 +223,79 @@ jobs:
           echo "Environment: ${{ env.ENVIRONMENT }}"
           echo "Image: ${{ steps.docker-tag.outputs.full_image }}"
           echo "URL: ${{ secrets.PRODUCTION_URL }}"
+          echo "Backend API: ${{ secrets.PRODUCTION_BACKEND_API_URL }}"
           echo "Commit: ${{ github.sha }}"
           echo "Deployed by: ${{ github.actor }}"
           echo "Deployed at: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          echo ""
-          echo "Environment Variables:"
-          echo "  NEXT_PUBLIC_BACKEND_API_URL: ${{ secrets.PRODUCTION_BACKEND_API_URL }}"
-          echo "  NEXT_PUBLIC_APP_VERSION: ${{ github.sha }}"
-          echo "  NEXT_PUBLIC_ENV: production"
       
       - name: Rollback on Failure
         if: failure()
+        env:
+          BACKEND_URL: ${{ secrets.PRODUCTION_BACKEND_API_URL }}
+          PRODUCTION_URL: ${{ secrets.PRODUCTION_URL }}
         run: |
           echo "❌ Production deployment failed! Attempting rollback..."
           
-          # Get previous backup image
           BACKUP_IMAGE=$(ssh -i ~/.ssh/production_key \
             ${{ env.EC2_USER }}@${{ env.EC2_HOST }} \
-            "docker images ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} --format '{{.Repository}}:{{.Tag}}' | grep production-backup | head -n 1" || echo "")
+            "docker images ${{ steps.docker-tag.outputs.repo_lower }} --format '{{.Repository}}:{{.Tag}}' | grep production-backup | head -n 1" || echo "")
           
           if [ -n "$BACKUP_IMAGE" ]; then
             echo "🔄 Rolling back to: $BACKUP_IMAGE"
             
-            ssh -i ~/.ssh/production_key \
-                ${{ env.EC2_USER }}@${{ env.EC2_HOST }} << ENDSSH
-            
-            docker stop ${{ env.CONTAINER_NAME }} || true
-            docker rm ${{ env.CONTAINER_NAME }} || true
-            
-            docker run -d \
-              --name ${{ env.CONTAINER_NAME }} \
-              -p ${{ env.APP_PORT }}:3000 \
-              -e NEXT_PUBLIC_BACKEND_API_URL="${{ secrets.PRODUCTION_BACKEND_API_URL }}" \
-              -e NODE_ENV=production \
-              -e NEXT_PUBLIC_APP_VERSION="rollback" \
-              -e NEXT_PUBLIC_BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-              -e NEXT_PUBLIC_ENV=production \
-              --restart unless-stopped \
-              --memory="2g" \
-              --cpus="1.5" \
-              $BACKUP_IMAGE
-            
-            echo "Waiting for rollback to complete..."
-            sleep 15
-            
-            # Verify rollback
-            if curl -f -s "${{ secrets.PRODUCTION_URL }}" > /dev/null; then
-              echo "✓ Rollback successful - production is back online"
-            else
-              echo "❌ Rollback may have failed - manual intervention required"
-            fi
-            
-            ENDSSH
-            
-            echo "✓ Rolled back to previous version"
+            ssh -i ~/.ssh/production_key ${{ env.EC2_USER }}@${{ env.EC2_HOST }} "
+              set -e
+              
+              echo 'Stopping current container...'
+              docker stop '$CONTAINER_NAME' 2>/dev/null || true
+              docker rm '$CONTAINER_NAME' 2>/dev/null || true
+              
+              echo 'Starting backup container...'
+              docker run -d \
+                --name '$CONTAINER_NAME' \
+                -p '${APP_PORT}:3000' \
+                -e NEXT_PUBLIC_BACKEND_API_URL='$BACKEND_URL' \
+                -e NODE_ENV=production \
+                -e NEXT_PUBLIC_APP_VERSION='rollback' \
+                -e NEXT_PUBLIC_ENV=production \
+                --restart unless-stopped \
+                --log-driver json-file \
+                --log-opt max-size=10m \
+                --log-opt max-file=5 \
+                --memory='2g' \
+                --cpus='1.5' \
+                '$BACKUP_IMAGE'
+              
+              echo 'Waiting for rollback container to start...'
+              sleep 20
+              
+              HTTP_CODE=\$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 '$PRODUCTION_URL' || echo '000')
+              if [ \"\$HTTP_CODE\" = '200' ] || [ \"\$HTTP_CODE\" = '301' ] || [ \"\$HTTP_CODE\" = '302' ]; then
+                echo '✓ Rollback successful (HTTP '\$HTTP_CODE')'
+              else
+                echo '❌ Rollback failed - manual intervention required (HTTP '\$HTTP_CODE')'
+                docker logs --tail 50 '$CONTAINER_NAME'
+                exit 1
+              fi
+            "
           else
-            echo "⚠️  No backup image found for rollback"
+            echo "⚠️  No backup image found"
             echo "🚨 MANUAL INTERVENTION REQUIRED"
+            
+            # Try to get current container status for debugging
+            ssh -i ~/.ssh/production_key ${{ env.EC2_USER }}@${{ env.EC2_HOST }} "
+              echo '=== Current Docker Containers ==='
+              docker ps -a
+              echo '=== Current Docker Images ==='
+              docker images
+              echo '=== Failed Container Logs ==='
+              docker logs --tail 100 '$CONTAINER_NAME' 2>/dev/null || echo 'No container logs available'
+            " || true
+            exit 1
           fi
-          
-          echo ""
-          echo "🚨 PRODUCTION DEPLOYMENT FAILED 🚨"
-          echo "Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          echo ""
-          echo "Manual rollback steps:"
-          echo "1. SSH to production: ssh -i key.pem ${{ env.EC2_USER }}@${{ env.EC2_HOST }}"
-          echo "2. Check logs: docker logs ${{ env.CONTAINER_NAME }}"
-          echo "3. List images: docker images"
-          echo "4. Rollback: docker run -d --name ${{ env.CONTAINER_NAME }} <backup-image>"
       
       - name: Cleanup SSH Key
         if: always()
         run: |
           rm -f ~/.ssh/production_key
+          echo "SSH key cleaned up"
