@@ -12,6 +12,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
+  DOCKERHUB_REGISTRY: docker.io
   AWS_REGION: eu-north-1
   ENVIRONMENT: staging
   EC2_HOST: ${{ secrets.STAGING_EC2_HOST }}
@@ -23,6 +24,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: staging
+    timeout-minutes: 30
     
     permissions:
       contents: read
@@ -51,12 +53,65 @@ jobs:
             TAG="staging-$(echo ${{ github.sha }} | cut -c1-7)"
           fi
           
-          FULL_IMAGE="${{ env.REGISTRY }}/${REPO_LOWER}:$TAG"
+          GHCR_IMAGE="${{ env.REGISTRY }}/${REPO_LOWER}:$TAG"
+          DOCKERHUB_IMAGE="${{ env.DOCKERHUB_REGISTRY }}/${{ secrets.DOCKERHUB_USERNAME }}/${REPO_LOWER##*/}:$TAG"
           
           echo "repo_lower=$REPO_LOWER" >> $GITHUB_OUTPUT
           echo "tag=$TAG" >> $GITHUB_OUTPUT
-          echo "full_image=$FULL_IMAGE" >> $GITHUB_OUTPUT
-          echo "Using Docker image: $FULL_IMAGE"
+          echo "ghcr_image=$GHCR_IMAGE" >> $GITHUB_OUTPUT
+          echo "dockerhub_image=$DOCKERHUB_IMAGE" >> $GITHUB_OUTPUT
+          echo "Using GitHub image: $GHCR_IMAGE"
+          echo "Using Docker Hub image: $DOCKERHUB_IMAGE"
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ steps.docker-tag.outputs.ghcr_image }}
+            ${{ steps.docker-tag.outputs.dockerhub_image }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NEXT_PUBLIC_BACKEND_API_URL=${{ secrets.STAGING_BACKEND_API_URL }}
+            NEXT_PUBLIC_ENV=staging
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+      
+      - name: Verify Pushed Images
+        run: |
+          echo "✅ Images pushed successfully:"
+          echo "GitHub Container Registry: ${{ steps.docker-tag.outputs.ghcr_image }}"
+          echo "Docker Hub: ${{ steps.docker-tag.outputs.dockerhub_image }}"
+          
+          # Verify GitHub Container Registry image
+          docker pull ${{ steps.docker-tag.outputs.ghcr_image }}
+          echo "✓ GitHub image verified"
+          
+          # Verify Docker Hub image
+          docker pull ${{ steps.docker-tag.outputs.dockerhub_image }}
+          echo "✓ Docker Hub image verified"
       
       - name: Setup SSH Key
         run: |
@@ -74,11 +129,32 @@ jobs:
               ${{ env.EC2_USER }}@${{ env.EC2_HOST }} \
               "echo '✓ SSH connection successful' && uname -a"
       
+      - name: Create Backup
+        run: |
+          echo "📦 Creating backup of current staging..."
+          ssh -i ~/.ssh/staging_key ${{ env.EC2_USER }}@${{ env.EC2_HOST }} "
+            set -e
+            if docker ps -a --format '{{.Names}}' | grep -q '^${{ env.CONTAINER_NAME }}$'; then
+              CURRENT_IMAGE=\$(docker inspect ${{ env.CONTAINER_NAME }} --format='{{.Config.Image}}' 2>/dev/null || echo '')
+              if [ -n \"\$CURRENT_IMAGE\" ]; then
+                BACKUP_TAG=\"staging-backup-\$(date +%Y%m%d-%H%M%S)\"
+                echo \"Current image: \$CURRENT_IMAGE\"
+                echo \"Backup tag: \$BACKUP_TAG\"
+                docker tag \"\$CURRENT_IMAGE\" \"${{ steps.docker-tag.outputs.repo_lower }}:\$BACKUP_TAG\"
+                echo '✓ Backup created: '\$BACKUP_TAG
+              else
+                echo '⚠️ Could not get current image info'
+              fi
+            else
+              echo 'ℹ No existing container to backup'
+            fi
+          "
+      
       - name: Deploy to EC2
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_ACTOR: ${{ github.actor }}
-          FULL_IMAGE: ${{ steps.docker-tag.outputs.full_image }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          FULL_IMAGE: ${{ steps.docker-tag.outputs.dockerhub_image }}
           BACKEND_URL: ${{ secrets.STAGING_BACKEND_API_URL }}
           COMMIT_SHA: ${{ github.sha }}
         run: |
@@ -86,8 +162,8 @@ jobs:
           ssh -i ~/.ssh/staging_key ${{ env.EC2_USER }}@${{ env.EC2_HOST }} "
             set -e
             
-            echo '→ Logging in to GitHub Container Registry...'
-            echo '$GITHUB_TOKEN' | docker login ghcr.io -u '$GITHUB_ACTOR' --password-stdin
+            echo '→ Logging in to Docker Hub...'
+            echo '$DOCKERHUB_TOKEN' | docker login -u '$DOCKERHUB_USERNAME' --password-stdin
             
             echo '→ Pulling latest image: $FULL_IMAGE'
             docker pull '$FULL_IMAGE'
@@ -133,6 +209,14 @@ jobs:
               awk 'NR>3 {print \$1}' | \
               xargs -r docker rmi -f 2>/dev/null || true
             
+            # Keep last 2 backup images
+            docker images '${{ steps.docker-tag.outputs.repo_lower }}' \
+              --format '{{.ID}} {{.CreatedAt}} {{.Tag}}' | \
+              grep backup | \
+              sort -rk 2 | \
+              awk 'NR>2 {print \$1}' | \
+              xargs -r docker rmi -f 2>/dev/null || true
+            
             docker image prune -f
             
             echo '✓ Cleanup complete'
@@ -170,25 +254,30 @@ jobs:
           echo "✅ Staging deployment successful!"
           echo ""
           echo "Environment: ${{ env.ENVIRONMENT }}"
-          echo "Image: ${{ steps.docker-tag.outputs.full_image }}"
+          echo "Image: ${{ steps.docker-tag.outputs.dockerhub_image }}"
           echo "URL: ${{ secrets.STAGING_URL }}"
           echo "Backend API: ${{ secrets.STAGING_BACKEND_API_URL }}"
           echo "Commit: ${{ github.sha }}"
           echo "Deployed by: ${{ github.actor }}"
+          echo ""
+          echo "📦 Images pushed to:"
+          echo "  - GitHub Container Registry: ${{ steps.docker-tag.outputs.ghcr_image }}"
+          echo "  - Docker Hub: ${{ steps.docker-tag.outputs.dockerhub_image }}"
       
       - name: Rollback on Failure
         if: failure()
         env:
           BACKEND_URL: ${{ secrets.STAGING_BACKEND_API_URL }}
+          STAGING_URL: ${{ secrets.STAGING_URL }}
         run: |
           echo "❌ Deployment failed! Attempting rollback..."
           
-          PREVIOUS_IMAGE=$(ssh -i ~/.ssh/staging_key \
+          BACKUP_IMAGE=$(ssh -i ~/.ssh/staging_key \
             ${{ env.EC2_USER }}@${{ env.EC2_HOST }} \
-            "docker images ${{ steps.docker-tag.outputs.repo_lower }} --format '{{.Repository}}:{{.Tag}}' | grep staging | head -n 2 | tail -n 1" || echo "")
+            "docker images ${{ steps.docker-tag.outputs.repo_lower }} --format '{{.Repository}}:{{.Tag}}' | grep staging-backup | head -n 1" || echo "")
           
-          if [ -n "$PREVIOUS_IMAGE" ]; then
-            echo "Rolling back to: $PREVIOUS_IMAGE"
+          if [ -n "$BACKUP_IMAGE" ]; then
+            echo "Rolling back to: $BACKUP_IMAGE"
             
             ssh -i ~/.ssh/staging_key ${{ env.EC2_USER }}@${{ env.EC2_HOST }} "
               set -e
@@ -206,12 +295,34 @@ jobs:
                 -e NEXT_PUBLIC_APP_VERSION='rollback' \
                 -e NEXT_PUBLIC_ENV=staging \
                 --restart unless-stopped \
-                '$PREVIOUS_IMAGE'
+                '$BACKUP_IMAGE'
+              
+              echo 'Waiting for rollback container to start...'
+              sleep 15
+              
+              HTTP_CODE=\$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 '$STAGING_URL' || echo '000')
+              if [ \"\$HTTP_CODE\" = '200' ] || [ \"\$HTTP_CODE\" = '301' ] || [ \"\$HTTP_CODE\" = '302' ]; then
+                echo '✓ Rollback successful (HTTP '\$HTTP_CODE')'
+              else
+                echo '❌ Rollback failed - manual intervention required (HTTP '\$HTTP_CODE')'
+                docker logs --tail 50 '$CONTAINER_NAME'
+                exit 1
+              fi
               
               echo '✓ Rollback complete'
             "
           else
-            echo "❌ No previous image found for rollback"
+            echo "❌ No backup image found for rollback"
+            
+            # Try to get current container status for debugging
+            ssh -i ~/.ssh/staging_key ${{ env.EC2_USER }}@${{ env.EC2_HOST }} "
+              echo '=== Current Docker Containers ==='
+              docker ps -a
+              echo '=== Current Docker Images ==='
+              docker images
+              echo '=== Failed Container Logs ==='
+              docker logs --tail 100 '$CONTAINER_NAME' 2>/dev/null || echo 'No container logs available'
+            " || true
             exit 1
           fi
       
