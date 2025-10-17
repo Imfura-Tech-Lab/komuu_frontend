@@ -4,15 +4,10 @@ on:
   push:
     branches: [production]
   workflow_dispatch:
-    inputs:
-      docker_tag:
-        description: 'Docker image tag to deploy'
-        required: false
-        default: 'production'
 
 env:
-  REGISTRY: ghcr.io
-  DOCKERHUB_REGISTRY: docker.io
+  DOCKERHUB_USERNAME: mugemanebertin
+  DOCKERHUB_IMAGE_NAME: komuu_frontend
   AWS_REGION: eu-north-1
   ENVIRONMENT: production
   EC2_HOST: ${{ secrets.PRODUCTION_EC2_HOST }}
@@ -44,33 +39,17 @@ jobs:
       - name: 🏷️ Determine Docker Tag
         id: docker-tag
         run: |
-          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          TAG="production-$(echo ${{ github.sha }} | cut -c1-7)"
+          DOCKERHUB_IMAGE="${{ env.DOCKERHUB_USERNAME }}/${{ env.DOCKERHUB_IMAGE_NAME }}:$TAG"
+          DOCKERHUB_IMAGE_LATEST="${{ env.DOCKERHUB_USERNAME }}/${{ env.DOCKERHUB_IMAGE_NAME }}:production-latest"
           
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ github.event.inputs.docker_tag }}" ]; then
-            TAG="${{ github.event.inputs.docker_tag }}"
-          else
-            TAG="production-$(echo ${{ github.sha }} | cut -c1-7)"
-          fi
-          
-          GHCR_IMAGE="${{ env.REGISTRY }}/${REPO_LOWER}:$TAG"
-          DOCKERHUB_IMAGE="${{ env.DOCKERHUB_REGISTRY }}/${{ secrets.DOCKERHUB_USERNAME }}/${REPO_LOWER##*/}:$TAG"
-          
-          echo "repo_lower=$REPO_LOWER" >> $GITHUB_OUTPUT
           echo "tag=$TAG" >> $GITHUB_OUTPUT
-          echo "ghcr_image=$GHCR_IMAGE" >> $GITHUB_OUTPUT
           echo "dockerhub_image=$DOCKERHUB_IMAGE" >> $GITHUB_OUTPUT
-          echo "Using GitHub image: $GHCR_IMAGE"
+          echo "dockerhub_image_latest=$DOCKERHUB_IMAGE_LATEST" >> $GITHUB_OUTPUT
           echo "Using Docker Hub image: $DOCKERHUB_IMAGE"
       
       - name: 🔨 Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      
-      - name: 🔑 Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
       
       - name: 🔑 Log in to Docker Hub
         uses: docker/login-action@v3
@@ -86,8 +65,8 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: |
-            ${{ steps.docker-tag.outputs.ghcr_image }}
             ${{ steps.docker-tag.outputs.dockerhub_image }}
+            ${{ steps.docker-tag.outputs.dockerhub_image_latest }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
@@ -101,14 +80,9 @@ jobs:
       - name: ✅ Verify Pushed Images
         run: |
           echo "✅ Images pushed successfully:"
-          echo "GitHub Container Registry: ${{ steps.docker-tag.outputs.ghcr_image }}"
           echo "Docker Hub: ${{ steps.docker-tag.outputs.dockerhub_image }}"
+          echo "Docker Hub Latest: ${{ steps.docker-tag.outputs.dockerhub_image_latest }}"
           
-          # Verify GitHub Container Registry image
-          docker pull ${{ steps.docker-tag.outputs.ghcr_image }}
-          echo "✓ GitHub image verified"
-          
-          # Verify Docker Hub image
           docker pull ${{ steps.docker-tag.outputs.dockerhub_image }}
           echo "✓ Docker Hub image verified"
       
@@ -139,7 +113,7 @@ jobs:
                 BACKUP_TAG=\"production-backup-\$(date +%Y%m%d-%H%M%S)\"
                 echo \"Current image: \$CURRENT_IMAGE\"
                 echo \"Backup tag: \$BACKUP_TAG\"
-                docker tag \"\$CURRENT_IMAGE\" \"${{ steps.docker-tag.outputs.repo_lower }}:\$BACKUP_TAG\"
+                docker tag \"\$CURRENT_IMAGE\" \"${{ env.DOCKERHUB_USERNAME }}/${{ env.DOCKERHUB_IMAGE_NAME }}:\$BACKUP_TAG\"
                 echo '✓ Backup created: '\$BACKUP_TAG
               else
                 echo '⚠️ Could not get current image info'
@@ -151,9 +125,8 @@ jobs:
       
       - name: 🚀 Deploy to EC2
         env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-          FULL_IMAGE: ${{ steps.docker-tag.outputs.dockerhub_image }}
+          DOCKERHUB_IMAGE: ${{ steps.docker-tag.outputs.dockerhub_image }}
           BACKEND_URL: ${{ secrets.PRODUCTION_BACKEND_API_URL }}
           COMMIT_SHA: ${{ github.sha }}
           BUILD_TIME: ${{ github.event.head_commit.timestamp }}
@@ -163,10 +136,10 @@ jobs:
             set -e
             
             echo '→ Logging in to Docker Hub...'
-            echo '$DOCKERHUB_TOKEN' | docker login -u '$DOCKERHUB_USERNAME' --password-stdin
+            echo '$DOCKERHUB_TOKEN' | docker login -u '${{ env.DOCKERHUB_USERNAME }}' --password-stdin
             
-            echo '→ Pulling latest image: $FULL_IMAGE'
-            docker pull '$FULL_IMAGE'
+            echo '→ Pulling latest image: $DOCKERHUB_IMAGE'
+            docker pull '$DOCKERHUB_IMAGE'
             
             echo '→ Stopping old container...'
             docker stop '$CONTAINER_NAME' 2>/dev/null || true
@@ -186,7 +159,7 @@ jobs:
               --log-opt max-file=5 \
               --memory='2g' \
               --cpus='1.5' \
-              '$FULL_IMAGE'
+              '$DOCKERHUB_IMAGE'
             
             echo '→ Waiting for container to start...'
             sleep 15
@@ -206,18 +179,23 @@ jobs:
       - name: 🧹 Cleanup Old Images
         run: |
           ssh -i ~/.ssh/production_key ${{ env.EC2_USER }}@${{ env.EC2_HOST }} "
+            echo '→ Cleaning up old images...'
+            
             # Keep last 5 production images
-            docker images '${{ steps.docker-tag.outputs.repo_lower }}' \
-              --format '{{.ID}} {{.CreatedAt}}' | \
-              sort -rk 2 | \
+            docker images '${{ env.DOCKERHUB_USERNAME }}/${{ env.DOCKERHUB_IMAGE_NAME }}' \
+              --format '{{.ID}} {{.Tag}} {{.CreatedAt}}' | \
+              grep 'production-' | \
+              grep -v 'production-latest' | \
+              grep -v 'production-backup' | \
+              sort -k3 -r | \
               awk 'NR>5 {print \$1}' | \
               xargs -r docker rmi -f 2>/dev/null || true
             
             # Keep last 3 backup images
-            docker images '${{ steps.docker-tag.outputs.repo_lower }}' \
-              --format '{{.ID}} {{.CreatedAt}} {{.Tag}}' | \
-              grep backup | \
-              sort -rk 2 | \
+            docker images '${{ env.DOCKERHUB_USERNAME }}/${{ env.DOCKERHUB_IMAGE_NAME }}' \
+              --format '{{.ID}} {{.Tag}} {{.CreatedAt}}' | \
+              grep 'production-backup' | \
+              sort -k3 -r | \
               awk 'NR>3 {print \$1}' | \
               xargs -r docker rmi -f 2>/dev/null || true
             
@@ -270,14 +248,11 @@ jobs:
           echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "**Deployed by:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
           echo "**Deployed at:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "📦 **Images pushed to:**" >> $GITHUB_STEP_SUMMARY
-          echo "  - GitHub Container Registry: \`${{ steps.docker-tag.outputs.ghcr_image }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "  - Docker Hub: \`${{ steps.docker-tag.outputs.dockerhub_image }}\`" >> $GITHUB_STEP_SUMMARY
       
       - name: 🔄 Rollback on Failure
         if: failure()
         env:
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
           BACKEND_URL: ${{ secrets.PRODUCTION_BACKEND_API_URL }}
           PRODUCTION_URL: ${{ secrets.PRODUCTION_URL }}
           COMMIT_SHA: rollback
@@ -286,13 +261,16 @@ jobs:
           
           BACKUP_IMAGE=$(ssh -i ~/.ssh/production_key \
             ${{ env.EC2_USER }}@${{ env.EC2_HOST }} \
-            "docker images ${{ steps.docker-tag.outputs.repo_lower }} --format '{{.Repository}}:{{.Tag}}' | grep production-backup | head -n 1" || echo "")
+            "docker images ${{ env.DOCKERHUB_USERNAME }}/${{ env.DOCKERHUB_IMAGE_NAME }} --format '{{.Repository}}:{{.Tag}}' | grep production-backup | head -n 1" || echo "")
           
           if [ -n "$BACKUP_IMAGE" ]; then
             echo "🔄 Rolling back to: $BACKUP_IMAGE"
             
             ssh -i ~/.ssh/production_key ${{ env.EC2_USER }}@${{ env.EC2_HOST }} "
               set -e
+              
+              echo 'Logging in to Docker Hub...'
+              echo '$DOCKERHUB_TOKEN' | docker login -u '${{ env.DOCKERHUB_USERNAME }}' --password-stdin
               
               echo 'Stopping current container...'
               docker stop '$CONTAINER_NAME' 2>/dev/null || true
@@ -332,7 +310,6 @@ jobs:
             echo "⚠️  No backup image found"
             echo "🚨 MANUAL INTERVENTION REQUIRED"
             
-            # Try to get current container status for debugging
             ssh -i ~/.ssh/production_key ${{ env.EC2_USER }}@${{ env.EC2_HOST }} "
               echo '=== Current Docker Containers ==='
               docker ps -a
