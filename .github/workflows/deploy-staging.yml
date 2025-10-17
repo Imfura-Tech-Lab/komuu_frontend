@@ -1,4 +1,4 @@
-name: Deploy to Staging
+name: 🚀 Deploy to Staging
 
 on:
   push:
@@ -157,6 +157,7 @@ jobs:
           FULL_IMAGE: ${{ steps.docker-tag.outputs.dockerhub_image }}
           BACKEND_URL: ${{ secrets.STAGING_BACKEND_API_URL }}
           COMMIT_SHA: ${{ github.sha }}
+          BUILD_TIME: ${{ github.event.head_commit.timestamp }}
         run: |
           echo "🚀 Deploying to EC2 staging server..."
           ssh -i ~/.ssh/staging_key ${{ env.EC2_USER }}@${{ env.EC2_HOST }} "
@@ -179,8 +180,7 @@ jobs:
               -e NEXT_PUBLIC_BACKEND_API_URL='$BACKEND_URL' \
               -e NODE_ENV=production \
               -e NEXT_PUBLIC_APP_VERSION='$COMMIT_SHA' \
-              -e NEXT_PUBLIC_BUILD_TIME=\"\$(date -u +%Y-%m-%dT%H:%M:%SZ)\" \
-              -e NEXT_PUBLIC_ENV=staging \
+              -e NEXT_PUBLIC_BUILD_TIME='$BUILD_TIME' \
               --restart unless-stopped \
               --log-driver json-file \
               --log-opt max-size=10m \
@@ -192,6 +192,9 @@ jobs:
             
             echo '→ Checking container status...'
             docker ps --filter 'name=$CONTAINER_NAME'
+            
+            echo '→ Verifying environment variables...'
+            docker exec '$CONTAINER_NAME' printenv | grep -E '(NEXT_PUBLIC|NODE_ENV)' || true
             
             echo '→ Container logs (last 20 lines):'
             docker logs --tail 20 '$CONTAINER_NAME'
@@ -269,6 +272,7 @@ jobs:
         env:
           BACKEND_URL: ${{ secrets.STAGING_BACKEND_API_URL }}
           STAGING_URL: ${{ secrets.STAGING_URL }}
+          COMMIT_SHA: rollback
         run: |
           echo "❌ Deployment failed! Attempting rollback..."
           
@@ -292,8 +296,8 @@ jobs:
                 -p '${APP_PORT}:3000' \
                 -e NEXT_PUBLIC_BACKEND_API_URL='$BACKEND_URL' \
                 -e NODE_ENV=production \
-                -e NEXT_PUBLIC_APP_VERSION='rollback' \
-                -e NEXT_PUBLIC_ENV=staging \
+                -e NEXT_PUBLIC_APP_VERSION='$COMMIT_SHA' \
+                -e NEXT_PUBLIC_BUILD_TIME=\"\$(date -u +%Y-%m-%dT%H:%M:%SZ)\" \
                 --restart unless-stopped \
                 '$BACKUP_IMAGE'
               
