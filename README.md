@@ -113,7 +113,6 @@ docker-compose stop
 # Stop and remove containers
 docker-compose down
 
-# Restart container
 docker-compose restart
 
 # Execute shell inside container
