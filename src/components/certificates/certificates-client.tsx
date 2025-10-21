@@ -251,7 +251,7 @@ export default function CertificatesClient() {
 
       if (!token) {
         showErrorToast("Please login to view certificates");
-        router.push("/auth/login");
+        router.push("/login");
         return;
       }
 
@@ -279,7 +279,7 @@ export default function CertificatesClient() {
           showErrorToast("Unauthorized. Please log in again.");
           localStorage.removeItem("auth_token");
           localStorage.removeItem("user_data");
-          router.push("/auth/login");
+          router.push("/login");
           return;
         }
         throw new Error(`HTTP error! status: ${response.status}`);

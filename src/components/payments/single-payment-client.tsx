@@ -102,7 +102,7 @@ export default function SinglePaymentClient({
           showErrorToast("Unauthorized. Please log in again.");
           localStorage.removeItem("auth_token");
           localStorage.removeItem("user_data");
-          router.push("/auth/login");
+          router.push("/login");
           return;
         }
         throw new Error(`HTTP error! Status: ${response.status}`);
