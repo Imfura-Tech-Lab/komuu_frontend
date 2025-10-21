@@ -7,6 +7,12 @@ export const useApplications = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>("");
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    lastPage: 1,
+    total: 0,
+    perPage: 10,
+  });
 
   useEffect(() => {
     const userData = localStorage.getItem("user_data");
@@ -21,7 +27,7 @@ export const useApplications = () => {
     fetchApplications();
   }, []);
 
-  const fetchApplications = useCallback(async () => {
+  const fetchApplications = useCallback(async (page = 1) => {
     try {
       setLoading(true);
       setError(null);
@@ -39,7 +45,7 @@ export const useApplications = () => {
       const isMember = parsedUserData?.role === "Member";
       const endpoint = isMember ? "my-application" : "applications";
 
-      const response = await fetch(`${apiUrl}${endpoint}`, {
+      const response = await fetch(`${apiUrl}${endpoint}?page=${page}`, {
         method: "GET",
         headers: {
           Accept: "application/json",
@@ -71,9 +77,19 @@ export const useApplications = () => {
           // For member: my-application returns single object
           setApplications(data.data ? [data.data] : []);
         } else {
-          // For admin: applications returns array
-          const applicationsData = Array.isArray(data.data) ? data.data : [];
+          // For admin: applications returns paginated data
+          const paginatedData = data.data;
+          const applicationsData = Array.isArray(paginatedData.data)
+            ? paginatedData.data
+            : [];
+
           setApplications(applicationsData);
+          setPagination({
+            currentPage: paginatedData.current_page,
+            lastPage: paginatedData.last_page,
+            total: paginatedData.total,
+            perPage: paginatedData.per_page,
+          });
         }
       } else {
         showErrorToast(data.message || "Failed to load applications");
@@ -98,6 +114,7 @@ export const useApplications = () => {
     loading,
     error,
     userRole,
+    pagination,
     fetchApplications,
     setApplications,
   };
