@@ -45,6 +45,12 @@ export const ROLE_PERMISSIONS = {
     "view_profile",
     "update_profile",
     "member_dashboard",
+    "team_management",
+    "manage_teams",
+    "manage_groups",
+    "manage_conversations",
+    "manage_events",
+    "manage_resources",
   ],
   President: [
     "sign_certificates",
@@ -61,6 +67,12 @@ export const ROLE_PERMISSIONS = {
     "update_profile",
     "member_dashboard",
     "application_settings",
+    "team_management",
+    "manage_teams",
+    "manage_groups",
+    "manage_conversations",
+    "manage_events",
+    "manage_resources",
   ],
   Board: [
     "view_all_applications",
@@ -75,6 +87,12 @@ export const ROLE_PERMISSIONS = {
     "view_profile",
     "update_profile",
     "member_dashboard",
+    "team_management",
+    "manage_teams",
+    "manage_groups",
+    "manage_conversations",
+    "manage_events",
+    "manage_resources",
   ],
   Member: [
     "view_profile",
@@ -85,6 +103,8 @@ export const ROLE_PERMISSIONS = {
     "view_own_payments",
     "view_own_certificates",
     "member_community",
+    "member_conversations",
+    "member_groups",
   ],
   Pending: [
     "view_profile",
@@ -103,13 +123,14 @@ export interface NavigationItemType {
   _order: number;
   name: string;
   href: string;
-  permission: Permission; // Use the Permission type here
+  permission: Permission;
   icon?: string;
   description?: string;
   badge?: string;
+  children?: NavigationItemType[]; // Support for nested navigation
 }
 
-// Function to create navigation items (can stay here or be moved if it has many dependencies)
+// Function to create navigation items
 export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
   const baseItems: NavigationItemType[] = [
     {
@@ -118,7 +139,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
       permission: "member_dashboard",
       icon: "dashboard",
       description: "Overview and summary",
-      _order: 0
+      _order: 0,
     },
     {
       name: "Profile",
@@ -126,7 +147,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
       permission: "view_profile",
       icon: "profile",
       description: "Personal information",
-      _order: 0
+      _order: 1,
     },
   ];
 
@@ -139,7 +160,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         icon: "applications",
         description: "Review and approve membership applications",
         badge: "pending_count",
-        _order: 0
+        _order: 2,
       },
       {
         name: "Member Management",
@@ -147,7 +168,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "manage_users",
         icon: "members",
         description: "Manage all members and their details",
-        _order: 0
+        _order: 3,
       },
       {
         name: "Payment Overview",
@@ -155,7 +176,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "view_all_payments",
         icon: "payments",
         description: "View all member payments and transactions",
-        _order: 0
+        _order: 4,
       },
       {
         name: "Certificates",
@@ -163,15 +184,65 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "view_all_certificates",
         icon: "certificates",
         description: "View all member certificates",
-        _order: 0
+        _order: 5,
       },
       {
         name: "Fields of Practice",
         href: "/fields-of-practice",
-        permission: "view_all_members", 
+        permission: "view_all_members",
         icon: "fields_of_practice",
         description: "Manage forensic practice specializations",
-        _order: 0
+        _order: 6,
+      },
+      {
+        name: "Team Management",
+        href: "/team",
+        permission: "team_management",
+        icon: "team",
+        description: "Manage community and team activities",
+        _order: 7,
+        children: [
+          {
+            name: "Teams",
+            href: "/team/teams",
+            permission: "manage_teams",
+            icon: "teams",
+            description: "Manage organizational teams",
+            _order: 0,
+          },
+          {
+            name: "Groups",
+            href: "/team/groups",
+            permission: "manage_groups",
+            icon: "groups",
+            description: "Manage member groups",
+            _order: 1,
+          },
+          {
+            name: "Conversations",
+            href: "/team/conversations",
+            permission: "manage_conversations",
+            icon: "conversations",
+            description: "Manage community discussions",
+            _order: 2,
+          },
+          {
+            name: "Events/Conferences",
+            href: "/team/events",
+            permission: "manage_events",
+            icon: "conference",
+            description: "Manage events and conferences",
+            _order: 3,
+          },
+          {
+            name: "Resources",
+            href: "/team/resources",
+            permission: "manage_resources",
+            icon: "shared_resources",
+            description: "Manage shared resources",
+            _order: 4,
+          },
+        ],
       },
       {
         name: "Analytics & Reports",
@@ -179,7 +250,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "view_all_analytics",
         icon: "analytics",
         description: "Comprehensive system analytics",
-        _order: 0
+        _order: 8,
       },
       {
         name: "Notifications",
@@ -187,7 +258,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "send_notifications",
         icon: "notifications",
         description: "Send notifications to members",
-        _order: 0
+        _order: 9,
       },
       {
         name: "System Settings",
@@ -195,7 +266,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "system_settings",
         icon: "settings",
         description: "Configure system settings",
-        _order: 0
+        _order: 10,
       },
     ],
     President: [
@@ -206,15 +277,15 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         icon: "certificate_sign",
         description: "Sign and authorize member certificates",
         badge: "unsigned_count",
-        _order: 0
+        _order: 2,
       },
       {
         name: "Fields of Practice",
         href: "/fields-of-practice",
-        permission: "view_all_members", 
+        permission: "view_all_members",
         icon: "fields_of_practice",
         description: "Manage forensic practice specializations",
-        _order: 0
+        _order: 3,
       },
       {
         name: "Applications",
@@ -222,7 +293,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "view_all_applications",
         icon: "applications",
         description: "Review membership applications",
-        _order: 0
+        _order: 4,
       },
       {
         name: "Members",
@@ -230,7 +301,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "view_all_members",
         icon: "members",
         description: "All members overview",
-        _order: 0
+        _order: 5,
       },
       {
         name: "Financial",
@@ -238,15 +309,65 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "view_all_payments",
         icon: "payments",
         description: "Financial transactions overview",
-        _order: 0
+        _order: 6,
+      },
+      {
+        name: "Team Management",
+        href: "/team",
+        permission: "team_management",
+        icon: "team",
+        description: "Manage community and team activities",
+        _order: 7,
+        children: [
+          {
+            name: "Teams",
+            href: "/team/teams",
+            permission: "manage_teams",
+            icon: "teams",
+            description: "Manage organizational teams",
+            _order: 0,
+          },
+          {
+            name: "Groups",
+            href: "/team/groups",
+            permission: "manage_groups",
+            icon: "groups",
+            description: "Manage member groups",
+            _order: 1,
+          },
+          {
+            name: "Conversations",
+            href: "/team/conversations",
+            permission: "manage_conversations",
+            icon: "conversations",
+            description: "Manage community discussions",
+            _order: 2,
+          },
+          {
+            name: "Events/Conferences",
+            href: "/team/events",
+            permission: "manage_events",
+            icon: "conference",
+            description: "Manage events and conferences",
+            _order: 3,
+          },
+          {
+            name: "Resources",
+            href: "/team/resources",
+            permission: "manage_resources",
+            icon: "shared_resources",
+            description: "Manage shared resources",
+            _order: 4,
+          },
+        ],
       },
       {
         name: "Settings",
         href: "/settings",
         permission: "view_all_analytics",
         icon: "settings",
-        description: "applications settings",
-        _order: 0
+        description: "Application settings",
+        _order: 8,
       },
     ],
     Board: [
@@ -256,15 +377,15 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "view_all_applications",
         icon: "applications",
         description: "View membership applications",
-        _order: 0
+        _order: 2,
       },
       {
-        name: "Member",
+        name: "Members",
         href: "/members",
         permission: "view_all_members",
         icon: "members",
         description: "View all members",
-        _order: 0
+        _order: 3,
       },
       {
         name: "Fields of Practice",
@@ -272,15 +393,15 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "view_all_members",
         icon: "fields_of_practice",
         description: "Manage forensic practice specializations",
-        _order: 0
+        _order: 4,
       },
       {
-        name: "Payment",
+        name: "Payments",
         href: "/payments",
         permission: "view_all_payments",
         icon: "payments",
         description: "View payment records",
-        _order: 0
+        _order: 5,
       },
       {
         name: "Certificates",
@@ -288,7 +409,57 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "view_all_certificates",
         icon: "certificates",
         description: "View issued certificates",
-        _order: 0
+        _order: 6,
+      },
+      {
+        name: "Team Management",
+        href: "/team",
+        permission: "team_management",
+        icon: "team",
+        description: "Manage community and team activities",
+        _order: 7,
+        children: [
+          {
+            name: "Teams",
+            href: "/team/teams",
+            permission: "manage_teams",
+            icon: "teams",
+            description: "Manage organizational teams",
+            _order: 0,
+          },
+          {
+            name: "Groups",
+            href: "/team/groups",
+            permission: "manage_groups",
+            icon: "groups",
+            description: "Manage member groups",
+            _order: 1,
+          },
+          {
+            name: "Conversations",
+            href: "/team/conversations",
+            permission: "manage_conversations",
+            icon: "conversations",
+            description: "Manage community discussions",
+            _order: 2,
+          },
+          {
+            name: "Events/Conferences",
+            href: "/team/events",
+            permission: "manage_events",
+            icon: "conference",
+            description: "Manage events and conferences",
+            _order: 3,
+          },
+          {
+            name: "Resources",
+            href: "/team/resources",
+            permission: "manage_resources",
+            icon: "shared_resources",
+            description: "Manage shared resources",
+            _order: 4,
+          },
+        ],
       },
       {
         name: "Policy Management",
@@ -296,7 +467,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "policy_decisions",
         icon: "policies",
         description: "Organizational policies",
-        _order: 0
+        _order: 8,
       },
     ],
     Member: [
@@ -305,8 +476,8 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         href: "/my-application",
         permission: "view_own_payments",
         icon: "applications",
-        description: "View your payment history",
-        _order: 0
+        description: "View your application details",
+        _order: 2,
       },
       {
         name: "Payments",
@@ -314,7 +485,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "view_own_payments",
         icon: "payments",
         description: "View your payment history",
-        _order: 0
+        _order: 3,
       },
       {
         name: "Certificates",
@@ -322,31 +493,65 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "view_own_certificates",
         icon: "certificates",
         description: "View your certificates",
-        _order: 0
+        _order: 4,
       },
       {
         name: "Resources",
-        href: "/my-resources",
+        href: "/resources",
         permission: "member_resources",
         icon: "resources",
         description: "Member resources and downloads",
-        _order: 0
+        _order: 5,
       },
       {
         name: "Events",
-        href: "/my-events",
+        href: "/events",
         permission: "member_events",
         icon: "events",
         description: "Upcoming events and activities",
-        _order: 0
+        _order: 6,
       },
       {
         name: "Community",
-        href: "/my-communities",
+        href: "/community",
         permission: "member_community",
         icon: "community",
         description: "Connect with other members",
-        _order: 0
+        _order: 7,
+        children: [
+          {
+            name: "Conversations",
+            href: "/community/conversations",
+            permission: "member_conversations",
+            icon: "conversations",
+            description: "Join discussions and forums",
+            _order: 0,
+          },
+          {
+            name: "Groups",
+            href: "/community/groups",
+            permission: "member_groups",
+            icon: "groups",
+            description: "Join specialized groups",
+            _order: 1,
+          },
+          {
+            name: "Events/Conferences",
+            href: "/community/events",
+            permission: "member_events",
+            icon: "conference",
+            description: "Community events and conferences",
+            _order: 2,
+          },
+          {
+            name: "Resources",
+            href: "/community/resources",
+            permission: "member_resources",
+            icon: "shared_resources",
+            description: "Shared community resources",
+            _order: 3,
+          },
+        ],
       },
     ],
     Pending: [
@@ -356,7 +561,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "application_status",
         icon: "status",
         description: "Check your application status",
-        _order: 0
+        _order: 2,
       },
       {
         name: "Help & Support",
@@ -364,14 +569,13 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "application_help",
         icon: "help",
         description: "Get help with your application",
-        _order: 0
+        _order: 3,
       },
     ],
   };
 
   return [...baseItems, ...(roleSpecificItems[role] || [])];
 };
-
 
 export interface Application {
   id: string;
@@ -381,7 +585,7 @@ export interface Application {
   membership_type: string;
   membership_number: string | null;
   employement: string | null;
-  forensic_field_of_practice?: string | null; 
+  forensic_field_of_practice?: string | null;
   qualification: string;
   cv_resume: string;
   associate_category: string;
@@ -416,14 +620,14 @@ export interface Application {
     passport: string | null;
     public_profile: string;
   };
-  fieldsOfPractices: FieldOfPractice[]; 
+  fieldsOfPractices: FieldOfPractice[];
   countriesOfPractice: Array<{
     id: number;
     country: string;
     region: string;
-    is_primary?: boolean; 
+    is_primary?: boolean;
   }>;
-  documents?: any[]; 
+  documents?: any[];
 }
 export interface ApplicationResponse {
   status: string;

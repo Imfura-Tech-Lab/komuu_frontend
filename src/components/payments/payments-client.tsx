@@ -518,14 +518,6 @@ Certificate Generated: ${payment.is_certificate_generated ? "Yes" : "No"}
               </button>
               <button
                 onClick={() =>
-                  (window.location.href = `/members/${payment.member}`)
-                }
-                className="flex-1 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
-              >
-                View Member
-              </button>
-              <button
-                onClick={() =>
                   (window.location.href = `/my-payments/${payment.id}`)
                 }
                 className="flex-1 px-4 py-2 text-sm bg-[#00B5A5] hover:bg-[#009985] text-white rounded-md transition-colors"

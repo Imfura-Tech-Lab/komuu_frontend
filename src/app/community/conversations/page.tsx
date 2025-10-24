@@ -1,12 +1,12 @@
 import { Suspense } from "react";
+import CommunityConversationsPage from "@/components/community/CommunityConversationsPage";
 import SecureDashboardLayout from "@/components/dashboard/secure-dashboard-layout";
-import CommunitiesMemberClient from "@/components/communities/CommunitiesMemberClient";
 
-export default function CommunitiesPage() {
+export default function ConversationsPage() {
   return (
     <SecureDashboardLayout requiredRoles={["Member"]}>
-      <Suspense fallback={<div>Loading communities...</div>}>
-        <CommunitiesMemberClient />
+      <Suspense>
+        <CommunityConversationsPage />
       </Suspense>
     </SecureDashboardLayout>
   );
