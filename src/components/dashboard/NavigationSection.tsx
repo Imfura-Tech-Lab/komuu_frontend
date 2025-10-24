@@ -38,6 +38,7 @@ export function NavigationSection({
             item={item}
             pathname={pathname}
             getIcon={getIcon}
+            hasPermission={hasPermission}
           />
         ))}
       </div>
