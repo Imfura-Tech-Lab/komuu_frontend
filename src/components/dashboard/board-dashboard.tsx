@@ -233,7 +233,7 @@ function InteractiveMap({
 
       {/* Interactive Map */}
       <div
-        className="h-96 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900"
+        className="h-full rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex items-center justify-center"
         onMouseLeave={() => setTooltip(null)}
       >
         <ComposableMap
@@ -242,6 +242,14 @@ function InteractiveMap({
             scale: 120,
             center: [0, 20],
           }}
+          width={800}
+          height={384}
+          style={{
+            width: "100%",
+            height: "100%",
+            maxHeight: "384px",
+          }}
+          preserveAspectRatio="xMidYMid meet"
         >
           <ZoomableGroup
             zoom={position.zoom}
@@ -249,52 +257,53 @@ function InteractiveMap({
             onMoveEnd={handleMoveEnd}
           >
             <Geographies geography={geoUrl}>
-              {({ 
+              {({
                 // @ts-ignore
-                geographies 
+                geographies,
               }) =>
                 geographies.map(
                   // @ts-ignore
                   (geo) => {
-                  const countryName = geo.properties.name;
-                  const memberCount =
-                    countryDataMap.get(countryName.toLowerCase()) || 0;
-                  const fillColor = getCountryColor(countryName, memberCount);
+                    const countryName = geo.properties.name;
+                    const memberCount =
+                      countryDataMap.get(countryName.toLowerCase()) || 0;
+                    const fillColor = getCountryColor(countryName, memberCount);
 
-                  return (
-                    <Geography
-                      key={geo.rsmKey}
-                      geography={geo}
-                      fill={fillColor}
-                      stroke="#FFF"
-                      strokeWidth={0.5}
-                      style={{
-                        default: { outline: "none", cursor: "pointer" },
-                        hover: {
-                          fill:
-                            selectedCountry === countryName
-                              ? "#FF6B6B"
-                              : "#00D4C7",
-                          outline: "none",
-                          cursor: "pointer",
-                        },
-                        pressed: {
-                          fill: "#008080",
-                          outline: "none",
-                        },
-                      }}
-                      onClick={() => handleCountryClick(geo)}
-                      onMouseEnter={
-                        // @ts-ignore
-                        (event) => handleCountryHover(geo, event)
-                      }
-                      onMouseMove={
-                        // @ts-ignore
-                        (event) => handleCountryHover(geo, event)
-                      }
-                    />
-                  );
-                })
+                    return (
+                      <Geography
+                        key={geo.rsmKey}
+                        geography={geo}
+                        fill={fillColor}
+                        stroke="#FFF"
+                        strokeWidth={0.5}
+                        style={{
+                          default: { outline: "none", cursor: "pointer" },
+                          hover: {
+                            fill:
+                              selectedCountry === countryName
+                                ? "#FF6B6B"
+                                : "#00D4C7",
+                            outline: "none",
+                            cursor: "pointer",
+                          },
+                          pressed: {
+                            fill: "#008080",
+                            outline: "none",
+                          },
+                        }}
+                        onClick={() => handleCountryClick(geo)}
+                        onMouseEnter={
+                          // @ts-ignore
+                          (event) => handleCountryHover(geo, event)
+                        }
+                        onMouseMove={
+                          // @ts-ignore
+                          (event) => handleCountryHover(geo, event)
+                        }
+                      />
+                    );
+                  }
+                )
               }
             </Geographies>
 
@@ -383,30 +392,6 @@ function InteractiveMap({
           </p>
         </div>
       )}
-
-      {/* Enhanced Legend */}
-      <div className="mt-4 flex flex-wrap gap-4 text-sm">
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded-full bg-[#00B5A5]"></div>
-          <span>With Members</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded-full bg-[#00D4C7]"></div>
-          <span>Top 10 Country</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded-full bg-[#FF6B6B]"></div>
-          <span>Selected</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded-full bg-[#E6E6E6] border border-gray-300"></div>
-          <span>No Members</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-[#FF6B6B]"></div>
-          <span>Member Count</span>
-        </div>
-      </div>
     </div>
   );
 }
@@ -585,11 +570,41 @@ function OverviewTab({
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
           Global Overview
         </h3>
-        <div className="h-64">
+        <div className="h-96 relative overflow-hidden">
           <InteractiveMap
             countriesWithMembers={countriesWithMembers}
             countryDataMap={countryDataMap}
           />
+        </div>
+
+        {/* Map Legend */}
+        <div className="mt-4 flex flex-wrap gap-4 text-sm">
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded-full bg-[#00B5A5]"></div>
+            <span className="text-gray-700 dark:text-gray-300">
+              With Members
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded-full bg-[#00D4C7]"></div>
+            <span className="text-gray-700 dark:text-gray-300">
+              Top 10 Country
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded-full bg-[#FF6B6B]"></div>
+            <span className="text-gray-700 dark:text-gray-300">Selected</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded-full bg-[#E6E6E6] border border-gray-300 dark:border-gray-600"></div>
+            <span className="text-gray-700 dark:text-gray-300">No Members</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-[#FF6B6B]"></div>
+            <span className="text-gray-700 dark:text-gray-300">
+              Member Count
+            </span>
+          </div>
         </div>
       </div>
 
