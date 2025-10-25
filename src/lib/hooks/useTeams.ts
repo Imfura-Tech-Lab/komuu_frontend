@@ -1,532 +1,341 @@
-import { useState, useEffect, useCallback } from "react";
-import { showErrorToast, showSuccessToast } from "@/components/layouts/auth-layer-out";
+import { useState, useEffect } from "react";
+import {
+  showErrorToast,
+  showSuccessToast,
+} from "@/components/layouts/auth-layer-out";
 
-export interface TeamMember {
+interface TeamMember {
   id: number;
-  title: string;
-  role: string;
-  first_name: string;
-  middle_name: string;
-  surname: string;
+  name: string;
   email: string;
-  phone_number: string;
-  profile_picture?: string;
-  status: "active" | "blocked";
-  created_at: string;
-  updated_at: string;
+  phone_number: string | null;
+  secondary_email: string | null;
+  alternative_phone: string | null;
+  whatsapp_number: string | null;
+  role: string;
+  verified: boolean;
+  active: boolean;
+  has_changed_password: boolean;
+  date_of_birth: string | null;
+  national_ID: string | null;
+  passport: string | null;
+  public_profile: string | null;
 }
 
-export interface Team {
+interface Team {
   id: number;
   name: string;
   description: string;
-  members: number;
   lead: string;
-  status: "active" | "inactive";
+  members: number;
+  status: string;
   createdAt: string;
-  team_members?: TeamMember[];
-}
-
-export interface AddMemberData {
-  title: string;
-  role: string;
-  first_name: string;
-  middle_name: string;
-  surname: string;
   email: string;
-  phone_number: string;
-  profile_picture?: File;
+  phone: string | null;
+  role: string;
+  verified: boolean;
+  hasChangedPassword: boolean;
 }
 
-export const useTeams = () => {
+interface Pagination {
+  currentPage: number;
+  lastPage: number;
+  perPage: number;
+  total: number;
+  from: number;
+  to: number;
+}
+
+interface ApiResponse<T = any> {
+  status: "success" | "error" | boolean;
+  message: string;
+  data: T;
+}
+
+export function useTeams() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [pagination, setPagination] = useState({
+  const [pagination, setPagination] = useState<Pagination>({
     currentPage: 1,
     lastPage: 1,
-    total: 0,
     perPage: 10,
+    total: 0,
+    from: 0,
+    to: 0,
   });
 
-  const getAuthHeaders = useCallback(() => {
-    const token = localStorage.getItem("auth_token");
-    const companyId = localStorage.getItem("company_id");
+  const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
+  const companyId =
+    typeof window !== "undefined" ? localStorage.getItem("company_id") : null;
 
-    if (!token) {
-      showErrorToast("Authentication required. Please login to continue.");
-      return null;
-    }
-
-    if (!companyId) {
-      showErrorToast("Company ID is required.");
-      return null;
-    }
-
+  const getAuthHeaders = () => {
+    const token =
+      typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
     return {
       Accept: "application/json",
       Authorization: `Bearer ${token}`,
-      "X-Company-ID": companyId,
+      "X-Company-ID": companyId || "",
     };
-  }, []);
+  };
 
-  const fetchTeams = useCallback(async (page = 1) => {
+  // Fetch all team members
+  const fetchTeams = async (page: number = 1) => {
     try {
       setLoading(true);
       setError(null);
 
-      const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
-      const headers = getAuthHeaders();
-      
-      if (!headers) return;
-
       const response = await fetch(`${apiUrl}team-management?page=${page}`, {
         method: "GET",
-        headers,
+        headers: getAuthHeaders(),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        handleApiError(response, data);
-        throw new Error(data.message || `HTTP error! status: ${response.status}`);
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
+      const data: ApiResponse = await response.json();
+
       if (data.status === "success") {
-        const teamsData = data.data;
-        
-        if (Array.isArray(teamsData.data)) {
-          setTeams(teamsData.data);
-          setPagination({
-            currentPage: teamsData.current_page,
-            lastPage: teamsData.last_page,
-            total: teamsData.total,
-            perPage: teamsData.per_page,
-          });
-        } else if (Array.isArray(teamsData)) {
-          setTeams(teamsData);
-          setPagination({
-            currentPage: 1,
-            lastPage: 1,
-            total: teamsData.length,
-            perPage: teamsData.length,
-          });
-        } else {
-          setTeams([]);
-        }
+        // Transform API data to match component expectations
+        const transformedTeams: Team[] = data.data.data.map(
+          (member: TeamMember) => ({
+            id: member.id,
+            name: member.name,
+            description: member.role,
+            lead: member.email,
+            members: 1, // Individual member count
+            status: member.active ? "active" : "inactive",
+            createdAt: member.date_of_birth || new Date().toISOString(),
+            email: member.email,
+            phone: member.phone_number,
+            role: member.role,
+            verified: member.verified,
+            hasChangedPassword: member.has_changed_password,
+          })
+        );
+
+        setTeams(transformedTeams);
+
+        // Update pagination with actual API structure
+        setPagination({
+          currentPage: data.data.current_page,
+          lastPage: data.data.last_page,
+          perPage: data.data.per_page,
+          total: data.data.total,
+          from: data.data.from,
+          to: data.data.to,
+        });
       } else {
-        showErrorToast(data.message || "Failed to load teams");
         throw new Error(data.message || "Failed to fetch teams");
       }
     } catch (err) {
       console.error("Failed to fetch teams:", err);
-      const errorMessage =
-        err instanceof Error ? err.message : "Failed to fetch teams";
-      setError(errorMessage);
+      setError(err instanceof Error ? err.message : "Failed to fetch teams");
+      showErrorToast("Failed to load team members");
     } finally {
       setLoading(false);
     }
-  }, [getAuthHeaders]);
+  };
 
-  // Get single team details
-  const fetchTeam = useCallback(async (teamId: number) => {
+  // Add team member
+  const addTeamMember = async (formData: FormData): Promise<boolean> => {
     try {
-      setLoading(true);
-      setError(null);
-
-      const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
-      const headers = getAuthHeaders();
-      
-      if (!headers) return null;
-
-      const response = await fetch(`${apiUrl}team-management/${teamId}`, {
-        method: "GET",
-        headers,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        handleApiError(response, data);
-        throw new Error(data.message || `HTTP error! status: ${response.status}`);
-      }
-
-      if (data.status === "success") {
-        return data.data;
-      } else {
-        showErrorToast(data.message || "Failed to load team details");
-        throw new Error(data.message || "Failed to fetch team");
-      }
-    } catch (err) {
-      console.error("Failed to fetch team:", err);
-      const errorMessage =
-        err instanceof Error ? err.message : "Failed to fetch team";
-      setError(errorMessage);
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, [getAuthHeaders]);
-
-  // Add member to team
-  const addTeamMember = useCallback(async (memberData: AddMemberData) => {
-    try {
-      setError(null);
-
-      const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
-      const headers = getAuthHeaders();
-      
-      if (!headers) return false;
-
-      const formData = new FormData();
-      formData.append('title', memberData.title);
-      formData.append('role', memberData.role);
-      formData.append('first_name', memberData.first_name);
-      formData.append('middle_name', memberData.middle_name);
-      formData.append('surname', memberData.surname);
-      formData.append('email', memberData.email);
-      formData.append('phone_number', memberData.phone_number);
-      
-      if (memberData.profile_picture) {
-        formData.append('profile_picture', memberData.profile_picture);
-      }
+      const token = localStorage.getItem("auth_token");
 
       const response = await fetch(`${apiUrl}team-management/add-member`, {
         method: "POST",
         headers: {
-          ...headers,
-          // Don't set Content-Type for FormData, let browser set it with boundary
+          Authorization: `Bearer ${token}`,
+          "X-Company-ID": companyId || "",
         },
         body: formData,
       });
 
-      const data = await response.json();
+      const data: ApiResponse = await response.json();
 
-      if (!response.ok) {
-        handleApiError(response, data);
-        throw new Error(data.message || `HTTP error! status: ${response.status}`);
-      }
-
-      if (data.status === "success") {
-        showSuccessToast("Team member added successfully");
+      // Check both response.ok and data.status for comprehensive error handling
+      if (response.ok && (data.status === "success" || data.status === true)) {
+        showSuccessToast(data.message || "Team member added successfully");
         await fetchTeams(pagination.currentPage);
         return true;
       } else {
-        showErrorToast(data.message || "Failed to add team member");
-        return false;
+        throw new Error(data.message || "Failed to add team member");
       }
     } catch (err) {
       console.error("Failed to add team member:", err);
-      const errorMessage =
-        err instanceof Error ? err.message : "Failed to add team member";
-      setError(errorMessage);
+      showErrorToast(
+        err instanceof Error ? err.message : "Failed to add team member"
+      );
       return false;
     }
-  }, [getAuthHeaders, fetchTeams, pagination.currentPage]);
+  };
 
-  // Block member access
-  const blockMemberAccess = useCallback(async (memberId: number) => {
+  // Get single team member details
+  const getTeamMember = async (memberId: number) => {
     try {
-      setError(null);
-
-      const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
-      const headers = getAuthHeaders();
-      
-      if (!headers) return false;
-
-      const response = await fetch(`${apiUrl}team-management/${memberId}/block-access`, {
-        method: "POST",
-        headers,
+      const response = await fetch(`${apiUrl}team-management/${memberId}`, {
+        method: "GET",
+        headers: getAuthHeaders(),
       });
 
-      const data = await response.json();
+      const data: ApiResponse = await response.json();
 
-      if (!response.ok) {
-        handleApiError(response, data);
-        throw new Error(data.message || `HTTP error! status: ${response.status}`);
+      if (response.ok && (data.status === "success" || data.status === true)) {
+        return data.data;
+      } else {
+        throw new Error(data.message || "Failed to fetch team member");
       }
+    } catch (err) {
+      console.error("Failed to fetch team member:", err);
+      showErrorToast("Failed to load team member details");
+      return null;
+    }
+  };
 
-      if (data.status === "success") {
-        showSuccessToast("Member access blocked successfully");
+  // Block member access
+  const blockMemberAccess = async (memberId: number): Promise<boolean> => {
+    try {
+      const response = await fetch(
+        `${apiUrl}team-management/${memberId}/block-access`,
+        {
+          method: "POST",
+          headers: getAuthHeaders(),
+        }
+      );
+
+      const data: ApiResponse = await response.json();
+
+      if (response.ok && (data.status === "success" || data.status === true)) {
+        showSuccessToast(data.message || "Member access blocked successfully");
         await fetchTeams(pagination.currentPage);
         return true;
       } else {
-        showErrorToast(data.message || "Failed to block member access");
-        return false;
+        throw new Error(data.message || "Failed to block member access");
       }
     } catch (err) {
       console.error("Failed to block member access:", err);
-      const errorMessage =
-        err instanceof Error ? err.message : "Failed to block member access";
-      setError(errorMessage);
+      showErrorToast(
+        err instanceof Error ? err.message : "Failed to block member access"
+      );
       return false;
     }
-  }, [getAuthHeaders, fetchTeams, pagination.currentPage]);
+  };
 
   // Activate member access
-  const activateMemberAccess = useCallback(async (memberId: number) => {
+  const activateMemberAccess = async (memberId: number): Promise<boolean> => {
     try {
-      setError(null);
+      const response = await fetch(
+        `${apiUrl}team-management/${memberId}/activate-access`,
+        {
+          method: "POST",
+          headers: getAuthHeaders(),
+        }
+      );
 
-      const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
-      const headers = getAuthHeaders();
-      
-      if (!headers) return false;
+      const data: ApiResponse = await response.json();
 
-      const response = await fetch(`${apiUrl}team-management/${memberId}/activate-access`, {
-        method: "POST",
-        headers,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        handleApiError(response, data);
-        throw new Error(data.message || `HTTP error! status: ${response.status}`);
-      }
-
-      if (data.status === "success") {
-        showSuccessToast("Member access activated successfully");
+      if (response.ok && (data.status === "success" || data.status === true)) {
+        showSuccessToast(
+          data.message || "Member access activated successfully"
+        );
         await fetchTeams(pagination.currentPage);
         return true;
       } else {
-        showErrorToast(data.message || "Failed to activate member access");
-        return false;
+        throw new Error(data.message || "Failed to activate member access");
       }
     } catch (err) {
       console.error("Failed to activate member access:", err);
-      const errorMessage =
-        err instanceof Error ? err.message : "Failed to activate member access";
-      setError(errorMessage);
+      showErrorToast(
+        err instanceof Error ? err.message : "Failed to activate member access"
+      );
       return false;
     }
-  }, [getAuthHeaders, fetchTeams, pagination.currentPage]);
+  };
 
   // Send password reset link
-  const sendPasswordResetLink = useCallback(async (memberId: number) => {
+  const sendPasswordResetLink = async (memberId: number): Promise<boolean> => {
     try {
-      setError(null);
+      const response = await fetch(
+        `${apiUrl}team-management/${memberId}/password-reset-link`,
+        {
+          method: "PUT",
+          headers: getAuthHeaders(),
+        }
+      );
 
-      const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
-      const headers = getAuthHeaders();
-      
-      if (!headers) return false;
+      const data: ApiResponse = await response.json();
 
-      const response = await fetch(`${apiUrl}team-management/${memberId}/password-reset-link`, {
-        method: "PUT",
-        headers,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        handleApiError(response, data);
-        throw new Error(data.message || `HTTP error! status: ${response.status}`);
-      }
-
-      if (data.status === "success") {
-        showSuccessToast("Password reset link sent successfully");
-        return true;
-      } else {
-        showErrorToast(data.message || "Failed to send password reset link");
-        return false;
-      }
-    } catch (err) {
-      console.error("Failed to send password reset link:", err);
-      const errorMessage =
-        err instanceof Error ? err.message : "Failed to send password reset link";
-      setError(errorMessage);
-      return false;
-    }
-  }, [getAuthHeaders]);
-
-  // Delete team member
-  const deleteTeamMember = useCallback(async (memberId: number) => {
-    try {
-      setError(null);
-
-      const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
-      const headers = getAuthHeaders();
-      
-      if (!headers) return false;
-
-      const response = await fetch(`${apiUrl}team-management/${memberId}/destroy`, {
-        method: "DELETE",
-        headers,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        handleApiError(response, data);
-        throw new Error(data.message || `HTTP error! status: ${response.status}`);
-      }
-
-      if (data.status === "success") {
-        showSuccessToast("Team member deleted successfully");
-        await fetchTeams(pagination.currentPage);
-        return true;
-      } else {
-        showErrorToast(data.message || "Failed to delete team member");
-        return false;
-      }
-    } catch (err) {
-      console.error("Failed to delete team member:", err);
-      const errorMessage =
-        err instanceof Error ? err.message : "Failed to delete team member";
-      setError(errorMessage);
-      return false;
-    }
-  }, [getAuthHeaders, fetchTeams, pagination.currentPage]);
-
-  // Create a new team
-  const createTeam = useCallback(async (teamData: Omit<Team, 'id' | 'createdAt'>) => {
-    try {
-      setError(null);
-
-      const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
-      const headers = getAuthHeaders();
-      
-      if (!headers) return false;
-
-      const response = await fetch(`${apiUrl}team-management`, {
-        method: "POST",
-        headers: {
-          ...headers,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(teamData),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        handleApiError(response, data);
-        throw new Error(data.message || `HTTP error! status: ${response.status}`);
-      }
-
-      if (data.status === "success") {
-        showSuccessToast("Team created successfully");
-        await fetchTeams(pagination.currentPage);
-        return true;
-      } else {
-        showErrorToast(data.message || "Failed to create team");
-        return false;
-      }
-    } catch (err) {
-      console.error("Failed to create team:", err);
-      const errorMessage =
-        err instanceof Error ? err.message : "Failed to create team";
-      setError(errorMessage);
-      return false;
-    }
-  }, [getAuthHeaders, fetchTeams, pagination.currentPage]);
-
-  // Update a team
-  const updateTeam = useCallback(async (teamId: number, teamData: Partial<Team>) => {
-    try {
-      setError(null);
-
-      const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
-      const headers = getAuthHeaders();
-      
-      if (!headers) return false;
-
-      const response = await fetch(`${apiUrl}team-management/${teamId}`, {
-        method: "PUT",
-        headers: {
-          ...headers,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(teamData),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        handleApiError(response, data);
-        throw new Error(data.message || `HTTP error! status: ${response.status}`);
-      }
-
-      if (data.status === "success") {
-        showSuccessToast("Team updated successfully");
-        setTeams(prevTeams => 
-          prevTeams.map(team => 
-            team.id === teamId ? { ...team, ...teamData } : team
-          )
+      if (response.ok && (data.status === "success" || data.status === true)) {
+        showSuccessToast(
+          data.message || "Password reset link sent successfully"
         );
         return true;
       } else {
-        showErrorToast(data.message || "Failed to update team");
-        return false;
+        throw new Error(data.message || "Failed to send password reset link");
       }
     } catch (err) {
-      console.error("Failed to update team:", err);
-      const errorMessage =
-        err instanceof Error ? err.message : "Failed to update team";
-      setError(errorMessage);
+      console.error("Failed to send password reset link:", err);
+      showErrorToast(
+        err instanceof Error
+          ? err.message
+          : "Failed to send password reset link"
+      );
       return false;
     }
-  }, [getAuthHeaders]);
+  };
 
-  // Delete a team
-  const deleteTeam = useCallback(async (teamId: number) => {
+  // Delete team member (permanent)
+  const deleteTeamMember = async (memberId: number): Promise<boolean> => {
     try {
-      setError(null);
+      const response = await fetch(
+        `${apiUrl}team-management/${memberId}/destroy`,
+        {
+          method: "DELETE",
+          headers: getAuthHeaders(),
+        }
+      );
 
-      const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
-      const headers = getAuthHeaders();
-      
-      if (!headers) return false;
+      const data: ApiResponse = await response.json();
 
-      const response = await fetch(`${apiUrl}team-management/${teamId}`, {
-        method: "DELETE",
-        headers,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        handleApiError(response, data);
-        throw new Error(data.message || `HTTP error! status: ${response.status}`);
-      }
-
-      if (data.status === "success") {
-        showSuccessToast("Team deleted successfully");
-        setTeams(prevTeams => prevTeams.filter(team => team.id !== teamId));
+      if (response.ok && (data.status === "success" || data.status === true)) {
+        showSuccessToast(data.message || "Team member deleted successfully");
+        await fetchTeams(pagination.currentPage);
         return true;
       } else {
-        showErrorToast(data.message || "Failed to delete team");
-        return false;
+        throw new Error(data.message || "Failed to delete team member");
       }
     } catch (err) {
-      console.error("Failed to delete team:", err);
-      const errorMessage =
-        err instanceof Error ? err.message : "Failed to delete team";
-      setError(errorMessage);
+      console.error("Failed to delete team member:", err);
+      showErrorToast(
+        err instanceof Error ? err.message : "Failed to delete team member"
+      );
       return false;
     }
-  }, [getAuthHeaders]);
+  };
 
-  // Error handler utility
-  const handleApiError = useCallback((response: Response, data: any) => {
-    if (response.status === 401) {
-      showErrorToast("Session expired. Please login again.");
-    } else if (response.status === 403) {
-      showErrorToast("You don't have permission to perform this action.");
-    } else if (response.status === 404) {
-      showErrorToast("Resource not found.");
-    } else if (response.status >= 500) {
-      showErrorToast("Server error. Please try again later.");
-    } else {
-      showErrorToast(data.message || `Error: ${response.status}`);
-    }
-  }, []);
+  // Placeholder functions for team operations (not in API)
+  const createTeam = async (teamData: any): Promise<boolean> => {
+    showErrorToast("Team creation not implemented in API");
+    return false;
+  };
 
-  // Initialize teams on component mount
+  const updateTeam = async (
+    teamId: number,
+    teamData: any
+  ): Promise<boolean> => {
+    showErrorToast("Team update not implemented in API");
+    return false;
+  };
+
+  const deleteTeam = async (teamId: number): Promise<boolean> => {
+    // Use deleteTeamMember for individual members
+    return await deleteTeamMember(teamId);
+  };
+
   useEffect(() => {
-    fetchTeams();
-  }, [fetchTeams]);
+    fetchTeams(1);
+  }, []);
 
   return {
     teams,
@@ -534,15 +343,14 @@ export const useTeams = () => {
     error,
     pagination,
     fetchTeams,
-    fetchTeam,
     createTeam,
     updateTeam,
     deleteTeam,
     addTeamMember,
+    getTeamMember,
     blockMemberAccess,
     activateMemberAccess,
     sendPasswordResetLink,
     deleteTeamMember,
-    setTeams,
   };
-};
+}

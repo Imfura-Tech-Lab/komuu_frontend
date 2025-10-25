@@ -276,7 +276,6 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         permission: "sign_certificates",
         icon: "certificate_sign",
         description: "Sign and authorize member certificates",
-        badge: "unsigned_count",
         _order: 2,
       },
       {
