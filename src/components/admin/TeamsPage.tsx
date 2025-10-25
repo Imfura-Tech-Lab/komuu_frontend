@@ -236,12 +236,10 @@ const handleCreateMemberSubmit = async (memberData: any): Promise<boolean> => {
     e: React.ChangeEvent<HTMLSelectElement>
   ) => {
     setStatusFilter(e.target.value);
-    setCurrentPage(1);
   };
 
   const handleRoleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setRoleFilter(e.target.value);
-    setCurrentPage(1);
   };
 
   return (
