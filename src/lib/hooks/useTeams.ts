@@ -4,7 +4,7 @@ import {
   showSuccessToast,
 } from "@/components/layouts/auth-layer-out";
 
-interface TeamMember {
+export interface TeamMember {
   id: number;
   name: string;
   email: string;
@@ -22,7 +22,7 @@ interface TeamMember {
   public_profile: string | null;
 }
 
-interface Team {
+export interface Team {
   id: number;
   name: string;
   description: string;
@@ -37,7 +37,7 @@ interface Team {
   hasChangedPassword: boolean;
 }
 
-interface Pagination {
+export interface Pagination {
   currentPage: number;
   lastPage: number;
   perPage: number;
@@ -46,7 +46,7 @@ interface Pagination {
   to: number;
 }
 
-interface ApiResponse<T = any> {
+export interface ApiResponse<T = any> {
   status: "success" | "error" | boolean;
   message: string;
   data: T;
