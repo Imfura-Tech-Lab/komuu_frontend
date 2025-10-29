@@ -3,8 +3,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Dialog } from "@headlessui/react";
 import { XMarkIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
+import { InstitutionMember } from "@/lib/hooks/useInstitutionMembers";
 
-import { Team } from "@/lib/hooks/useTeams";
 
 interface AddMemberModalProps {
   isOpen: boolean;
@@ -13,7 +13,7 @@ interface AddMemberModalProps {
   loading?: boolean;
   slug: string;
 
-  availableMembers: Team[];
+  availableMembers: InstitutionMember[];
   membersLoading: boolean;
 }
 

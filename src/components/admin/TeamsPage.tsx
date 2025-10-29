@@ -15,6 +15,132 @@ import { useTeams } from "@/lib/hooks/useTeams";
 import { CreateMemberModal } from "./modals/CreateMemberModal";
 import { TeamActionsModal } from "./modals/TeamActionsModal";
 
+// ============================================================================
+// SKELETON LOADER COMPONENTS
+// ============================================================================
+
+const StatCardSkeleton = () => (
+  <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 animate-pulse">
+    <div className="flex items-center justify-between">
+      <div className="flex-1">
+        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24 mb-2"></div>
+        <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
+      </div>
+      <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+    </div>
+  </div>
+);
+
+const SearchBarSkeleton = () => (
+  <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 animate-pulse">
+    <div className="flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-4">
+      <div className="flex-1 w-full h-10 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+      <div className="w-full md:w-32 h-10 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+      <div className="w-full md:w-32 h-10 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+    </div>
+  </div>
+);
+
+const TableRowSkeleton = () => (
+  <tr className="animate-pulse">
+    <td className="px-6 py-4">
+      <div className="flex items-center">
+        <div className="flex-shrink-0 h-10 w-10 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+        <div className="ml-4 flex-1">
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32 mb-2"></div>
+          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-40"></div>
+        </div>
+      </div>
+    </td>
+    <td className="px-6 py-4">
+      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
+    </td>
+    <td className="px-6 py-4">
+      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
+    </td>
+    <td className="px-6 py-4">
+      <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-20"></div>
+    </td>
+    <td className="px-6 py-4">
+      <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-16"></div>
+    </td>
+    <td className="px-6 py-4">
+      <div className="flex justify-end">
+        <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded"></div>
+      </div>
+    </td>
+  </tr>
+);
+
+const TableSkeleton = () => (
+  <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+    <div className="overflow-x-auto">
+      <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+        <thead className="bg-gray-50 dark:bg-gray-900">
+          <tr>
+            <th className="px-6 py-3 text-left">
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20 animate-pulse"></div>
+            </th>
+            <th className="px-6 py-3 text-left">
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16 animate-pulse"></div>
+            </th>
+            <th className="px-6 py-3 text-left">
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20 animate-pulse"></div>
+            </th>
+            <th className="px-6 py-3 text-left">
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20 animate-pulse"></div>
+            </th>
+            <th className="px-6 py-3 text-left">
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16 animate-pulse"></div>
+            </th>
+            <th className="px-6 py-3 text-right">
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16 ml-auto animate-pulse"></div>
+            </th>
+          </tr>
+        </thead>
+        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+          {[...Array(5)].map((_, index) => (
+            <TableRowSkeleton key={index} />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
+
+const LoadingSkeleton = () => (
+  <div className="space-y-6">
+    {/* Header Skeleton */}
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+      <div className="animate-pulse">
+        <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-48 mb-2"></div>
+        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-64"></div>
+      </div>
+      <div className="mt-4 sm:mt-0">
+        <div className="h-10 w-32 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+      </div>
+    </div>
+
+    {/* Stats Cards Skeleton */}
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <StatCardSkeleton />
+      <StatCardSkeleton />
+      <StatCardSkeleton />
+      <StatCardSkeleton />
+    </div>
+
+    {/* Search Bar Skeleton */}
+    <SearchBarSkeleton />
+
+    {/* Table Skeleton */}
+    <TableSkeleton />
+  </div>
+);
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+
 export default function TeamsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -209,17 +335,19 @@ export default function TeamsPage() {
     }
   };
 
-const handleCreateMemberSubmit = async (memberData: any): Promise<boolean> => {
-  try {
-    await addTeamMember(memberData);
-    setShowCreateModal(false);
-    await fetchTeams(pagination?.currentPage || 1);
-    return true;
-  } catch (error) {
-    console.error('Failed to add member:', error);
-    return false;
-  }
-};
+  const handleCreateMemberSubmit = async (
+    memberData: any
+  ): Promise<boolean> => {
+    try {
+      await addTeamMember(memberData);
+      setShowCreateModal(false);
+      await fetchTeams(pagination?.currentPage || 1);
+      return true;
+    } catch (error) {
+      console.error("Failed to add member:", error);
+      return false;
+    }
+  };
 
   const uniqueRoles = Array.from(
     new Set(teams.map((team) => team.role).filter(Boolean))
@@ -241,6 +369,45 @@ const handleCreateMemberSubmit = async (memberData: any): Promise<boolean> => {
   const handleRoleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setRoleFilter(e.target.value);
   };
+
+  // ============================================================================
+  // LOADING STATE
+  // ============================================================================
+
+  if (loading && teams.length === 0) {
+    return <LoadingSkeleton />;
+  }
+
+  // ============================================================================
+  // ERROR STATE
+  // ============================================================================
+
+  if (error && teams.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-8 text-center">
+          <XCircleIcon className="mx-auto h-12 w-12 text-red-500" />
+          <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">
+            Error loading team members
+          </h3>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            {error}
+          </p>
+          <button
+            onClick={handleRefresh}
+            className="mt-4 inline-flex items-center px-4 py-2 bg-[#00B5A5] text-white rounded-lg hover:bg-[#008F82] transition-colors"
+          >
+            <ArrowPathIcon className="h-5 w-5 mr-2" />
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ============================================================================
+  // MAIN RENDER
+  // ============================================================================
 
   return (
     <>
@@ -270,9 +437,14 @@ const handleCreateMemberSubmit = async (memberData: any): Promise<boolean> => {
                 <div className="py-1">
                   <button
                     onClick={handleRefresh}
-                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    disabled={loading}
+                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <ArrowPathIcon className="h-5 w-5 mr-3" />
+                    <ArrowPathIcon
+                      className={`h-5 w-5 mr-3 ${
+                        loading ? "animate-spin" : ""
+                      }`}
+                    />
                     Refresh List
                   </button>
                   <button
@@ -451,7 +623,7 @@ const handleCreateMemberSubmit = async (memberData: any): Promise<boolean> => {
             <div className="flex space-x-2">
               <button
                 onClick={() => fetchTeams(pagination.currentPage - 1)}
-                disabled={pagination.currentPage === 1}
+                disabled={pagination.currentPage === 1 || loading}
                 className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Previous
@@ -461,7 +633,9 @@ const handleCreateMemberSubmit = async (memberData: any): Promise<boolean> => {
               </div>
               <button
                 onClick={() => fetchTeams(pagination.currentPage + 1)}
-                disabled={pagination.currentPage === pagination.lastPage}
+                disabled={
+                  pagination.currentPage === pagination.lastPage || loading
+                }
                 className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Next

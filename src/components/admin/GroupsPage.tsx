@@ -8,8 +8,10 @@ import {
   PencilIcon,
   TrashIcon,
   UserPlusIcon,
+  UserMinusIcon,
   EyeIcon,
   ArrowPathIcon,
+  ShieldExclamationIcon,
 } from "@heroicons/react/24/outline";
 import { Menu, Transition } from "@headlessui/react";
 import { Fragment } from "react";
@@ -22,13 +24,18 @@ import {
 } from "@/lib/hooks/useGroups";
 import { GroupModal, GroupFormData } from "./modals/GroupModal";
 import { AddMemberModal } from "./modals/AddMemberModal";
+import { RemoveMemberModal } from "./modals/RemoveMemberModal";
 import {
   showSuccessToast,
   showErrorToast,
 } from "@/components/layouts/auth-layer-out";
+import { useInstitutionMembers } from "@/lib/hooks/useInstitutionMembers";
+import { BlockMemberModal } from "./modals/BlockmemberModal";
+import { ViewGroupModal } from "./modals/ViewGroupModal";
 
-import { useTeams, Team } from "@/lib/hooks/useTeams";
-
+// ============================================================================
+// SKELETON COMPONENTS
+// ============================================================================
 
 const TableSkeleton = () => (
   <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
@@ -69,16 +76,190 @@ const StatsSkeleton = () => (
   </div>
 );
 
+// ============================================================================
+// ACTIONS DROPDOWN COMPONENT
+// ============================================================================
+
+interface ActionsDropdownProps {
+  group: Group;
+  onView: (group: Group) => void;
+  onEdit: (group: Group) => void;
+  onAddMember: (slug: string) => void;
+  onRemoveMember: (slug: string) => void;
+  onBlockMember: (slug: string) => void;
+  onDelete: (slug: string) => void;
+  disabled: boolean;
+}
+
+const ActionsDropdown: React.FC<ActionsDropdownProps> = ({
+  group,
+  onView,
+  onEdit,
+  onAddMember,
+  onRemoveMember,
+  onBlockMember,
+  onDelete,
+  disabled,
+}) => {
+  return (
+    <Menu as="div" className="relative inline-block text-left">
+      <div>
+        <Menu.Button
+          disabled={disabled}
+          className="flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-full p-1 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <EllipsisVerticalIcon className="h-5 w-5" />
+        </Menu.Button>
+      </div>
+
+      <Transition
+        as={Fragment}
+        enter="transition ease-out duration-100"
+        enterFrom="transform opacity-0 scale-95"
+        enterTo="transform opacity-100 scale-100"
+        leave="transition ease-in duration-75"
+        leaveFrom="transform opacity-100 scale-100"
+        leaveTo="transform opacity-0 scale-95"
+      >
+        <Menu.Items className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none border border-gray-200 dark:border-gray-700">
+          <div className="py-1">
+            {/* View Details */}
+            <Menu.Item>
+              {({ active }) => (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onView(group);
+                  }}
+                  className={`${
+                    active ? "bg-gray-100 dark:bg-gray-700" : ""
+                  } flex w-full items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300`}
+                >
+                  <EyeIcon className="mr-3 h-4 w-4" />
+                  View Details
+                </button>
+              )}
+            </Menu.Item>
+
+            {/* Edit Group */}
+            <Menu.Item>
+              {({ active }) => (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEdit(group);
+                  }}
+                  className={`${
+                    active ? "bg-gray-100 dark:bg-gray-700" : ""
+                  } flex w-full items-center px-4 py-2 text-sm text-blue-600 dark:text-blue-400`}
+                >
+                  <PencilIcon className="mr-3 h-4 w-4" />
+                  Edit Group
+                </button>
+              )}
+            </Menu.Item>
+
+            <div className="border-t border-gray-100 dark:border-gray-700"></div>
+
+            {/* Add Member */}
+            <Menu.Item>
+              {({ active }) => (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAddMember(group.slug);
+                  }}
+                  className={`${
+                    active ? "bg-gray-100 dark:bg-gray-700" : ""
+                  } flex w-full items-center px-4 py-2 text-sm text-green-600 dark:text-green-400`}
+                >
+                  <UserPlusIcon className="mr-3 h-4 w-4" />
+                  Add Members
+                </button>
+              )}
+            </Menu.Item>
+
+            {/* Remove Member */}
+            <Menu.Item>
+              {({ active }) => (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemoveMember(group.slug);
+                  }}
+                  disabled={group.members === 0}
+                  className={`${
+                    active ? "bg-gray-100 dark:bg-gray-700" : ""
+                  } flex w-full items-center px-4 py-2 text-sm text-orange-600 dark:text-orange-400 disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  <UserMinusIcon className="mr-3 h-4 w-4" />
+                  Remove Members
+                </button>
+              )}
+            </Menu.Item>
+
+            {/* Block Member */}
+            <Menu.Item>
+              {({ active }) => (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onBlockMember(group.slug);
+                  }}
+                  disabled={group.members === 0}
+                  className={`${
+                    active ? "bg-gray-100 dark:bg-gray-700" : ""
+                  } flex w-full items-center px-4 py-2 text-sm text-yellow-600 dark:text-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  <ShieldExclamationIcon className="mr-3 h-4 w-4" />
+                  Block Member
+                </button>
+              )}
+            </Menu.Item>
+
+            <div className="border-t border-gray-100 dark:border-gray-700"></div>
+
+            {/* Delete Group */}
+            <Menu.Item>
+              {({ active }) => (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(group.slug);
+                  }}
+                  className={`${
+                    active ? "bg-gray-100 dark:bg-gray-700" : ""
+                  } flex w-full items-center px-4 py-2 text-sm text-red-600 dark:text-red-400`}
+                >
+                  <TrashIcon className="mr-3 h-4 w-4" />
+                  Delete Group
+                </button>
+              )}
+            </Menu.Item>
+          </div>
+        </Menu.Items>
+      </Transition>
+    </Menu>
+  );
+};
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+
 export default function GroupsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [showRemoveMemberModal, setShowRemoveMemberModal] = useState(false);
+  const [showBlockMemberModal, setShowBlockMemberModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
-  const [selectedGroupForMembers, setSelectedGroupForMembers] = useState<
-    string | null
-  >(null);
+  const [selectedGroupForMembers, setSelectedGroupForMembers] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoadingGroupDetails, setIsLoadingGroupDetails] = useState(false);
 
   const {
     groups,
@@ -86,32 +267,30 @@ export default function GroupsPage() {
     error,
     pagination,
     fetchGroups,
+    fetchGroup,
     createGroup,
     updateGroup,
     deleteGroup,
-    addMember,
+    addMembers,
     removeMember,
     blockMember,
   } = useGroups();
 
-  const { 
-    teams: availableMembers,
+  const {
+    members: availableMembers,
     loading: membersLoading,
-    fetchTeams: fetchAvailableMembers
-  } = useTeams();
+    fetchMembers,
+  } = useInstitutionMembers();
 
   useEffect(() => {
     fetchGroups(1);
-    fetchAvailableMembers(1);
+    fetchMembers();
   }, []);
 
   const handlePageRefresh = async () => {
     try {
       setIsRefreshing(true);
-      await Promise.all([
-        fetchGroups(pagination.currentPage),
-        fetchAvailableMembers(1)
-      ]);
+      await Promise.all([fetchGroups(pagination.currentPage), fetchMembers()]);
       showSuccessToast("Page refreshed successfully");
     } catch (error) {
       showErrorToast("Failed to refresh page");
@@ -181,25 +360,36 @@ export default function GroupsPage() {
     setShowAddMemberModal(true);
   };
 
+  const handleOpenRemoveMemberModal = (slug: string) => {
+    setSelectedGroupForMembers(slug);
+    setShowRemoveMemberModal(true);
+  };
+
+  const handleOpenBlockMemberModal = (slug: string) => {
+    setSelectedGroupForMembers(slug);
+    setShowBlockMemberModal(true);
+  };
+
   const handleAddMembers = async (memberIds: number[]) => {
     if (!selectedGroupForMembers) return;
 
     try {
       setActionLoading(`add-member-${selectedGroupForMembers}`);
 
-      for (const memberId of memberIds) {
-        await addMember({
-          slug: selectedGroupForMembers,
-          memberId: memberId.toString(),
+      const success = await addMembers({
+        slug: selectedGroupForMembers,
+        members: memberIds.map((id) => ({
+          id,
           role: "Member",
-        });
-      }
+        })),
+      });
 
-      showSuccessToast(`${memberIds.length} member(s) added successfully`);
-      setShowAddMemberModal(false);
-      setSelectedGroupForMembers(null);
-      fetchGroups(pagination.currentPage);
-      fetchAvailableMembers(1);
+      if (success) {
+        showSuccessToast(`${memberIds.length} member(s) added successfully`);
+        setShowAddMemberModal(false);
+        setSelectedGroupForMembers(null);
+        await Promise.all([fetchGroups(pagination.currentPage), fetchMembers()]);
+      }
     } catch (error) {
       showErrorToast("Failed to add members to group");
     } finally {
@@ -207,8 +397,70 @@ export default function GroupsPage() {
     }
   };
 
-  const handleViewGroup = (group: Group) => {
-    console.log("View group:", group);
+  const handleRemoveMember = async (memberId: number) => {
+    if (!selectedGroupForMembers) return;
+
+    try {
+      setActionLoading(`remove-member-${selectedGroupForMembers}`);
+
+      const success = await removeMember({
+        slug: selectedGroupForMembers,
+        memberId: memberId.toString(),
+      });
+
+      if (success) {
+        showSuccessToast("Member removed successfully");
+        await fetchGroups(pagination.currentPage);
+      }
+    } catch (error) {
+      showErrorToast("Failed to remove member");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleBlockMember = async (memberId: number) => {
+    if (!selectedGroupForMembers) return;
+
+    try {
+      setActionLoading(`block-member-${selectedGroupForMembers}`);
+
+      const success = await blockMember({
+        slug: selectedGroupForMembers,
+        memberId: memberId.toString(),
+      });
+
+      if (success) {
+        showSuccessToast("Member blocked successfully");
+        await fetchGroups(pagination.currentPage);
+      }
+    } catch (error) {
+      showErrorToast("Failed to block member");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleViewGroup = async (group: Group) => {
+    setSelectedGroup(group);
+    setShowViewModal(true);
+
+    setIsLoadingGroupDetails(true);
+    try {
+      const detailedGroup = await fetchGroup(group.slug);
+      if (detailedGroup) {
+        setSelectedGroup(detailedGroup);
+      }
+    } catch (error) {
+      showErrorToast("Failed to load group details");
+    } finally {
+      setIsLoadingGroupDetails(false);
+    }
+  };
+
+  const handleEditClick = (group: Group) => {
+    setSelectedGroup(group);
+    setShowEditModal(true);
   };
 
   const handleRowClick = (group: Group) => {
@@ -305,51 +557,17 @@ export default function GroupsPage() {
       label: "Actions",
       sortable: false,
       render: (group) => (
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleViewGroup(group);
-            }}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-            title="View Group"
-          >
-            <EyeIcon className="h-5 w-5" />
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setSelectedGroup(group);
-              setShowEditModal(true);
-            }}
+        <div className="flex justify-end">
+          <ActionsDropdown
+            group={group}
+            onView={handleViewGroup}
+            onEdit={handleEditClick}
+            onAddMember={handleOpenAddMemberModal}
+            onRemoveMember={handleOpenRemoveMemberModal}
+            onBlockMember={handleOpenBlockMemberModal}
+            onDelete={handleDeleteGroup}
             disabled={actionLoading === group.slug}
-            className="text-blue-400 hover:text-blue-600 dark:hover:text-blue-300 disabled:opacity-50"
-            title="Edit Group"
-          >
-            <PencilIcon className="h-5 w-5" />
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleOpenAddMemberModal(group.slug);
-            }}
-            disabled={actionLoading === `add-member-${group.slug}`}
-            className="text-green-400 hover:text-green-600 dark:hover:text-green-300 disabled:opacity-50"
-            title="Add Member"
-          >
-            <UserPlusIcon className="h-5 w-5" />
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleDeleteGroup(group.slug);
-            }}
-            disabled={actionLoading === group.slug}
-            className="text-red-400 hover:text-red-600 dark:hover:text-red-300 disabled:opacity-50"
-            title="Delete Group"
-          >
-            <TrashIcon className="h-5 w-5" />
-          </button>
+          />
         </div>
       ),
     },
@@ -396,6 +614,7 @@ export default function GroupsPage() {
 
   return (
     <div className="space-y-6 p-6">
+      {/* Header */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -480,6 +699,7 @@ export default function GroupsPage() {
         </div>
       </div>
 
+      {/* Stats Cards */}
       {loading ? (
         <StatsSkeleton />
       ) : (
@@ -519,6 +739,7 @@ export default function GroupsPage() {
         </div>
       )}
 
+      {/* Groups Table */}
       {loading || isRefreshing ? (
         <TableSkeleton />
       ) : (
@@ -544,6 +765,7 @@ export default function GroupsPage() {
         />
       )}
 
+      {/* Pagination */}
       {!loading && pagination.total > 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mt-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -609,6 +831,18 @@ export default function GroupsPage() {
         </div>
       )}
 
+      {/* Modals */}
+      <ViewGroupModal
+        isOpen={showViewModal}
+        onClose={() => {
+          setShowViewModal(false);
+          setSelectedGroup(null);
+          setIsLoadingGroupDetails(false);
+        }}
+        group={selectedGroup}
+        loading={isLoadingGroupDetails}
+      />
+
       <GroupModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
@@ -639,6 +873,32 @@ export default function GroupsPage() {
         loading={actionLoading !== null}
         slug={selectedGroupForMembers || ""}
         availableMembers={availableMembers}
+        membersLoading={membersLoading}
+      />
+
+      <RemoveMemberModal
+        isOpen={showRemoveMemberModal}
+        onClose={() => {
+          setShowRemoveMemberModal(false);
+          setSelectedGroupForMembers(null);
+        }}
+        onRemoveMember={handleRemoveMember}
+        loading={actionLoading !== null}
+        slug={selectedGroupForMembers || ""}
+        groupMembers={availableMembers}
+        membersLoading={membersLoading}
+      />
+
+      <BlockMemberModal
+        isOpen={showBlockMemberModal}
+        onClose={() => {
+          setShowBlockMemberModal(false);
+          setSelectedGroupForMembers(null);
+        }}
+        onBlockMember={handleBlockMember}
+        loading={actionLoading !== null}
+        slug={selectedGroupForMembers || ""}
+        groupMembers={availableMembers}
         membersLoading={membersLoading}
       />
     </div>

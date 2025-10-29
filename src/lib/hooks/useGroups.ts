@@ -38,6 +38,15 @@ export interface MemberActionParams {
   role?: "Moderator" | "Member";
 }
 
+// New interface for bulk member addition
+export interface BulkAddMemberParams {
+  slug: string;
+  members: Array<{
+    id: number;
+    role: "Moderator" | "Member";
+  }>;
+}
+
 interface Pagination {
   currentPage: number;
   lastPage: number;
@@ -85,6 +94,7 @@ interface UseGroupsReturn {
   updateGroup: (params: UpdateGroupParams) => Promise<Group | null>;
   deleteGroup: (slug: string) => Promise<boolean>;
   addMember: (params: MemberActionParams) => Promise<boolean>;
+  addMembers: (params: BulkAddMemberParams) => Promise<boolean>; // New bulk method
   removeMember: (params: Omit<MemberActionParams, "role">) => Promise<boolean>;
   blockMember: (params: Omit<MemberActionParams, "role">) => Promise<boolean>;
 }
@@ -167,7 +177,7 @@ export function useGroups(): UseGroupsReturn {
         const errorMessage =
           err instanceof Error ? err.message : "Unknown error occurred";
         setError(errorMessage);
-        throw err; // Re-throw for caller to handle
+        throw err;
       }
     },
     [apiUrl, companyId]
@@ -185,11 +195,9 @@ export function useGroups(): UseGroupsReturn {
         );
 
         if (data) {
-          // Transform Laravel paginated response
           const transformedGroups = data.data.map(transformGroup);
           setGroups(transformedGroups);
 
-          // Update pagination with Laravel structure
           setPagination({
             currentPage: data.current_page,
             lastPage: data.last_page,
@@ -253,9 +261,7 @@ export function useGroups(): UseGroupsReturn {
 
         if (data) {
           showSuccessToast("Group created successfully");
-          // Refetch current page to get updated list
           await fetchGroups(pagination.currentPage);
-
           return transformGroup(data);
         }
 
@@ -292,9 +298,7 @@ export function useGroups(): UseGroupsReturn {
 
         if (data) {
           showSuccessToast("Group updated successfully");
-          // Refetch current page to get updated list
           await fetchGroups(pagination.currentPage);
-
           return transformGroup(data);
         }
 
@@ -324,7 +328,6 @@ export function useGroups(): UseGroupsReturn {
         });
 
         showSuccessToast("Group deleted successfully");
-        // Refetch current page to get updated list
         await fetchGroups(pagination.currentPage);
 
         return true;
@@ -341,34 +344,54 @@ export function useGroups(): UseGroupsReturn {
     [apiCall, fetchGroups, pagination.currentPage]
   );
 
-  // Add member to group by slug
+  // Add single member to group (DEPRECATED - use addMembers instead)
   const addMember = useCallback(
     async (params: MemberActionParams): Promise<boolean> => {
+      console.warn("addMember is deprecated, use addMembers for better performance");
+      
+      return addMembers({
+        slug: params.slug,
+        members: [{
+          id: parseInt(params.memberId),
+          role: params.role || "Member"
+        }]
+      });
+    },
+    []
+  );
+
+  // Add multiple members to group (BULK - matches API structure)
+  const addMembers = useCallback(
+    async (params: BulkAddMemberParams): Promise<boolean> => {
       try {
         setLoading(true);
         setError(null);
 
-        const queryParams = new URLSearchParams({
-          role: params.role || "Member",
+        // Build query params matching API structure:
+        // community/groups/add-member/biology?member[0][id]=120&member[0][role]=Member
+        const queryParams = new URLSearchParams();
+        params.members.forEach((member, index) => {
+          queryParams.append(`member[${index}][id]`, member.id.toString());
+          queryParams.append(`member[${index}][role]`, member.role);
         });
 
+        // Correct endpoint: community/groups/add-member/{slug}
         await apiCall<void>(
-          `community/groups/${params.slug}/add-member/${
-            params.memberId
-          }?${queryParams.toString()}`,
+          `community/groups/add-member/${params.slug}?${queryParams.toString()}`,
           { method: "PUT" }
         );
 
-        showSuccessToast("Member added to group successfully");
+        const memberText = params.members.length === 1 ? "Member" : "Members";
+        showSuccessToast(`${memberText} added to group successfully`);
 
         // Refetch to update member count
         await fetchGroups(pagination.currentPage);
 
         return true;
       } catch (err) {
-        console.error(`Failed to add member to group ${params.slug}:`, err);
+        console.error(`Failed to add members to group ${params.slug}:`, err);
         showErrorToast(
-          err instanceof Error ? err.message : "Failed to add member to group"
+          err instanceof Error ? err.message : "Failed to add members to group"
         );
         return false;
       } finally {
@@ -391,8 +414,6 @@ export function useGroups(): UseGroupsReturn {
         );
 
         showSuccessToast("Member removed from group successfully");
-
-        // Refetch to update member count
         await fetchGroups(pagination.currentPage);
 
         return true;
@@ -456,6 +477,7 @@ export function useGroups(): UseGroupsReturn {
     updateGroup,
     deleteGroup,
     addMember,
+    addMembers,
     removeMember,
     blockMember,
   };
