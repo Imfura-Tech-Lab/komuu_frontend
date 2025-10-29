@@ -165,9 +165,6 @@ export function CreateMemberModal({
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent"
               >
                 <option value="Board">Board</option>
-                <option value="Executive">Executive</option>
-                <option value="Manager">Manager</option>
-                <option value="Staff">Staff</option>
                 <option value="Admin">Admin</option>
               </select>
             </div>
