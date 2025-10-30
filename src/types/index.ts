@@ -577,6 +577,8 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
 };
 
 export interface Application {
+
+  payments: any;
   id: string;
   member: string;
   application_status: string;
@@ -603,6 +605,7 @@ export interface Application {
   declaration: boolean;
   incompliance: boolean;
   member_details: {
+    full_name: any;
     id: number;
     name: string;
     email: string;

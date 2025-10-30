@@ -23,9 +23,6 @@ import { StatusAlerts } from "./StatusAlerts";
 import { useImprovedAutoLogout } from "@/lib/hooks/useImprovedAutoLogout";
 import { SessionWarningModal } from "./SessionWarningModal";
 
-export const isDev = process.env.NODE_ENV === "development";
-export const isProd = process.env.NODE_ENV === "production";
-
 interface SecureDashboardLayoutProps {
   children: React.ReactNode;
   requiredRoles?: UserRole[];
@@ -37,6 +34,10 @@ export default function SecureDashboardLayout({
   requiredRoles = [],
   requiredPermissions = [],
 }: SecureDashboardLayoutProps) {
+  const [mounted, setMounted] = useState(false);
+  const [isDev, setIsDev] = useState(false);
+  const [isProd, setIsProd] = useState(false);
+  
   const [userData, setUserData] = useState<UserData | null>(() => {
     // Initialize from localStorage immediately
     if (typeof window !== 'undefined') {
@@ -57,6 +58,13 @@ export default function SecureDashboardLayout({
   const router = useRouter();
   const pathname = usePathname();
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Set environment flags on client side only
+  useEffect(() => {
+    setMounted(true);
+    setIsDev(process.env.NODE_ENV === 'development');
+    setIsProd(process.env.NODE_ENV === 'production');
+  }, []);
 
   // Memoized navigation items
   const navigationItems = useMemo(() => {
@@ -353,6 +361,15 @@ export default function SecureDashboardLayout({
       .substring(0, 2)
       .toUpperCase();
   }, []);
+
+  // Show loading until mounted
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00B5A5]"></div>
+      </div>
+    );
+  }
 
   if (!authInitialized || !userData) {
     return null; // Quick bailout without loading screen
