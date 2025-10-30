@@ -16,6 +16,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { useConversations } from "@/lib/hooks/useConversations";
 import type { CreateConversationParams } from "@/lib/hooks/useConversations";
+import { showErrorToast } from "../layouts/auth-layer-out";
 
 // Skeleton Loader Components
 const StatsSkeleton = () => (

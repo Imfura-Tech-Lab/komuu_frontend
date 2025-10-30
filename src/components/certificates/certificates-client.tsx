@@ -6,6 +6,7 @@ import {
   showErrorToast,
   showSuccessToast,
 } from "@/components/layouts/auth-layer-out";
+import { FileText, RefreshCw, Search, AlertCircle } from "lucide-react";
 
 interface Certificate {
   id: number;
@@ -446,39 +447,127 @@ export default function CertificatesClient() {
 
   const stats = getStatusStats();
 
+  // ============================================================================
+  // SKELETON LOADER
+  // ============================================================================
   if (loading || userRole === null) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00B5A5] mx-auto"></div>
-            <p className="mt-4 text-gray-600 dark:text-gray-400">
-              {userRole === null
-                ? "Determining user role..."
-                : "Loading certificates..."}
-            </p>
+          {/* Header Skeleton */}
+          <div className="mb-8">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+              <div className="flex-1">
+                <div className="h-9 bg-gray-200 dark:bg-gray-700 rounded-lg w-48 mb-2 animate-pulse"></div>
+                <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded-lg w-96 animate-pulse"></div>
+              </div>
+              <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-48 animate-pulse"></div>
+            </div>
+          </div>
+
+          {/* Stats Cards Skeleton */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            {[1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700 animate-pulse"
+              >
+                <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-12 mb-2"></div>
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
+              </div>
+            ))}
+          </div>
+
+          {/* Filters Skeleton */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32 animate-pulse"></div>
+                <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+              </div>
+              <div className="space-y-2">
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-28 animate-pulse"></div>
+                <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+              </div>
+            </div>
+          </div>
+
+          {/* Result Count Skeleton */}
+          <div className="mb-6">
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-48 animate-pulse"></div>
+          </div>
+
+          {/* Certificate Cards Skeleton */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div
+                key={i}
+                className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 animate-pulse"
+              >
+                {/* Header */}
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex-1 space-y-2">
+                    <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-40"></div>
+                  </div>
+                  <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-20"></div>
+                </div>
+
+                {/* Info Grid */}
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  {[1, 2, 3, 4].map((j) => (
+                    <div key={j} className="space-y-2">
+                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Payment Section */}
+                <div className="pt-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
+                  <div className="flex justify-between items-center">
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+                    <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded-full w-20"></div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[1, 2, 3, 4].map((j) => (
+                      <div key={j} className="space-y-1">
+                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-12"></div>
+                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
     );
   }
 
+  // ============================================================================
+  // ERROR STATE
+  // ============================================================================
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-6 text-center">
-            <div className="text-red-600 dark:text-red-400 text-2xl mb-2">
-              ⚠️
+            <div className="mx-auto w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-4">
+              <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
             </div>
             <h3 className="text-red-800 dark:text-red-200 font-medium mb-2">
               Error Loading Certificates
             </h3>
-            <p className="text-red-600 dark:text-red-300 text-sm">{error}</p>
+            <p className="text-red-600 dark:text-red-300 text-sm mb-4">{error}</p>
             <button
               onClick={() => fetchCertificates(userRole)}
-              className="mt-4 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors"
+              className="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors"
             >
+              <RefreshCw className="w-4 h-4 mr-2" />
               Try Again
             </button>
           </div>
@@ -487,18 +576,36 @@ export default function CertificatesClient() {
     );
   }
 
+  // ============================================================================
+  // MAIN CONTENT
+  // ============================================================================
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header with Refresh Button */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Certificates
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            {userRole === "Member"
-              ? "Your membership certificates"
-              : "Manage all membership certificates"}
-          </p>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                Certificates
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400">
+                {userRole === "Member"
+                  ? "Your membership certificates"
+                  : "Manage all membership certificates"}
+              </p>
+            </div>
+
+            {/* Refresh Button with Lucide Icon */}
+            <button
+              onClick={() => fetchCertificates(userRole)}
+              disabled={loading}
+              className="inline-flex items-center px-4 py-2 bg-[#00B5A5] hover:bg-[#009985] text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+              Refresh
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -545,19 +652,7 @@ export default function CertificatesClient() {
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg
-                    className="h-5 w-5 text-gray-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                    />
-                  </svg>
+                  <Search className="h-5 w-5 text-gray-400" />
                 </div>
                 <input
                   id="search"
@@ -606,10 +701,10 @@ export default function CertificatesClient() {
 
         {filteredCertificates.length === 0 ? (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8 text-center">
-            <div className="text-gray-400 dark:text-gray-500 text-4xl mb-4">
-              📜
+            <div className="mx-auto w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
+              <FileText className="w-8 h-8 text-gray-400 dark:text-gray-500" />
             </div>
-            <h3 className="text-gray-900 dark:text-white font-medium mb-2">
+            <h3 className="text-gray-900 dark:text-white font-medium mb-2 text-lg">
               No Certificates Found
             </h3>
             <p className="text-gray-600 dark:text-gray-400 text-sm">
@@ -634,29 +729,6 @@ export default function CertificatesClient() {
             ))}
           </div>
         )}
-
-        <div className="mt-8 text-center">
-          <button
-            onClick={() => fetchCertificates(userRole)}
-            disabled={loading}
-            className="inline-flex items-center px-4 py-2 bg-[#00B5A5] hover:bg-[#009985] text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <svg
-              className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-            Refresh Certificates
-          </button>
-        </div>
       </div>
     </div>
   );
