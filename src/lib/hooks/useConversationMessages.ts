@@ -34,24 +34,19 @@ interface ApiResponse<T = any> {
   data: T;
 }
 
-interface PaginatedMessagesResponse {
-  current_page: number;
-  data: ConversationMessage[];
-  first_page_url: string;
-  from: number;
-  last_page: number;
-  last_page_url: string;
-  links: Array<{
-    url: string | null;
-    label: string;
-    active: boolean;
-  }>;
-  next_page_url: string | null;
-  path: string;
-  per_page: number;
-  prev_page_url: string | null;
-  to: number;
-  total: number;
+interface ConversationDetailResponse {
+  id: number;
+  title: string;
+  type?: string;
+  content?: string;
+  created_at: string;
+  updated_at?: string;
+  sender?: {
+    id: number;
+    name: string;
+    role?: string;
+  };
+  messages?: ConversationMessage[];
 }
 
 interface UseConversationMessagesReturn {
@@ -102,47 +97,40 @@ export function useConversationMessages(): UseConversationMessagesReturn {
         setError(null);
         setCurrentConversationId(conversationId);
 
-        console.log(`Fetching messages for conversation: ${conversationId}`);
+        console.log(`🔵 Fetching messages for conversation: ${conversationId}`);
 
-        const endpoint = `community/messages?conversation_id=${conversationId}`;
+        const endpoint = `community/conversations/${conversationId}`;
 
         const response = await fetch(`${apiUrl}${endpoint}`, {
           method: "GET",
           headers: getAuthHeaders(),
         });
 
-        // Check if response is ok first
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        const data: ApiResponse<PaginatedMessagesResponse> = await response.json();
+        const data: ApiResponse<ConversationDetailResponse> = await response.json();
 
-        console.log('API Response:', data);
+        console.log("📦 API Response:", data);
 
-        // Check API response status
         if (data.status === "error" || data.status === false) {
           throw new Error(data.message || "Failed to fetch messages");
         }
 
-        // Handle the paginated response structure correctly
         if (data.status === "success" || data.status === true) {
           let messagesData: ConversationMessage[] = [];
           
-          // Check if data exists and has the paginated structure
-          if (data.data && data.data.data && Array.isArray(data.data.data)) {
-            messagesData = data.data.data;
-          } 
-          // Fallback: if data is directly an array
-          else if (Array.isArray(data.data)) {
+          if (data.data && data.data.messages && Array.isArray(data.data.messages)) {
+            messagesData = data.data.messages;
+          } else if (Array.isArray(data.data)) {
             messagesData = data.data;
           }
 
-          console.log('Processed messages:', messagesData);
+          console.log("✅ Processed messages:", messagesData.length);
           
-          // Sort messages by created_at in descending order (newest first)
           const sortedMessages = messagesData.sort((a, b) => 
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
           );
 
           setMessages(sortedMessages);
@@ -150,11 +138,10 @@ export function useConversationMessages(): UseConversationMessagesReturn {
           throw new Error(data.message || "Failed to fetch messages");
         }
       } catch (err) {
-        console.error('Error fetching messages:', err);
+        console.error("❌ Error fetching messages:", err);
         const errorMessage = err instanceof Error ? err.message : "Failed to load messages";
         setError(errorMessage);
         showErrorToast(errorMessage);
-        // Clear messages on error
         setMessages([]);
       } finally {
         setLoading(false);
@@ -193,7 +180,7 @@ export function useConversationMessages(): UseConversationMessagesReturn {
         return null;
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Failed to load message details";
-        console.error('Error fetching message:', err);
+        console.error("❌ Error fetching message:", err);
         showErrorToast(errorMessage);
         return null;
       } finally {
@@ -226,8 +213,9 @@ export function useConversationMessages(): UseConversationMessagesReturn {
         }
 
         const headers = getAuthHeaders();
-        // Remove Accept header for FormData to let browser set multipart boundary
         delete (headers as any).Accept;
+
+        console.log("🔵 Creating message for conversation:", params.conversation_id);
 
         const response = await fetch(`${apiUrl}community/messages`, {
           method: "POST",
@@ -235,14 +223,14 @@ export function useConversationMessages(): UseConversationMessagesReturn {
           headers,
         });
 
-        // Check HTTP status first
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
 
         const data: ApiResponse<ConversationMessage> = await response.json();
 
-        // Check API response status
+        console.log("📦 Create message response:", data);
+
         if (data.status === "error" || data.status === false) {
           throw new Error(data.message || "Failed to create message");
         }
@@ -254,13 +242,11 @@ export function useConversationMessages(): UseConversationMessagesReturn {
           
           showSuccessToast(successMessage);
 
-          // Add the new message to the current messages list
           if (data.data) {
             setMessages((prev) => {
               const newMessages = [...prev, data.data!];
-              // Sort by created_at in descending order
               return newMessages.sort((a, b) => 
-                new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
               );
             });
           }
@@ -271,7 +257,7 @@ export function useConversationMessages(): UseConversationMessagesReturn {
         return false;
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Failed to post message";
-        console.error('Error creating message:', err);
+        console.error("❌ Error creating message:", err);
         showErrorToast(errorMessage);
         return false;
       } finally {
@@ -289,6 +275,8 @@ export function useConversationMessages(): UseConversationMessagesReturn {
         setLoading(true);
         setError(null);
 
+        console.log("🔵 Deleting message:", id);
+
         const response = await fetch(`${apiUrl}community/messages/${id}`, {
           method: "DELETE",
           headers: getAuthHeaders(),
@@ -305,14 +293,14 @@ export function useConversationMessages(): UseConversationMessagesReturn {
         }
 
         showSuccessToast("Message deleted successfully");
+        console.log("✅ Message deleted:", id);
 
-        // Remove the deleted message from the current messages list
         setMessages((prev) => prev.filter((msg) => msg.id !== id));
 
         return true;
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Failed to delete message";
-        console.error('Error deleting message:', err);
+        console.error("❌ Error deleting message:", err);
         showErrorToast(errorMessage);
         return false;
       } finally {
@@ -323,6 +311,7 @@ export function useConversationMessages(): UseConversationMessagesReturn {
   );
 
   const clearMessages = useCallback(() => {
+    console.log("🔵 Clearing messages");
     setMessages([]);
     setCurrentConversationId(null);
     setError(null);

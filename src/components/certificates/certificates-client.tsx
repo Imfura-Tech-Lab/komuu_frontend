@@ -17,7 +17,7 @@ import {
   Shield
 } from "lucide-react";
 import { BaseTable, BaseTableColumn } from "@/components/ui/BaseTable";
-import { PDFViewer } from "@/components/ui/PDFViewer";
+import { PDFViewer } from "@/components/ui/FileViwer";
 
 interface Certificate {
   id: number;

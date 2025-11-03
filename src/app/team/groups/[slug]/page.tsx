@@ -11,6 +11,10 @@ import {
   ArrowPathIcon,
   Bars3Icon,
   XMarkIcon,
+  PaperClipIcon,
+  XMarkIcon as XIcon,
+  DocumentIcon,
+  PhotoIcon,
 } from "@heroicons/react/24/outline";
 import { useGroups, Group } from "@/lib/hooks/useGroups";
 import { useConversations, Conversation } from "@/lib/hooks/useConversations";
@@ -20,6 +24,7 @@ import {
   showErrorToast,
 } from "@/components/layouts/auth-layer-out";
 import CreateConversationModal from "@/components/conversations/CreateConversationModal";
+import { FileViewer } from "@/components/ui/FileViwer";
 
 const GroupHeaderSkeleton = () => (
   <div className="p-4 border-b border-gray-200 dark:border-gray-700">
@@ -104,6 +109,7 @@ export default function GroupChatPage() {
   const router = useRouter();
   const slug = params.slug as string;
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [group, setGroup] = useState<Group | null>(null);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
@@ -114,6 +120,9 @@ export default function GroupChatPage() {
   const [typesError, setTypesError] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  const [viewerFile, setViewerFile] = useState<{ url: string; name: string } | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
 
   const { fetchGroup } = useGroups();
   const {
@@ -139,23 +148,22 @@ export default function GroupChatPage() {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const userData = localStorage.getItem("user_data");
-      const userId = localStorage.getItem("user_id");
+      const userDataString = localStorage.getItem("user_data");
       
-      if (userData) {
+      console.log("🔍 Raw user_data from localStorage:", userDataString);
+      
+      if (userDataString) {
         try {
-          const user = JSON.parse(userData);
-          console.log("Current user loaded from user_data:", user);
-          setCurrentUserId(user.id);
+          const userData = JSON.parse(userDataString);
+          console.log("✅ Parsed user_data:", userData);
+          console.log("✅ Setting currentUserId to:", userData.id);
+          setCurrentUserId(userData.id);
         } catch (error) {
-          console.error("Error parsing user_data:", error);
+          console.error("❌ Error parsing user_data:", error);
         }
-      } else if (userId) {
-        console.log("Current user loaded from user_id:", userId);
-        setCurrentUserId(parseInt(userId));
       } else {
-        console.warn("No user data found in localStorage");
-        console.log("localStorage keys:", Object.keys(localStorage));
+        console.error("❌ No user_data found in localStorage");
+        console.log("Available localStorage keys:", Object.keys(localStorage));
       }
     }
   }, []);
@@ -171,6 +179,9 @@ export default function GroupChatPage() {
   useEffect(() => {
     return () => {
       clearMessages();
+      if (filePreview) {
+        URL.revokeObjectURL(filePreview);
+      }
     };
   }, [clearMessages]);
 
@@ -218,7 +229,10 @@ export default function GroupChatPage() {
 
   const isOwnMessage = useCallback(
     (message: any) => {
-      if (currentUserId === null) return false;
+      if (currentUserId === null) {
+        console.log("⚠️ currentUserId is null");
+        return false;
+      }
       
       const senderId = typeof message.sender.id === 'string' 
         ? parseInt(message.sender.id) 
@@ -240,11 +254,62 @@ export default function GroupChatPage() {
     [currentUserId]
   );
 
+  const getFileExtension = (filename: string): string => {
+    return filename.split('.').pop()?.toLowerCase() || '';
+  };
+
+  const getFileIcon = (filename: string) => {
+    const ext = getFileExtension(filename);
+    const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'];
+    
+    if (imageExts.includes(ext)) {
+      return <PhotoIcon className="h-8 w-8" />;
+    }
+    return <DocumentIcon className="h-8 w-8" />;
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file size (max 10MB)
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      showErrorToast("File size must be less than 10MB");
+      return;
+    }
+
+    setSelectedFile(file);
+
+    // Create preview for images
+    if (file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setFilePreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setFilePreview(null);
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
+    if (filePreview) {
+      URL.revokeObjectURL(filePreview);
+      setFilePreview(null);
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   const handleConversationClick = async (conversation: Conversation) => {
     console.log("Selecting conversation:", conversation.id, conversation.title);
 
     if (selectedConversation?.id !== conversation.id) {
       clearMessages();
+      handleRemoveFile();
     }
 
     setSelectedConversation(conversation);
@@ -259,21 +324,28 @@ export default function GroupChatPage() {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!messageText.trim() || !selectedConversation || messagesLoading) return;
+    if ((!messageText.trim() && !selectedFile) || !selectedConversation || messagesLoading) return;
 
-    if (messageText.trim().length < 10) {
+    if (messageText.trim().length > 0 && messageText.trim().length < 10) {
       showErrorToast("Message must be at least 10 characters long");
+      return;
+    }
+
+    if (!messageText.trim() && !selectedFile) {
+      showErrorToast("Please enter a message or attach a file");
       return;
     }
 
     try {
       const success = await createMessage({
         conversation_id: selectedConversation.id,
-        content: messageText.trim(),
+        content: messageText.trim() || "Sent an attachment",
+        attachment: selectedFile || undefined,
       });
 
       if (success) {
         setMessageText("");
+        handleRemoveFile();
       }
     } catch (error) {
       console.error("Error sending message:", error);
@@ -318,15 +390,30 @@ export default function GroupChatPage() {
     return date.toLocaleDateString();
   };
 
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + " " + sizes[i];
+  };
+
   const toggleSidebar = () => {
     setShowSidebar(!showSidebar);
   };
 
   const handleBackToConversations = () => {
     setSelectedConversation(null);
+    handleRemoveFile();
     if (window.innerWidth < 768) {
       setShowSidebar(true);
     }
+  };
+
+  const getFileNameFromUrl = (url: string, messageId: number) => {
+    const urlParts = url.split('/');
+    const filename = urlParts[urlParts.length - 1];
+    return filename || `attachment-${messageId}`;
   };
 
   if (isLoadingGroup) {
@@ -628,7 +715,7 @@ export default function GroupChatPage() {
                               </div>
                               <div
                                 className={`
-                                mt-1 rounded-lg p-3 shadow-sm max-w-[85%] md:max-w-[70%]
+                                mt-1 rounded-lg shadow-sm max-w-[85%] md:max-w-[70%]
                                 ${
                                   ownMessage
                                     ? "bg-[#00B5A5] text-white rounded-br-none"
@@ -636,46 +723,55 @@ export default function GroupChatPage() {
                                 }
                               `}
                               >
-                                <p className="text-sm whitespace-pre-wrap">
-                                  {message.content}
-                                </p>
                                 {message.file_url && (
-                                  <div className="mt-2">
+                                  <div className="p-2">
                                     {message.file_url.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
                                       <img
                                         src={message.file_url}
                                         alt="Attachment"
-                                        className="max-w-full rounded-lg border cursor-pointer hover:opacity-90 transition-opacity"
-                                        onClick={() => window.open(message.file_url, "_blank")}
+                                        className="max-w-full max-h-64 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                        onClick={() => setViewerFile({
+                                          url: message.file_url!,
+                                          name: getFileNameFromUrl(message.file_url!, message.id)
+                                        })}
                                       />
                                     ) : (
-                                      
-                                        <a href={message.file_url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className={`inline-flex items-center text-xs ${
+                                      <div
+                                        onClick={() => setViewerFile({
+                                          url: message.file_url!,
+                                          name: getFileNameFromUrl(message.file_url!, message.id)
+                                        })}
+                                        className={`flex items-center space-x-3 p-3 rounded-lg cursor-pointer transition-colors ${
                                           ownMessage
-                                            ? "text-white/80 hover:text-white"
-                                            : "text-[#00B5A5] hover:underline"
+                                            ? "bg-white/10 hover:bg-white/20"
+                                            : "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
                                         }`}
                                       >
-                                        <svg
-                                          className="w-4 h-4 mr-1"
-                                          fill="none"
-                                          stroke="currentColor"
-                                          viewBox="0 0 24 24"
-                                        >
-                                          <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth={2}
-                                            d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                                          />
-                                        </svg>
-                                        View Attachment
-                                      </a>
+                                        <div className={`p-2 rounded-lg ${
+                                          ownMessage ? "bg-white/20" : "bg-[#00B5A5]/10"
+                                        }`}>
+                                          {getFileIcon(getFileNameFromUrl(message.file_url!, message.id))}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <p className={`text-sm font-medium truncate ${
+                                            ownMessage ? "text-white" : "text-gray-900 dark:text-white"
+                                          }`}>
+                                            {getFileNameFromUrl(message.file_url!, message.id)}
+                                          </p>
+                                          <p className={`text-xs ${
+                                            ownMessage ? "text-white/70" : "text-gray-500 dark:text-gray-400"
+                                          }`}>
+                                            Document
+                                          </p>
+                                        </div>
+                                      </div>
                                     )}
                                   </div>
+                                )}
+                                {message.content && (
+                                  <p className={`text-sm whitespace-pre-wrap ${message.file_url ? 'p-3 pt-0' : 'p-3'}`}>
+                                    {message.content}
+                                  </p>
                                 )}
                               </div>
                             </div>
@@ -689,8 +785,71 @@ export default function GroupChatPage() {
             )}
 
             <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
-              <form onSubmit={handleSendMessage} className="flex items-end space-x-3">
-                <div className="flex-1">
+              {selectedFile && (
+                <div className="mb-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <div className="flex items-start space-x-3">
+                    {filePreview ? (
+                      <img
+                        src={filePreview}
+                        alt="Preview"
+                        className="h-20 w-20 object-cover rounded-lg"
+                      />
+                    ) : (
+                      <div className="h-20 w-20 bg-gray-200 dark:bg-gray-600 rounded-lg flex flex-col items-center justify-center">
+                        {getFileIcon(selectedFile.name)}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0 mr-2">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                            {selectedFile.name}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            {formatFileSize(selectedFile.size)}
+                          </p>
+                        </div>
+                        <button
+                          onClick={handleRemoveFile}
+                          className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 flex-shrink-0"
+                        >
+                          <XIcon className="h-5 w-5" />
+                        </button>
+                      </div>
+                      {filePreview && (
+                        <textarea
+                          value={messageText}
+                          onChange={(e) => setMessageText(e.target.value)}
+                          placeholder="Add a caption..."
+                          rows={2}
+                          className="w-full mt-2 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent dark:bg-gray-600 dark:text-white resize-none"
+                        />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <form onSubmit={handleSendMessage} className="flex items-end space-x-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                  accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
+                />
+                
+                <div className="flex-1 relative">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={messagesLoading}
+                    className="absolute left-3 bottom-3 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Attach file"
+                  >
+                    <PaperClipIcon className="h-5 w-5" />
+                  </button>
+                  
                   <textarea
                     value={messageText}
                     onChange={(e) => setMessageText(e.target.value)}
@@ -700,21 +859,23 @@ export default function GroupChatPage() {
                         handleSendMessage(e);
                       }
                     }}
-                    placeholder="Type your message (min 10 characters)..."
+                    placeholder={
+                      selectedFile && !filePreview
+                        ? "Add a message (optional)..."
+                        : "Type your message..."
+                    }
                     rows={1}
-                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent dark:bg-gray-700 dark:text-white resize-none"
+                    className="w-full pl-12 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent dark:bg-gray-700 dark:text-white resize-none"
                     style={{ minHeight: "48px", maxHeight: "120px" }}
                     disabled={messagesLoading}
                   />
-                  <p className="text-xs text-gray-400 mt-1">
-                    {messageText.trim().length}/10 characters minimum
-                  </p>
                 </div>
+
                 <button
                   type="submit"
                   disabled={
-                    !messageText.trim() ||
-                    messageText.trim().length < 10 ||
+                    (!messageText.trim() && !selectedFile) ||
+                    (messageText.trim().length > 0 && messageText.trim().length < 10 && !selectedFile) ||
                     messagesLoading
                   }
                   className="p-3 bg-[#00B5A5] text-white rounded-lg hover:bg-[#008f82] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
@@ -723,7 +884,8 @@ export default function GroupChatPage() {
                 </button>
               </form>
               <p className="text-xs text-gray-400 mt-2">
-                Press Enter to send, Shift + Enter for new line
+                {!selectedFile && `${messageText.trim().length}/10 characters minimum • `}
+                Press Enter to send • Max file size: 10MB
               </p>
             </div>
           </>
@@ -762,6 +924,15 @@ export default function GroupChatPage() {
         currentGroupId={group?.id ? parseInt(group.id) : undefined}
         currentGroupName={group?.name}
       />
+
+      {viewerFile && (
+        <FileViewer
+          fileUrl={viewerFile.url}
+          fileName={viewerFile.name}
+          isOpen={!!viewerFile}
+          onClose={() => setViewerFile(null)}
+        />
+      )}
     </div>
   );
 }
