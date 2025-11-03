@@ -1,760 +1,1033 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
+import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
-  ArrowLeftIcon,
-  PaperAirplaneIcon,
   UserGroupIcon,
   PlusIcon,
-  ChatBubbleLeftRightIcon,
+  EllipsisVerticalIcon,
+  PencilIcon,
+  TrashIcon,
+  UserPlusIcon,
+  UserMinusIcon,
+  EyeIcon,
   ArrowPathIcon,
-  Bars3Icon,
-  XMarkIcon,
+  ShieldExclamationIcon,
+  MagnifyingGlassIcon,
+  FunnelIcon,
+  ChatBubbleLeftIcon,
+  UsersIcon,
+  Squares2X2Icon,
+  TableCellsIcon,
 } from "@heroicons/react/24/outline";
-import { useGroups, Group } from "@/lib/hooks/useGroups";
-import { useConversations, Conversation } from "@/lib/hooks/useConversations";
-import { useConversationMessages } from "@/lib/hooks/useConversationMessages";
+import { Menu, Transition } from "@headlessui/react";
+import { Fragment } from "react";
+import { BaseTable, BaseTableColumn } from "../ui/BaseTable";
+import {
+  useGroups,
+  Group,
+  CreateGroupParams,
+  UpdateGroupParams,
+} from "@/lib/hooks/useGroups";
+import { GroupModal, GroupFormData } from "./modals/GroupModal";
+import { AddMemberModal } from "./modals/AddMemberModal";
+import { RemoveMemberModal } from "./modals/RemoveMemberModal";
 import {
   showSuccessToast,
   showErrorToast,
 } from "@/components/layouts/auth-layer-out";
-import CreateConversationModal from "@/components/conversations/CreateConversationModal";
+import { useInstitutionMembers } from "@/lib/hooks/useInstitutionMembers";
+import { BlockMemberModal } from "./modals/BlockmemberModal";
+import { ViewGroupModal } from "./modals/ViewGroupModal";
 
-// ============================================================================
-// SKELETON COMPONENTS (keep the same as before)
-// ============================================================================
+const CardSkeleton = () => (
+  <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 animate-pulse">
+    <div className="flex items-start justify-between mb-4">
+      <div className="flex items-center space-x-3">
+        <div className="h-12 w-12 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+        <div className="space-y-2">
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
+        </div>
+      </div>
+      <div className="h-5 w-16 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+    </div>
+    <div className="space-y-2 mb-4">
+      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
+      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-4/5"></div>
+    </div>
+    <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
+      <div className="h-9 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
+    </div>
+  </div>
+);
 
-const GroupHeaderSkeleton = () => (
-  <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+const GridSkeleton = () => (
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    {[...Array(6)].map((_, i) => (
+      <CardSkeleton key={i} />
+    ))}
+  </div>
+);
+
+const TableSkeleton = () => (
+  <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
     <div className="animate-pulse">
-      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24 mb-3"></div>
-      <div className="bg-gray-200 dark:bg-gray-700 rounded-lg p-3 mb-3">
-        <div className="flex items-center space-x-3">
-          <div className="h-12 w-12 bg-gray-300 dark:bg-gray-600 rounded-lg"></div>
-          <div className="flex-1 space-y-2">
-            <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-32"></div>
-            <div className="h-3 bg-gray-300 dark:bg-gray-600 rounded w-20"></div>
+      <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
+      </div>
+      {[...Array(5)].map((_, i) => (
+        <div
+          key={i}
+          className="px-6 py-4 border-b border-gray-200 dark:border-gray-700"
+        >
+          <div className="flex items-center space-x-4">
+            <div className="h-10 w-10 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+            <div className="flex-1 space-y-2">
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+              <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+            </div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
           </div>
         </div>
-      </div>
-      <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+      ))}
     </div>
   </div>
 );
 
-const ConversationItemSkeleton = () => (
-  <div className="p-3 animate-pulse">
-    <div className="flex items-start space-x-3">
-      <div className="h-10 w-10 bg-gray-200 dark:bg-gray-700 rounded-lg flex-shrink-0"></div>
-      <div className="flex-1 space-y-2">
-        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
-        <div className="flex items-center space-x-2">
-          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded-full w-16"></div>
-          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-12"></div>
+const StatsSkeleton = () => (
+  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+    {[...Array(4)].map((_, i) => (
+      <div key={i} className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+        <div className="animate-pulse">
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-2"></div>
+          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3"></div>
         </div>
       </div>
-    </div>
-  </div>
-);
-
-const ConversationsListSkeleton = () => (
-  <div className="p-2 space-y-2">
-    {[...Array(5)].map((_, i) => (
-      <ConversationItemSkeleton key={i} />
     ))}
   </div>
 );
 
-const ChatHeaderSkeleton = () => (
-  <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
-    <div className="animate-pulse space-y-2">
-      <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3"></div>
-      <div className="flex items-center space-x-2">
-        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
-        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
+interface ActionsDropdownProps {
+  group: Group;
+  onView: (group: Group) => void;
+  onEdit: (group: Group) => void;
+  onAddMember: (slug: string) => void;
+  onRemoveMember: (slug: string) => void;
+  onBlockMember: (slug: string) => void;
+  onDelete: (slug: string) => void;
+  disabled: boolean;
+}
+
+const ActionsDropdown: React.FC<ActionsDropdownProps> = ({
+  group,
+  onView,
+  onEdit,
+  onAddMember,
+  onRemoveMember,
+  onBlockMember,
+  onDelete,
+  disabled,
+}) => {
+  return (
+    <Menu as="div" className="relative inline-block text-left">
+      <div>
+        <Menu.Button
+          disabled={disabled}
+          className="flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-full p-1 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <EllipsisVerticalIcon className="h-5 w-5" />
+        </Menu.Button>
       </div>
-    </div>
-  </div>
-);
 
-const MessageSkeleton = () => (
-  <div className="flex items-start space-x-3 animate-pulse">
-    <div className="h-10 w-10 bg-gray-200 dark:bg-gray-700 rounded-full flex-shrink-0"></div>
-    <div className="flex-1 space-y-2">
-      <div className="flex items-center space-x-2">
-        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
-        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
-      </div>
-      <div className="bg-gray-200 dark:bg-gray-700 rounded-lg p-3 space-y-2">
-        <div className="h-3 bg-gray-300 dark:bg-gray-600 rounded w-full"></div>
-        <div className="h-3 bg-gray-300 dark:bg-gray-600 rounded w-5/6"></div>
-        <div className="h-3 bg-gray-300 dark:bg-gray-600 rounded w-4/6"></div>
-      </div>
-    </div>
-  </div>
-);
+      <Transition
+        as={Fragment}
+        enter="transition ease-out duration-100"
+        enterFrom="transform opacity-0 scale-95"
+        enterTo="transform opacity-100 scale-100"
+        leave="transition ease-in duration-75"
+        leaveFrom="transform opacity-100 scale-100"
+        leaveTo="transform opacity-0 scale-95"
+      >
+        <Menu.Items className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none border border-gray-200 dark:border-gray-700">
+          <div className="py-1">
+            <Menu.Item>
+              {({ active }) => (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onView(group);
+                  }}
+                  className={`${
+                    active ? "bg-gray-100 dark:bg-gray-700" : ""
+                  } flex w-full items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300`}
+                >
+                  <EyeIcon className="mr-3 h-4 w-4" />
+                  View Details
+                </button>
+              )}
+            </Menu.Item>
 
-const MessagesListSkeleton = () => (
-  <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50 dark:bg-gray-900">
-    {[...Array(4)].map((_, i) => (
-      <MessageSkeleton key={i} />
-    ))}
-  </div>
-);
+            <Menu.Item>
+              {({ active }) => (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEdit(group);
+                  }}
+                  className={`${
+                    active ? "bg-gray-100 dark:bg-gray-700" : ""
+                  } flex w-full items-center px-4 py-2 text-sm text-blue-600 dark:text-blue-400`}
+                >
+                  <PencilIcon className="mr-3 h-4 w-4" />
+                  Edit Group
+                </button>
+              )}
+            </Menu.Item>
 
-// ============================================================================
-// MAIN COMPONENT
-// ============================================================================
+            <div className="border-t border-gray-100 dark:border-gray-700"></div>
 
-export default function GroupChatPage() {
-  const params = useParams();
+            <Menu.Item>
+              {({ active }) => (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAddMember(group.slug);
+                  }}
+                  className={`${
+                    active ? "bg-gray-100 dark:bg-gray-700" : ""
+                  } flex w-full items-center px-4 py-2 text-sm text-green-600 dark:text-green-400`}
+                >
+                  <UserPlusIcon className="mr-3 h-4 w-4" />
+                  Add Members
+                </button>
+              )}
+            </Menu.Item>
+
+            <Menu.Item>
+              {({ active }) => (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemoveMember(group.slug);
+                  }}
+                  disabled={group.members === 0}
+                  className={`${
+                    active ? "bg-gray-100 dark:bg-gray-700" : ""
+                  } flex w-full items-center px-4 py-2 text-sm text-orange-600 dark:text-orange-400 disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  <UserMinusIcon className="mr-3 h-4 w-4" />
+                  Remove Members
+                </button>
+              )}
+            </Menu.Item>
+
+            <Menu.Item>
+              {({ active }) => (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onBlockMember(group.slug);
+                  }}
+                  disabled={group.members === 0}
+                  className={`${
+                    active ? "bg-gray-100 dark:bg-gray-700" : ""
+                  } flex w-full items-center px-4 py-2 text-sm text-yellow-600 dark:text-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  <ShieldExclamationIcon className="mr-3 h-4 w-4" />
+                  Block Member
+                </button>
+              )}
+            </Menu.Item>
+
+            <div className="border-t border-gray-100 dark:border-gray-700"></div>
+
+            <Menu.Item>
+              {({ active }) => (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(group.slug);
+                  }}
+                  className={`${
+                    active ? "bg-gray-100 dark:bg-gray-700" : ""
+                  } flex w-full items-center px-4 py-2 text-sm text-red-600 dark:text-red-400`}
+                >
+                  <TrashIcon className="mr-3 h-4 w-4" />
+                  Delete Group
+                </button>
+              )}
+            </Menu.Item>
+          </div>
+        </Menu.Items>
+      </Transition>
+    </Menu>
+  );
+};
+
+export default function GroupsPage() {
   const router = useRouter();
-  const slug = params.slug as string;
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [showRemoveMemberModal, setShowRemoveMemberModal] = useState(false);
+  const [showBlockMemberModal, setShowBlockMemberModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
+  const [selectedGroupForMembers, setSelectedGroupForMembers] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoadingGroupDetails, setIsLoadingGroupDetails] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterPrivacy, setFilterPrivacy] = useState<string>("all");
+  const [filterActivity, setFilterActivity] = useState<string>("all");
 
-  const [group, setGroup] = useState<Group | null>(null);
-  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
-  const [messageText, setMessageText] = useState("");
-  const [showNewConversationModal, setShowNewConversationModal] = useState(false);
-  const [isLoadingGroup, setIsLoadingGroup] = useState(true);
-  const [typesLoading, setTypesLoading] = useState(true);
-  const [typesError, setTypesError] = useState(false);
-  const [showSidebar, setShowSidebar] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
-
-  const { fetchGroup } = useGroups();
   const {
-    conversations,
-    conversationTypes,
-    conversationGroups,
-    loading: conversationsLoading,
-    error: conversationsError,
-    fetchConversations,
-    fetchConversationTypes,
-    fetchConversationGroups,
-    createConversation,
-  } = useConversations();
-  
-  const {
-    messages,
-    loading: messagesLoading,
-    error: messagesError,
-    currentConversationId,
-    fetchMessages,
-    createMessage,
-    clearMessages,
-  } = useConversationMessages();
+    groups,
+    loading,
+    error,
+    pagination,
+    fetchGroups,
+    fetchGroup,
+    createGroup,
+    updateGroup,
+    deleteGroup,
+    addMembers,
+    removeMember,
+    blockMember,
+  } = useGroups();
 
-  // Get current user ID on component mount - FIXED VERSION
+  const {
+    members: availableMembers,
+    loading: membersLoading,
+    fetchMembers,
+  } = useInstitutionMembers();
+
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const userData = localStorage.getItem("user_data");
-      if (userData) {
-        try {
-          const user = JSON.parse(userData);
-          console.log("Current user loaded:", user); // Debug log
-          setCurrentUserId(user.id);
-        } catch (error) {
-          console.error("Error parsing user data:", error);
-        }
-      } else {
-        console.log("No user_data found in localStorage");
-      }
-    }
+    fetchGroups(1);
+    fetchMembers();
   }, []);
 
-  // Load data on mount
-  useEffect(() => {
-    loadGroupData();
-  }, [slug]);
-
-  // Auto-scroll to bottom when messages change
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  // Clear messages when component unmounts or group changes
-  useEffect(() => {
-    return () => {
-      clearMessages();
-    };
-  }, [clearMessages]);
-
-  // Close sidebar when conversation is selected on mobile
-  useEffect(() => {
-    if (selectedConversation && window.innerWidth < 768) {
-      setShowSidebar(false);
-    }
-  }, [selectedConversation]);
-
-  const loadGroupData = async () => {
+  const handlePageRefresh = async () => {
     try {
-      setIsLoadingGroup(true);
-      clearMessages(); // Clear previous messages
-      
-      const groupData = await fetchGroup(slug);
-      if (groupData) {
-        setGroup(groupData);
+      setIsRefreshing(true);
+      await Promise.all([fetchGroups(pagination.currentPage), fetchMembers()]);
+      showSuccessToast("Page refreshed successfully");
+    } catch (error) {
+      showErrorToast("Failed to refresh page");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const handleCreateGroup = async (formData: GroupFormData) => {
+    try {
+      const createParams: CreateGroupParams = {
+        name: formData.name,
+        description: formData.description,
+      };
+
+      const result = await createGroup(createParams);
+      if (result) {
+        showSuccessToast("Group created successfully");
+        setShowCreateModal(false);
       }
-      
-      await fetchConversations(slug);
-      await loadTypesAndGroups();
-      
-    } catch (error) {
-      console.error("Error loading group data:", error);
-      showErrorToast("Failed to load group data");
-    } finally {
-      setIsLoadingGroup(false);
-    }
+    } catch (error) {}
   };
 
-  const loadTypesAndGroups = async () => {
-    setTypesLoading(true);
-    setTypesError(false);
+  const handleEditGroup = async (formData: GroupFormData) => {
+    if (!selectedGroup) return;
+
     try {
-      await Promise.all([
-        fetchConversationTypes(),
-        fetchConversationGroups(),
-      ]);
-    } catch (err) {
-      console.error("Failed to load types/groups:", err);
-      setTypesError(true);
-    } finally {
-      setTypesLoading(false);
-    }
-  };
+      setActionLoading(selectedGroup.slug);
+      const updateParams: UpdateGroupParams = {
+        slug: selectedGroup.slug,
+        name: formData.name,
+        description: formData.description,
+      };
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  // FIXED: Check if message belongs to current user
-  const isOwnMessage = (message: any) => {
-    const isOwn = currentUserId && message.sender.id === currentUserId;
-    console.log(`Message ${message.id} check:`, {
-      senderId: message.sender.id,
-      currentUserId,
-      isOwn,
-      senderName: message.sender.name
-    });
-    return isOwn;
-  };
-
-  const handleConversationClick = async (conversation: Conversation) => {
-    console.log('Selecting conversation:', conversation.id, conversation.title);
-    
-    // Clear previous messages immediately when selecting new conversation
-    if (selectedConversation?.id !== conversation.id) {
-      clearMessages();
-    }
-    
-    setSelectedConversation(conversation);
-    
-    try {
-      await fetchMessages(conversation.id);
+      const result = await updateGroup(updateParams);
+      if (result) {
+        showSuccessToast("Group updated successfully");
+        setShowEditModal(false);
+        setSelectedGroup(null);
+      }
     } catch (error) {
-      console.error('Error loading messages:', error);
-      showErrorToast("Failed to load messages");
+    } finally {
+      setActionLoading(null);
     }
   };
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!messageText.trim() || !selectedConversation || messagesLoading) return;
-
-    if (messageText.trim().length < 10) {
-      showErrorToast("Message must be at least 10 characters long");
+  const handleDeleteGroup = async (slug: string) => {
+    if (
+      !confirm(
+        "Are you sure you want to delete this group? This action cannot be undone."
+      )
+    )
       return;
-    }
 
     try {
-      const success = await createMessage({
-        conversation_id: selectedConversation.id,
-        content: messageText.trim(),
+      setActionLoading(slug);
+      await deleteGroup(slug);
+      showSuccessToast("Group deleted successfully");
+    } catch (error) {
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleOpenAddMemberModal = (slug: string) => {
+    setSelectedGroupForMembers(slug);
+    setShowAddMemberModal(true);
+  };
+
+  const handleOpenRemoveMemberModal = (slug: string) => {
+    setSelectedGroupForMembers(slug);
+    setShowRemoveMemberModal(true);
+  };
+
+  const handleOpenBlockMemberModal = (slug: string) => {
+    setSelectedGroupForMembers(slug);
+    setShowBlockMemberModal(true);
+  };
+
+  const handleAddMembers = async (memberIds: number[]) => {
+    if (!selectedGroupForMembers) return;
+
+    try {
+      setActionLoading(`add-member-${selectedGroupForMembers}`);
+
+      const success = await addMembers({
+        slug: selectedGroupForMembers,
+        members: memberIds.map((id) => ({
+          id,
+          role: "Member",
+        })),
       });
 
       if (success) {
-        setMessageText("");
-        await fetchMessages(selectedConversation.id);
+        showSuccessToast(`${memberIds.length} member(s) added successfully`);
+        setShowAddMemberModal(false);
+        setSelectedGroupForMembers(null);
+        await Promise.all([fetchGroups(pagination.currentPage), fetchMembers()]);
       }
     } catch (error) {
-      console.error('Error sending message:', error);
-      showErrorToast("Failed to send message");
+      showErrorToast("Failed to add members to group");
+    } finally {
+      setActionLoading(null);
     }
   };
 
-  const handleCreateConversation = async (params: any) => {
-    const newConv = await createConversation(params);
+  const handleRemoveMember = async (memberId: number) => {
+    if (!selectedGroupForMembers) return;
 
-    if (newConv) {
-      setShowNewConversationModal(false);
-      await fetchConversations(slug);
-      setSelectedConversation(newConv);
-      await fetchMessages(newConv.id);
-      return newConv;
-    }
+    try {
+      setActionLoading(`remove-member-${selectedGroupForMembers}`);
 
-    return null;
-  };
+      const success = await removeMember({
+        slug: selectedGroupForMembers,
+        memberId: memberId.toString(),
+      });
 
-  const handleRefresh = async () => {
-    await fetchConversations(slug);
-    if (selectedConversation) {
-      await fetchMessages(selectedConversation.id);
-    }
-  };
-
-  const formatTimeAgo = (timestamp: string) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / (1000 * 60));
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays === 1) return "Yesterday";
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString();
-  };
-
-  const toggleSidebar = () => {
-    setShowSidebar(!showSidebar);
-  };
-
-  const handleBackToConversations = () => {
-    setSelectedConversation(null);
-    if (window.innerWidth < 768) {
-      setShowSidebar(true);
+      if (success) {
+        showSuccessToast("Member removed successfully");
+        await fetchGroups(pagination.currentPage);
+      }
+    } catch (error) {
+      showErrorToast("Failed to remove member");
+    } finally {
+      setActionLoading(null);
     }
   };
 
-  // Show full page loading skeleton
-  if (isLoadingGroup) {
-    return (
-      <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
-        {/* Sidebar Skeleton */}
-        <div className="w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col md:flex">
-          <GroupHeaderSkeleton />
-          <ConversationsListSkeleton />
-        </div>
+  const handleBlockMember = async (memberId: number) => {
+    if (!selectedGroupForMembers) return;
 
-        {/* Main Area Skeleton */}
-        <div className="flex-1 flex flex-col">
-          <ChatHeaderSkeleton />
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00B5A5] mx-auto mb-4"></div>
-              <p className="text-gray-500 dark:text-gray-400">Loading group...</p>
+    try {
+      setActionLoading(`block-member-${selectedGroupForMembers}`);
+
+      const success = await blockMember({
+        slug: selectedGroupForMembers,
+        memberId: memberId.toString(),
+      });
+
+      if (success) {
+        showSuccessToast("Member blocked successfully");
+        await fetchGroups(pagination.currentPage);
+      }
+    } catch (error) {
+      showErrorToast("Failed to block member");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleViewGroup = async (group: Group) => {
+    setSelectedGroup(group);
+    setShowViewModal(true);
+
+    setIsLoadingGroupDetails(true);
+    try {
+      const detailedGroup = await fetchGroup(group.slug);
+      if (detailedGroup) {
+        setSelectedGroup(detailedGroup);
+      }
+    } catch (error) {
+      showErrorToast("Failed to load group details");
+    } finally {
+      setIsLoadingGroupDetails(false);
+    }
+  };
+
+  const handleEditClick = (group: Group) => {
+    setSelectedGroup(group);
+    setShowEditModal(true);
+  };
+
+  const handleCardClick = (group: Group) => {
+    router.push(`/team/groups/${group.slug}`);
+  };
+
+  const handleRowClick = (group: Group) => {
+    router.push(`/team/groups/${group.slug}`);
+  };
+
+  const filteredGroups = groups.filter((group) => {
+    const matchesSearch =
+      group.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      group.description.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesPrivacy =
+      filterPrivacy === "all" || group.privacy === filterPrivacy;
+    const matchesActivity =
+      filterActivity === "all" || group.activity === filterActivity;
+
+    return matchesSearch && matchesPrivacy && matchesActivity;
+  });
+
+  const totalGroups = groups.length;
+  const totalMembers = groups.reduce((sum, group) => sum + group.members, 0);
+  const publicGroups = groups.filter((g) => g.privacy === "Public").length;
+  const highActivityGroups = groups.filter((g) => g.activity === "High").length;
+
+  const columns: BaseTableColumn<Group>[] = [
+    {
+      key: "name",
+      label: "Group Name",
+      sortable: true,
+      filterable: true,
+      render: (group) => (
+        <div className="flex items-center space-x-3">
+          <div className="flex-shrink-0 h-10 w-10">
+            <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-[#00B5A5] to-[#008f82] flex items-center justify-center">
+              <UserGroupIcon className="h-5 w-5 text-white" />
+            </div>
+          </div>
+          <div>
+            <div className="text-sm font-medium text-gray-900 dark:text-white">
+              {group.name}
+            </div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">
+              {group.category}
             </div>
           </div>
         </div>
-      </div>
-    );
-  }
+      ),
+    },
+    {
+      key: "description",
+      label: "Description",
+      sortable: false,
+      filterable: true,
+      render: (group) => (
+        <div className="text-sm text-gray-900 dark:text-white max-w-xs truncate">
+          {group.description}
+        </div>
+      ),
+    },
+    {
+      key: "members",
+      label: "Members",
+      sortable: true,
+      render: (group) => (
+        <div className="text-sm text-gray-900 dark:text-white">
+          {group.members}
+        </div>
+      ),
+    },
+    {
+      key: "privacy",
+      label: "Privacy",
+      sortable: true,
+      filterable: true,
+      render: (group) => (
+        <span
+          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+            group.privacy === "Public"
+              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+              : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+          }`}
+        >
+          {group.privacy}
+        </span>
+      ),
+    },
+    {
+      key: "activity",
+      label: "Activity",
+      sortable: true,
+      render: (group) => (
+        <span
+          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+            group.activity === "High"
+              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+              : group.activity === "Medium"
+              ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
+              : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+          }`}
+        >
+          {group.activity}
+        </span>
+      ),
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      sortable: false,
+      render: (group) => (
+        <div className="flex justify-end">
+          <ActionsDropdown
+            group={group}
+            onView={handleViewGroup}
+            onEdit={handleEditClick}
+            onAddMember={handleOpenAddMemberModal}
+            onRemoveMember={handleOpenRemoveMemberModal}
+            onBlockMember={handleOpenBlockMemberModal}
+            onDelete={handleDeleteGroup}
+            disabled={actionLoading === group.slug}
+          />
+        </div>
+      ),
+    },
+  ];
 
-  if (!group) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <p className="text-gray-500 dark:text-gray-400 mb-4">Group not found</p>
+  const getEditInitialData = (): GroupFormData | undefined => {
+    if (!selectedGroup) return undefined;
+    return {
+      name: selectedGroup.name,
+      description: selectedGroup.description,
+      category: selectedGroup.category,
+      privacy: selectedGroup.privacy,
+    };
+  };
+
+  return (
+    <div className="space-y-6 p-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Groups
+          </h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Connect and collaborate with your community
+          </p>
+        </div>
+
+        <div className="flex items-center space-x-3">
           <button
-            onClick={() => router.push("/team/groups")}
-            className="text-[#00B5A5] hover:text-[#008f82]"
+            onClick={handlePageRefresh}
+            disabled={loading || isRefreshing}
+            className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
           >
-            Back to Groups
+            <ArrowPathIcon
+              className={`h-5 w-5 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
+            />
+            Refresh
+          </button>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            disabled={loading || isRefreshing}
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#00B5A5] hover:bg-[#008f82] disabled:opacity-50"
+          >
+            <PlusIcon className="-ml-1 mr-2 h-5 w-5" />
+            Create Group
           </button>
         </div>
       </div>
-    );
-  }
 
-  return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Mobile Overlay */}
-      {showSidebar && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
-          onClick={() => setShowSidebar(false)}
+      {loading ? (
+        <StatsSkeleton />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div className="flex items-center">
+              <UserGroupIcon className="h-8 w-8 text-[#00B5A5]" />
+              <div className="ml-3">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Total Groups
+                </p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {totalGroups}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div className="flex items-center">
+              <UsersIcon className="h-8 w-8 text-[#00B5A5]" />
+              <div className="ml-3">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Total Members
+                </p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {totalMembers}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div className="flex items-center">
+              <ChatBubbleLeftIcon className="h-8 w-8 text-[#00B5A5]" />
+              <div className="ml-3">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Active Today
+                </p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {highActivityGroups}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <div className="flex items-center">
+              <UserGroupIcon className="h-8 w-8 text-[#00B5A5]" />
+              <div className="ml-3">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Public Groups
+                </p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {publicGroups}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1 relative">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search groups..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent dark:bg-gray-700 dark:text-white"
+            />
+          </div>
+
+          <div className="flex items-center space-x-3">
+            <FunnelIcon className="h-5 w-5 text-gray-400" />
+            <select
+              value={filterPrivacy}
+              onChange={(e) => setFilterPrivacy(e.target.value)}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent dark:bg-gray-700 dark:text-white"
+            >
+              <option value="all">All Privacy</option>
+              <option value="Public">Public</option>
+              <option value="Private">Private</option>
+            </select>
+
+            <select
+              value={filterActivity}
+              onChange={(e) => setFilterActivity(e.target.value)}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent dark:bg-gray-700 dark:text-white"
+            >
+              <option value="all">All Activity</option>
+              <option value="High">High</option>
+              <option value="Medium">Medium</option>
+              <option value="Low">Low</option>
+            </select>
+
+            <div className="border-l border-gray-300 dark:border-gray-600 pl-3 flex items-center space-x-1">
+              <button
+                onClick={() => setViewMode("grid")}
+                className={`p-2 rounded-md ${
+                  viewMode === "grid"
+                    ? "bg-[#00B5A5] text-white"
+                    : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                }`}
+                title="Grid view"
+              >
+                <Squares2X2Icon className="h-5 w-5" />
+              </button>
+              <button
+                onClick={() => setViewMode("table")}
+                className={`p-2 rounded-md ${
+                  viewMode === "table"
+                    ? "bg-[#00B5A5] text-white"
+                    : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                }`}
+                title="Table view"
+              >
+                <TableCellsIcon className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {loading || isRefreshing ? (
+        viewMode === "grid" ? (
+          <GridSkeleton />
+        ) : (
+          <TableSkeleton />
+        )
+      ) : viewMode === "grid" ? (
+        filteredGroups.length === 0 ? (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
+            <UserGroupIcon className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
+              No groups found
+            </h3>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              {searchQuery
+                ? "Try adjusting your search"
+                : "Create your first group to get started"}
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredGroups.map((group) => (
+              <div
+                key={group.slug}
+                onClick={() => handleCardClick(group)}
+                className="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition-shadow cursor-pointer"
+              >
+                <div className="p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-[#00B5A5] to-[#008f82] flex items-center justify-center">
+                        <UserGroupIcon className="h-6 w-6 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                          {group.name}
+                        </h3>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {group.category}
+                        </p>
+                      </div>
+                    </div>
+                    <span
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        group.privacy === "Public"
+                          ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                          : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+                      }`}
+                    >
+                      {group.privacy}
+                    </span>
+                  </div>
+
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 line-clamp-2 min-h-[40px]">
+                    {group.description}
+                  </p>
+
+                  <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center space-x-4">
+                      <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
+                        <UsersIcon className="h-4 w-4 mr-1" />
+                        <span>{group.members}</span>
+                      </div>
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                          group.activity === "High"
+                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                            : group.activity === "Medium"
+                            ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
+                            : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                        }`}
+                      >
+                        {group.activity}
+                      </span>
+                    </div>
+
+                    <ActionsDropdown
+                      group={group}
+                      onView={handleViewGroup}
+                      onEdit={handleEditClick}
+                      onAddMember={handleOpenAddMemberModal}
+                      onRemoveMember={handleOpenRemoveMemberModal}
+                      onBlockMember={handleOpenBlockMemberModal}
+                      onDelete={handleDeleteGroup}
+                      disabled={actionLoading === group.slug}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      ) : (
+        <BaseTable<Group>
+          data={filteredGroups}
+          columns={columns}
+          loading={loading}
+          title="Groups"
+          exportFileName="groups-export"
+          searchable={false}
+          pagination={false}
+          onRowClick={handleRowClick}
+          emptyMessage="No groups found. Create your first group to get started."
+          enableExcelExport={true}
+          enablePDFExport={true}
+          enableBulkSelection={true}
+          enableColumnManagement={true}
+          stickyHeader={true}
+          rowKey="slug"
+          className="shadow-lg"
         />
       )}
 
-      {/* Sidebar - Conversations */}
-      <div className={`
-        fixed md:relative inset-y-0 left-0 z-50
-        w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 
-        flex flex-col transform transition-transform duration-300 ease-in-out
-        ${showSidebar ? 'translate-x-0' : '-translate-x-full'} 
-        md:translate-x-0 md:flex
-      `}>
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between mb-3">
-            <button
-              onClick={() => router.push("/team/groups")}
-              className="flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-            >
-              <ArrowLeftIcon className="h-5 w-5 mr-2" />
-              Back to Groups
-            </button>
-            <button
-              onClick={() => setShowSidebar(false)}
-              className="md:hidden text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-            >
-              <XMarkIcon className="h-5 w-5" />
-            </button>
-          </div>
-
-          <div className="bg-gradient-to-br from-[#00B5A5] to-[#008f82] rounded-lg p-3 text-white mb-3">
-            <div className="flex items-center space-x-3">
-              <div className="h-12 w-12 bg-white/20 rounded-lg flex items-center justify-center">
-                <UserGroupIcon className="h-6 w-6" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium truncate">{group.name}</p>
-                <p className="text-sm text-white/80">{group.members} members</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleRefresh}
-              disabled={conversationsLoading}
-              className="flex-1 flex items-center justify-center px-3 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Refresh conversations"
-            >
-              <ArrowPathIcon
-                className={`h-4 w-4 ${conversationsLoading ? "animate-spin" : ""}`}
-              />
-            </button>
-            <button
-              onClick={() => setShowNewConversationModal(true)}
-              disabled={conversationsLoading}
-              className="flex-1 flex items-center justify-center px-3 py-2 bg-[#00B5A5] text-white rounded-lg hover:bg-[#008f82] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <PlusIcon className="h-4 w-4 mr-1" />
-              <span className="text-sm">New Topic</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Error Alert for Conversations */}
-        {conversationsError && conversations.length === 0 && (
-          <div className="m-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
-            <p className="text-xs text-red-800 dark:text-red-200">
-              Failed to load conversations
-            </p>
-            <button
-              onClick={handleRefresh}
-              disabled={conversationsLoading}
-              className="mt-2 w-full px-2 py-1 text-xs bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-200 rounded hover:bg-red-200 dark:hover:bg-red-900/60 transition-colors disabled:opacity-50"
-            >
-              Retry
-            </button>
-          </div>
-        )}
-
-        <div className="flex-1 overflow-y-auto">
-          {conversationsLoading && conversations.length === 0 ? (
-            <ConversationsListSkeleton />
-          ) : conversations.length === 0 ? (
-            <div className="p-4 text-center text-gray-500 dark:text-gray-400">
-              <ChatBubbleLeftRightIcon className="h-12 w-12 mx-auto mb-2 text-gray-400" />
-              <p className="text-sm">No conversations yet</p>
-              <p className="text-xs mt-1">Start a new topic!</p>
-            </div>
-          ) : (
-            <div className="p-2">
-              {conversations.map((conversation) => (
-                <button
-                  key={conversation.id}
-                  onClick={() => handleConversationClick(conversation)}
-                  className={`w-full p-3 rounded-lg transition-colors text-left mb-2 ${
-                    selectedConversation?.id === conversation.id
-                      ? "bg-[#00B5A5]/10 border-l-4 border-[#00B5A5]"
-                      : "hover:bg-gray-50 dark:hover:bg-gray-700"
-                  }`}
-                >
-                  <div className="flex items-start space-x-3">
-                    <div className="h-10 w-10 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <span className="text-sm font-medium">
-                        {conversation.title[0]?.toUpperCase() || "?"}
-                      </span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                        {conversation.title}
-                      </p>
-                      <div className="flex items-center space-x-2 mt-1">
-                        {conversation.type && (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300">
-                            {conversation.type}
-                          </span>
-                        )}
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                          {formatTimeAgo(conversation.created_at)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col">
-        {selectedConversation ? (
-          <>
-            {/* Chat Header */}
-            <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 md:px-6 py-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <button
-                    onClick={handleBackToConversations}
-                    className="md:hidden flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                  >
-                    <ArrowLeftIcon className="h-5 w-5" />
-                  </button>
-                  <div>
-                    <h2 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white truncate max-w-[200px] md:max-w-none">
-                      {selectedConversation.title}
-                    </h2>
-                    <div className="flex items-center space-x-2 md:space-x-4 mt-1 text-xs md:text-sm text-gray-500 dark:text-gray-400">
-                      <span className="truncate max-w-[120px] md:max-w-none">
-                        {selectedConversation.sender?.name || "Unknown"}
-                      </span>
-                      <span>•</span>
-                      <span>{formatTimeAgo(selectedConversation.created_at)}</span>
-                      {selectedConversation.type && (
-                        <>
-                          <span>•</span>
-                          <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300 text-xs">
-                            {selectedConversation.type}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => fetchMessages(selectedConversation.id)}
-                    disabled={messagesLoading}
-                    className="flex items-center text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-                    title="Refresh messages"
-                  >
-                    <ArrowPathIcon className={`h-4 w-4 ${messagesLoading ? "animate-spin" : ""}`} />
-                  </button>
-                  <button
-                    onClick={toggleSidebar}
-                    className="md:hidden flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                  >
-                    <Bars3Icon className="h-5 w-5" />
-                  </button>
-                </div>
-              </div>
+      {!loading && pagination.total > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="text-sm text-gray-500 dark:text-gray-400">
+              Showing {pagination.from} to {pagination.to} of {pagination.total}{" "}
+              groups
             </div>
 
-            {/* Error Alert for Messages */}
-            {messagesError && messages.length === 0 && (
-              <div className="mx-4 md:mx-6 mt-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
-                <p className="text-sm text-red-800 dark:text-red-200">
-                  Failed to load messages
-                </p>
-                <button
-                  onClick={() => fetchMessages(selectedConversation.id)}
-                  disabled={messagesLoading}
-                  className="mt-2 px-3 py-1 text-xs bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-200 rounded hover:bg-red-200 dark:hover:bg-red-900/60 transition-colors disabled:opacity-50"
-                >
-                  Retry
-                </button>
-              </div>
-            )}
-
-            {/* Messages Area */}
-            {messagesLoading && messages.length === 0 ? (
-              <MessagesListSkeleton />
-            ) : (
-              <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 bg-gray-50 dark:bg-gray-900">
-                {messages.length === 0 ? (
-                  <div className="flex items-center justify-center h-full">
-                    <div className="text-center">
-                      <ChatBubbleLeftRightIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-500 dark:text-gray-400">No messages yet</p>
-                      <p className="text-sm text-gray-400 mt-1">Be the first to respond!</p>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    {messages
-                      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-                      .map((message) => {
-                        const ownMessage = isOwnMessage(message);
-                        return (
-                          <div 
-                            key={message.id} 
-                            className={`flex items-start space-x-3 ${ownMessage ? 'flex-row-reverse space-x-reverse' : ''}`}
-                          >
-                            {/* Avatar */}
-                            <div className="h-10 w-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
-                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                {message.sender.name[0]?.toUpperCase() || "?"}
-                              </span>
-                            </div>
-                            
-                            {/* Message Content */}
-                            <div className={`flex-1 ${ownMessage ? 'flex flex-col items-end' : ''}`}>
-                              <div className={`flex items-baseline space-x-2 ${ownMessage ? 'flex-row-reverse space-x-reverse' : ''}`}>
-                                <span className="font-medium text-gray-900 dark:text-white text-sm">
-                                  {ownMessage ? 'You' : message.sender.name}
-                                </span>
-                                {message.sender.role && !ownMessage && (
-                                  <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400">
-                                    {message.sender.role}
-                                  </span>
-                                )}
-                                <span className="text-xs text-gray-500 dark:text-gray-400">
-                                  {formatTimeAgo(message.created_at)}
-                                </span>
-                              </div>
-                              <div className={`
-                                mt-1 rounded-lg p-3 shadow-sm max-w-[85%] md:max-w-[70%]
-                                ${ownMessage 
-                                  ? 'bg-[#00B5A5] text-white rounded-br-none' 
-                                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-bl-none'
-                                }
-                              `}>
-                                <p className="text-sm whitespace-pre-wrap">
-                                  {message.content}
-                                </p>
-                                {message.file_url && (
-                                  <div className="mt-2">
-                                    {message.file_url.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-                                      <img
-                                        src={message.file_url}
-                                        alt="Attachment"
-                                        className="max-w-full rounded-lg border cursor-pointer hover:opacity-90 transition-opacity"
-                                        onClick={() => window.open(message.file_url, '_blank')}
-                                      />
-                                    ) : (
-                                      <a
-                                        href={message.file_url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className={`inline-flex items-center text-xs ${
-                                          ownMessage 
-                                            ? 'text-white/80 hover:text-white' 
-                                            : 'text-[#00B5A5] hover:underline'
-                                        }`}
-                                      >
-                                        <svg
-                                          className="w-4 h-4 mr-1"
-                                          fill="none"
-                                          stroke="currentColor"
-                                          viewBox="0 0 24 24"
-                                        >
-                                          <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth={2}
-                                            d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                                          />
-                                        </svg>
-                                        View Attachment
-                                      </a>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    <div ref={messagesEndRef} />
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* Message Input */}
-            <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
-              <form onSubmit={handleSendMessage} className="flex items-end space-x-3">
-                <div className="flex-1">
-                  <textarea
-                    value={messageText}
-                    onChange={(e) => setMessageText(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSendMessage(e);
-                      }
-                    }}
-                    placeholder="Type your message (min 10 characters)..."
-                    rows={1}
-                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent dark:bg-gray-700 dark:text-white resize-none"
-                    style={{ minHeight: "48px", maxHeight: "120px" }}
-                    disabled={messagesLoading}
-                  />
-                  <p className="text-xs text-gray-400 mt-1">
-                    {messageText.trim().length}/10 characters minimum
-                  </p>
-                </div>
-                <button
-                  type="submit"
-                  disabled={!messageText.trim() || messageText.trim().length < 10 || messagesLoading}
-                  className="p-3 bg-[#00B5A5] text-white rounded-lg hover:bg-[#008f82] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
-                >
-                  <PaperAirplaneIcon className="h-5 w-5" />
-                </button>
-              </form>
-              <p className="text-xs text-gray-400 mt-2">
-                Press Enter to send, Shift + Enter for new line
-              </p>
-            </div>
-          </>
-        ) : (
-          <div className="flex-1 flex flex-col items-center justify-center">
-            {/* Mobile: Show conversations button when no conversation is selected */}
-            <div className="md:hidden p-4">
+            <div className="flex items-center space-x-2">
               <button
-                onClick={toggleSidebar}
-                className="flex items-center justify-center px-6 py-3 bg-[#00B5A5] text-white rounded-lg hover:bg-[#008f82] transition-colors"
+                onClick={() => fetchGroups(pagination.currentPage - 1)}
+                disabled={pagination.currentPage === 1 || loading}
+                className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
-                <Bars3Icon className="h-5 w-5 mr-2" />
-                Show Conversations
+                Previous
+              </button>
+
+              <div className="flex items-center space-x-1">
+                {Array.from({ length: pagination.lastPage }, (_, i) => i + 1)
+                  .filter((page) => {
+                    return (
+                      page === 1 ||
+                      page === pagination.lastPage ||
+                      Math.abs(page - pagination.currentPage) <= 1
+                    );
+                  })
+                  .map((page, index, array) => {
+                    const prevPage = array[index - 1];
+                    const showEllipsis = prevPage && page - prevPage > 1;
+
+                    return (
+                      <React.Fragment key={page}>
+                        {showEllipsis && (
+                          <span className="px-2 text-gray-500">...</span>
+                        )}
+                        <button
+                          onClick={() => fetchGroups(page)}
+                          disabled={loading}
+                          className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                            page === pagination.currentPage
+                              ? "bg-[#00B5A5] text-white"
+                              : "border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      </React.Fragment>
+                    );
+                  })}
+              </div>
+
+              <button
+                onClick={() => fetchGroups(pagination.currentPage + 1)}
+                disabled={
+                  pagination.currentPage === pagination.lastPage || loading
+                }
+                className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                Next
               </button>
             </div>
-            
-            {/* Desktop: Show the usual message */}
-            <div className="hidden md:flex flex-col items-center justify-center h-full">
-              <ChatBubbleLeftRightIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500 dark:text-gray-400">
-                Select a conversation to start chatting
-              </p>
-            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Create Conversation Modal */}
-      <CreateConversationModal
-        isOpen={showNewConversationModal}
-        onClose={() => setShowNewConversationModal(false)}
-        conversationTypes={conversationTypes}
-        conversationGroups={conversationGroups}
-        typesLoading={typesLoading}
-        typesError={typesError}
-        loading={conversationsLoading}
-        onLoadTypes={loadTypesAndGroups}
-        onCreateConversation={handleCreateConversation}
-        currentGroupId={group?.id ? parseInt(group.id) : undefined}
-        currentGroupName={group?.name}
+      <ViewGroupModal
+        isOpen={showViewModal}
+        onClose={() => {
+          setShowViewModal(false);
+          setSelectedGroup(null);
+          setIsLoadingGroupDetails(false);
+        }}
+        group={selectedGroup}
+        loading={isLoadingGroupDetails}
+      />
+
+      <GroupModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSubmit={handleCreateGroup}
+        mode="create"
+        loading={loading}
+      />
+
+      <GroupModal
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          setSelectedGroup(null);
+        }}
+        onSubmit={handleEditGroup}
+        mode="edit"
+        initialData={getEditInitialData()}
+        loading={actionLoading === selectedGroup?.slug}
+      />
+
+      <AddMemberModal
+        isOpen={showAddMemberModal}
+        onClose={() => {
+          setShowAddMemberModal(false);
+          setSelectedGroupForMembers(null);
+        }}
+        onAddMembers={handleAddMembers}
+        loading={actionLoading !== null}
+        slug={selectedGroupForMembers || ""}
+        availableMembers={availableMembers}
+        membersLoading={membersLoading}
+      />
+
+      <RemoveMemberModal
+        isOpen={showRemoveMemberModal}
+        onClose={() => {
+          setShowRemoveMemberModal(false);
+          setSelectedGroupForMembers(null);
+        }}
+        onRemoveMember={handleRemoveMember}
+        loading={actionLoading !== null}
+        slug={selectedGroupForMembers || ""}
+        groupMembers={availableMembers}
+        membersLoading={membersLoading}
+      />
+
+      <BlockMemberModal
+        isOpen={showBlockMemberModal}
+        onClose={() => {
+          setShowBlockMemberModal(false);
+          setSelectedGroupForMembers(null);
+        }}
+        onBlockMember={handleBlockMember}
+        loading={actionLoading !== null}
+        slug={selectedGroupForMembers || ""}
+        groupMembers={availableMembers}
+        membersLoading={membersLoading}
       />
     </div>
   );
