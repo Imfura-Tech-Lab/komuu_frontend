@@ -1,4 +1,3 @@
-// hooks/useConversations.ts
 import { useState, useCallback, useEffect } from "react";
 import {
   showErrorToast,
@@ -8,16 +7,23 @@ import {
 export interface Conversation {
   id: number;
   title: string;
-  author: string;
-  author_id?: string;
-  replies: number;
-  views: number;
-  last_activity: string;
-  category: string;
-  status: "open" | "closed";
-  is_pinned: boolean;
   type?: string;
   content?: string;
+  created_at: string;
+  updated_at?: string;
+  sender?: {
+    id: number;
+    name: string;
+    role?: string;
+  };
+  author?: string;
+  author_id?: string;
+  replies?: number;
+  views?: number;
+  last_activity?: string;
+  category?: string;
+  status?: "open" | "closed";
+  is_pinned?: boolean;
   group?: string;
   attachment_url?: string;
 }
@@ -45,7 +51,7 @@ export interface ConversationGroup {
 }
 
 export interface CreateConversationParams {
-  group_id?: number;
+  group?: number;
   title: string;
   type: string;
   content: string;
@@ -55,12 +61,29 @@ export interface CreateConversationParams {
 interface ApiResponse<T = any> {
   status: "success" | "error" | boolean;
   message: string;
-  data: T;
+  data?: T;
+  types?: string[];
 }
 
-interface ConversationsResponse {
-  data: Conversation[];
-  stats: ConversationsStats;
+interface PaginatedResponse<T> {
+  current_page: number;
+  data: T[];
+  first_page_url: string;
+  from: number;
+  last_page: number;
+  last_page_url: string;
+  links: Array<{
+    url: string | null;
+    label: string;
+    page: number | null;
+    active: boolean;
+  }>;
+  next_page_url: string | null;
+  path: string;
+  per_page: number;
+  prev_page_url: string | null;
+  to: number;
+  total: number;
 }
 
 interface UseConversationsReturn {
@@ -70,7 +93,9 @@ interface UseConversationsReturn {
   conversationGroups: ConversationGroup[];
   loading: boolean;
   error: string | null;
-  fetchConversations: () => Promise<void>;
+  typesLoading: boolean;
+  typesError: boolean;
+  fetchConversations: (groupSlug?: string) => Promise<void>;
   fetchConversation: (id: number) => Promise<Conversation | null>;
   fetchConversationTypes: () => Promise<void>;
   fetchConversationGroups: () => Promise<void>;
@@ -87,18 +112,13 @@ export function useConversations(): UseConversationsReturn {
   const [conversationGroups, setConversationGroups] = useState<ConversationGroup[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isClient, setIsClient] = useState(false);
+  const [typesLoading, setTypesLoading] = useState(false);
+  const [typesError, setTypesError] = useState(false);
 
   const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
 
-  // Set client flag on mount
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  // Get auth headers helper
   const getAuthHeaders = useCallback(() => {
-    if (!isClient) {
+    if (typeof window === "undefined") {
       return {
         Accept: "application/json",
         Authorization: "",
@@ -114,18 +134,13 @@ export function useConversations(): UseConversationsReturn {
       Authorization: `Bearer ${authToken}`,
       "X-Company-ID": companyId || "",
     };
-  }, [isClient]);
+  }, []);
 
-  // Base fetch wrapper with centralized error handling
   const apiCall = useCallback(
     async <T>(
       endpoint: string,
       options: RequestInit = {}
     ): Promise<T | null> => {
-      if (!isClient) {
-        return null;
-      }
-
       try {
         const response = await fetch(`${apiUrl}${endpoint}`, {
           ...options,
@@ -145,49 +160,80 @@ export function useConversations(): UseConversationsReturn {
         }
 
         if (data.status === "success" || data.status === true) {
-          return data.data;
+          return data.data || (data as any);
         } else {
           throw new Error(data.message || "API request failed");
         }
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : "Unknown error occurred";
-        setError(errorMessage);
-        throw err;
+        throw new Error(errorMessage);
       }
     },
-    [apiUrl, getAuthHeaders, isClient]
+    [apiUrl, getAuthHeaders]
   );
 
-  // Fetch all conversations
-  const fetchConversations = useCallback(async () => {
-    if (!isClient) return;
+  const fetchConversations = useCallback(
+    async (groupSlug?: string) => {
+      try {
+        setLoading(true);
+        setError(null);
 
-    try {
-      setLoading(true);
-      setError(null);
+        const endpoint = groupSlug
+          ? `community/conversations?group=${groupSlug}`
+          : `community/conversations`;
 
-      const data = await apiCall<ConversationsResponse>(
-        "community/conversations"
-      );
+        const response = await fetch(`${apiUrl}${endpoint}`, {
+          headers: getAuthHeaders(),
+        });
 
-      if (data) {
-        setConversations(data.data || []);
-        setStats(data.stats || null);
+        const result: ApiResponse<PaginatedResponse<Conversation>> =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.message || "Failed to fetch conversations");
+        }
+
+        if (result.status === "success" && result.data) {
+          const conversationsData = result.data.data || [];
+
+          const transformedConversations = conversationsData.map((conv) => ({
+            ...conv,
+            author: conv.sender?.name || conv.author || "Unknown",
+            author_id: conv.sender?.id?.toString() || conv.author_id,
+            replies: conv.replies || 0,
+            views: conv.views || 0,
+            last_activity: conv.updated_at || conv.created_at,
+            category: conv.type || conv.category || "General",
+            status: (conv.status || "open") as "open" | "closed",
+            is_pinned: conv.is_pinned || false,
+          }));
+
+          setConversations(transformedConversations);
+
+          if (result.data.total !== undefined) {
+            setStats({
+              total_topics: result.data.total,
+              total_replies: 0,
+              total_views: 0,
+              active_today: 0,
+            });
+          }
+        }
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Failed to load conversations"
+        );
+        showErrorToast("Failed to load conversations");
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      console.error("Failed to fetch conversations:", err);
-      showErrorToast("Failed to load conversations");
-    } finally {
-      setLoading(false);
-    }
-  }, [apiCall, isClient]);
+    },
+    [apiUrl, getAuthHeaders]
+  );
 
-  // Fetch single conversation by ID
   const fetchConversation = useCallback(
     async (id: number): Promise<Conversation | null> => {
-      if (!isClient) return null;
-
       try {
         setLoading(true);
         setError(null);
@@ -197,78 +243,118 @@ export function useConversations(): UseConversationsReturn {
         );
 
         if (data) {
-          return data;
+          return {
+            ...data,
+            author: data.sender?.name || data.author || "Unknown",
+            author_id: data.sender?.id?.toString() || data.author_id,
+            last_activity: data.updated_at || data.created_at,
+            category: data.type || data.category || "General",
+          };
         }
 
         return null;
       } catch (err) {
-        console.error(`Failed to fetch conversation ${id}:`, err);
         showErrorToast("Failed to load conversation details");
         return null;
       } finally {
         setLoading(false);
       }
     },
-    [apiCall, isClient]
+    [apiCall]
   );
 
-  // Fetch conversation types from database
   const fetchConversationTypes = useCallback(async () => {
-    if (!isClient) return;
+    if (typeof window === "undefined") {
+      return;
+    }
 
     try {
-      const data = await apiCall<ConversationType[]>("conversation-types");
+      setTypesLoading(true);
+      setTypesError(false);
 
-      if (data) {
-        setConversationTypes(data);
+      const authToken = localStorage.getItem("auth_token");
+      const companyId = localStorage.getItem("company_id");
+
+      const response = await fetch(`${apiUrl}conversation-types`, {
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${authToken}`,
+          "X-Company-ID": companyId || "",
+        },
+      });
+
+      const result: ApiResponse = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Failed to fetch types");
+      }
+
+      if (
+        result.status === "success" &&
+        result.types &&
+        Array.isArray(result.types)
+      ) {
+        const formattedTypes: ConversationType[] = result.types.map(
+          (type: string, index: number) => ({
+            id: index + 1,
+            name: type,
+            slug: type.toLowerCase().replace(/\s+/g, "-"),
+            description: `${type} conversation type`,
+          })
+        );
+
+        setConversationTypes(formattedTypes);
+      } else {
+        setConversationTypes([]);
+        setTypesError(true);
       }
     } catch (err) {
-      console.error("Failed to fetch conversation types:", err);
+      setTypesError(true);
+      setConversationTypes([]);
       showErrorToast("Failed to load conversation types");
+    } finally {
+      setTypesLoading(false);
     }
-  }, [apiCall, isClient]);
+  }, [apiUrl]);
 
-  // Fetch conversation groups (using existing groups from community)
   const fetchConversationGroups = useCallback(async () => {
-    if (!isClient) return;
-
     try {
-      const data = await apiCall<{ data: ConversationGroup[] }>("community/groups");
+      const data = await apiCall<{ data: ConversationGroup[] }>(
+        "community/groups"
+      );
 
-      if (data && data.data) {
+      if (data && data.data && Array.isArray(data.data)) {
         setConversationGroups(data.data);
+      } else if (data && Array.isArray(data)) {
+        setConversationGroups(data as any);
+      } else {
+        setConversationGroups([]);
       }
     } catch (err) {
-      console.error("Failed to fetch conversation groups:", err);
-      showErrorToast("Failed to load groups");
+      setConversationGroups([]);
     }
-  }, [apiCall, isClient]);
+  }, [apiCall]);
 
-  // Create new conversation
   const createConversation = useCallback(
     async (params: CreateConversationParams): Promise<Conversation | null> => {
-      if (!isClient) return null;
-
       try {
         setLoading(true);
         setError(null);
 
         const formData = new FormData();
-        
-        // Add group_id if provided
-        if (params.group_id) {
-          formData.append("group_id", params.group_id.toString());
+
+        if (params.group) {
+          formData.append("group", params.group.toString());
         }
-        
+
         formData.append("title", params.title);
         formData.append("type", params.type);
         formData.append("content", params.content);
-        
+
         if (params.attachment) {
           formData.append("attachment", params.attachment);
         }
 
-        // Remove Accept header for FormData
         const headers = getAuthHeaders();
         delete (headers as any).Accept;
 
@@ -286,7 +372,6 @@ export function useConversations(): UseConversationsReturn {
 
         return null;
       } catch (err) {
-        console.error("Failed to create conversation:", err);
         showErrorToast(
           err instanceof Error ? err.message : "Failed to create conversation"
         );
@@ -295,14 +380,11 @@ export function useConversations(): UseConversationsReturn {
         setLoading(false);
       }
     },
-    [apiCall, fetchConversations, getAuthHeaders, isClient]
+    [apiCall, fetchConversations, getAuthHeaders]
   );
 
-  // Delete conversation by ID
   const deleteConversation = useCallback(
     async (id: number): Promise<boolean> => {
-      if (!isClient) return false;
-
       try {
         setLoading(true);
         setError(null);
@@ -312,11 +394,9 @@ export function useConversations(): UseConversationsReturn {
         });
 
         showSuccessToast("Conversation deleted successfully");
-        
-        // Remove from local state immediately
+
         setConversations((prev) => prev.filter((conv) => conv.id !== id));
-        
-        // Update stats
+
         if (stats) {
           setStats({
             ...stats,
@@ -326,7 +406,6 @@ export function useConversations(): UseConversationsReturn {
 
         return true;
       } catch (err) {
-        console.error(`Failed to delete conversation ${id}:`, err);
         showErrorToast(
           err instanceof Error ? err.message : "Failed to delete conversation"
         );
@@ -335,7 +414,7 @@ export function useConversations(): UseConversationsReturn {
         setLoading(false);
       }
     },
-    [apiCall, stats, isClient]
+    [apiCall, stats]
   );
 
   return {
@@ -345,6 +424,8 @@ export function useConversations(): UseConversationsReturn {
     conversationGroups,
     loading,
     error,
+    typesLoading,
+    typesError,
     fetchConversations,
     fetchConversation,
     fetchConversationTypes,

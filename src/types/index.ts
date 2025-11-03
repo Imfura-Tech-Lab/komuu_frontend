@@ -219,14 +219,6 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
             _order: 1,
           },
           {
-            name: "Conversations",
-            href: "/team/conversations",
-            permission: "manage_conversations",
-            icon: "conversations",
-            description: "Manage community discussions",
-            _order: 2,
-          },
-          {
             name: "Events/Conferences",
             href: "/team/events",
             permission: "manage_events",
@@ -335,14 +327,6 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
             _order: 1,
           },
           {
-            name: "Conversations",
-            href: "/team/conversations",
-            permission: "manage_conversations",
-            icon: "conversations",
-            description: "Manage community discussions",
-            _order: 2,
-          },
-          {
             name: "Events/Conferences",
             href: "/team/events",
             permission: "manage_events",
@@ -435,14 +419,6 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
             _order: 1,
           },
           {
-            name: "Conversations",
-            href: "/team/conversations",
-            permission: "manage_conversations",
-            icon: "conversations",
-            description: "Manage community discussions",
-            _order: 2,
-          },
-          {
             name: "Events/Conferences",
             href: "/team/events",
             permission: "manage_events",
@@ -518,14 +494,6 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         description: "Connect with other members",
         _order: 7,
         children: [
-          {
-            name: "Conversations",
-            href: "/community/conversations",
-            permission: "member_conversations",
-            icon: "conversations",
-            description: "Join discussions and forums",
-            _order: 0,
-          },
           {
             name: "Groups",
             href: "/community/groups",

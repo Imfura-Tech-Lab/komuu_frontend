@@ -27,11 +27,15 @@ interface Member {
   first_name: string;
   middle_name?: string;
   incompliance: boolean;
-  membership_type: string;
+  membership_type: string | null;
   membership_number: string;
   certificate_status: string;
   country_of_residency: string;
   application_status: string;
+  signed_date?: string;
+  valid_from?: string;
+  valid_until?: string;
+  valid_next_payment?: string;
   email?: string;
   phone_number?: string;
   role?: string;
@@ -100,7 +104,9 @@ export default function MembersClient() {
     }
   };
 
-  const getRoleColor = (membershipType: string) => {
+  const getRoleColor = (membershipType: string | null) => {
+    if (!membershipType) return "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300";
+    
     switch (membershipType.toLowerCase()) {
       case "full member":
         return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
@@ -117,7 +123,8 @@ export default function MembersClient() {
     }
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "-";
     return new Date(dateString).toLocaleDateString("en-US", {
       year: "numeric",
       month: "short",
@@ -190,7 +197,7 @@ export default function MembersClient() {
       filterable: true,
       width: 150,
       render: (member, value) => (
-        <span className="font-mono text-sm">{value}</span>
+        <span className="font-mono text-sm">{value || "-"}</span>
       ),
     },
     {
@@ -215,10 +222,10 @@ export default function MembersClient() {
             value
           )}`}
         >
-          {value}
+          {value || "Not Assigned"}
         </span>
       ),
-      exportRender: (member, value) => value,
+      exportRender: (member, value) => value || "Not Assigned",
     },
     {
       key: "certificate_status",
@@ -241,6 +248,47 @@ export default function MembersClient() {
               return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
             case "Pending":
               return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300";
+            case "Rejected":
+              return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
+            default:
+              return "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300";
+          }
+        };
+        return (
+          <span
+            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+              value
+            )}`}
+          >
+            {value}
+          </span>
+        );
+      },
+    },
+    {
+      key: "application_status",
+      label: "Application",
+      sortable: true,
+      filterable: true,
+      filterComponent: {
+        type: "select",
+        options: [
+          { label: "Approved", value: "Approved" },
+          { label: "Pending", value: "Pending" },
+          { label: "Under Review", value: "Under Review" },
+          { label: "Rejected", value: "Rejected" },
+        ],
+      },
+      width: 120,
+      render: (member, value) => {
+        const getStatusColor = (status: string) => {
+          switch (status) {
+            case "Approved":
+              return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
+            case "Pending":
+              return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300";
+            case "Under Review":
+              return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300";
             case "Rejected":
               return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
             default:
@@ -292,54 +340,32 @@ export default function MembersClient() {
       width: 150,
     },
     {
-      key: "verified",
-      label: "Verified",
-      sortable: true,
-      filterable: true,
-      filterComponent: {
-        type: "select",
-        options: [
-          { label: "Verified", value: "true" },
-          { label: "Unverified", value: "false" },
-        ],
-      },
-      width: 100,
-      render: (member, value) => (
-        <span
-          className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium ${
-            value
-              ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
-              : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300"
-          }`}
-        >
-          {value ? "✓" : "✗"}
-        </span>
-      ),
-      exportRender: (member, value) => (value ? "Yes" : "No"),
-    },
-    {
-      key: "phone_number",
-      label: "Phone",
-      sortable: true,
-      filterable: true,
-      width: 150,
-      render: (member, value) => (
-        <span className="text-sm">{value || "-"}</span>
-      ),
-    },
-    {
-      key: "created_at",
-      label: "Joined",
+      key: "valid_until",
+      label: "Valid Until",
       sortable: true,
       filterable: true,
       filterComponent: { type: "date" },
       width: 120,
       render: (member, value) => (
         <span className="text-sm text-gray-600 dark:text-gray-400">
-          {value ? formatDate(value) : "-"}
+          {formatDate(value)}
         </span>
       ),
-      exportRender: (member, value) => (value ? formatDate(value) : ""),
+      exportRender: (member, value) => formatDate(value),
+    },
+    {
+      key: "signed_date",
+      label: "Signed Date",
+      sortable: true,
+      filterable: true,
+      filterComponent: { type: "date" },
+      width: 120,
+      render: (member, value) => (
+        <span className="text-sm text-gray-600 dark:text-gray-400">
+          {formatDate(value)}
+        </span>
+      ),
+      exportRender: (member, value) => formatDate(value),
     },
   ];
 
@@ -347,13 +373,14 @@ export default function MembersClient() {
   const stats = useMemo(() => {
     return members.reduce(
       (acc, member) => {
-        const type = member.membership_type.toLowerCase();
+        const type = member.membership_type?.toLowerCase() || "unknown";
         acc[type] = (acc[type] || 0) + 1;
         acc.total++;
         acc.approved += member.certificate_status === "Approved" ? 1 : 0;
         acc.compliant += member.incompliance ? 1 : 0;
         acc.pending += member.application_status === "Pending" ? 1 : 0;
-        acc.verified += member.verified ? 1 : 0;
+        // Since API doesn't return verified field, calculate it differently
+        acc.verified += member.certificate_status === "Approved" ? 1 : 0;
         return acc;
       },
       {
@@ -367,6 +394,7 @@ export default function MembersClient() {
         "student member": 0,
         "honorary member": 0,
         "corporate member": 0,
+        unknown: 0,
       } as Record<string, number>
     );
   }, [members]);
@@ -641,5 +669,5 @@ export default function MembersClient() {
         />
       </div>
     </div>
-  );
+  ); 
 }

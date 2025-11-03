@@ -1,26 +1,35 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   showErrorToast,
   showSuccessToast,
 } from "@/components/layouts/auth-layer-out";
-import { FileText, RefreshCw, Search, AlertCircle } from "lucide-react";
+import { 
+  FileText, 
+  RefreshCw, 
+  AlertCircle, 
+  Eye,
+  Download,
+  Calendar,
+  CreditCard,
+  Shield
+} from "lucide-react";
+import { BaseTable, BaseTableColumn } from "@/components/ui/BaseTable";
+import { PDFViewer } from "@/components/ui/PDFViewer";
 
 interface Certificate {
   id: number;
   name?: string;
   member_number?: string;
-  certificate_number?: string;
+  certificate?: string;
   status: string;
   valid_from?: string;
   valid_until?: string;
   membership_term?: string;
-  issued_date?: string;
+  signed_date?: string;
   created_at?: string;
-  updated_at?: string;
-  payment_id?: number;
   token?: string;
   next_payment_date?: string;
   payment?: {
@@ -31,6 +40,7 @@ interface Certificate {
     transaction_number: string;
     gateway: string;
     status: string;
+    is_certificate_generated: boolean;
     payment_date: string;
   };
 }
@@ -39,193 +49,28 @@ interface UserData {
   role: string;
 }
 
-interface CertificateCardProps {
-  certificate: Certificate;
-  onCertificateClick: (certificateId: number) => void;
-  onViewPaymentClick: (paymentId: number) => void;
-  getStatusColor: (status: string) => string;
-  formatDate: (dateString?: string) => string;
-  formatDateTime: (dateString?: string) => string;
-  userRole: string | null;
-}
-
-function CertificateCard({
-  certificate,
-  onCertificateClick,
-  onViewPaymentClick,
-  getStatusColor,
-  formatDate,
-  formatDateTime,
-  userRole,
-}: CertificateCardProps) {
-  // Generate a display identifier that's more user-friendly than ID
-  const displayIdentifier =
-    certificate.certificate_number ||
-    certificate.member_number ||
-    `Certificate #${certificate.id.toString().padStart(4, "0")}`;
-
-  return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow">
-      <div className="p-6">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex-1">
-            <button
-              onClick={() => onCertificateClick(certificate.id)}
-              className="text-lg font-semibold text-gray-900 dark:text-white hover:text-[#00B5A5] transition-colors text-left"
-            >
-              {displayIdentifier}
-            </button>
-
-            {certificate.name && (
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                {certificate.name}
-              </p>
-            )}
-
-            {certificate.membership_term && (
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Membership Term: {certificate.membership_term}
-              </p>
-            )}
-          </div>
-
-          <span
-            className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(
-              certificate.status
-            )}`}
-          >
-            {certificate.status}
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-4">
-          {certificate.valid_from && (
-            <div>
-              <p className="text-gray-500 dark:text-gray-400">Valid From</p>
-              <p className="font-medium text-gray-900 dark:text-white">
-                {formatDate(certificate.valid_from)}
-              </p>
-            </div>
-          )}
-
-          {certificate.valid_until && (
-            <div>
-              <p className="text-gray-500 dark:text-gray-400">Valid Until</p>
-              <p className="font-medium text-gray-900 dark:text-white">
-                {formatDate(certificate.valid_until)}
-              </p>
-            </div>
-          )}
-
-          {certificate.next_payment_date && (
-            <div>
-              <p className="text-gray-500 dark:text-gray-400">
-                Next Payment Due
-              </p>
-              <p className="font-medium text-gray-900 dark:text-white">
-                {formatDate(certificate.next_payment_date)}
-              </p>
-            </div>
-          )}
-
-          {certificate.issued_date && (
-            <div>
-              <p className="text-gray-500 dark:text-gray-400">Issued Date</p>
-              <p className="font-medium text-gray-900 dark:text-white">
-                {formatDate(certificate.issued_date)}
-              </p>
-            </div>
-          )}
-        </div>
-
-        {certificate.payment && (
-          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-sm font-medium text-gray-900 dark:text-white">
-                Payment Information
-              </p>
-              <span
-                className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                  certificate.payment.status === "Completed"
-                    ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                    : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300"
-                }`}
-              >
-                {certificate.payment.status}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div>
-                <p className="text-gray-500 dark:text-gray-400">Amount</p>
-                <p className="font-medium text-gray-900 dark:text-white">
-                  {certificate.payment.amount_paid}
-                </p>
-              </div>
-              <div>
-                <p className="text-gray-500 dark:text-gray-400">Method</p>
-                <p className="font-medium text-gray-900 dark:text-white">
-                  {certificate.payment.payment_method}
-                </p>
-              </div>
-              <div>
-                <p className="text-gray-500 dark:text-gray-400">Transaction</p>
-                <p className="font-medium text-gray-900 dark:text-white">
-                  {certificate.payment.transaction_number}
-                </p>
-              </div>
-              <div>
-                <p className="text-gray-500 dark:text-gray-400">Date</p>
-                <p className="font-medium text-gray-900 dark:text-white">
-                  {formatDateTime(certificate.payment.payment_date)}
-                </p>
-              </div>
-            </div>
-
-            <button
-              onClick={() => onViewPaymentClick(certificate.payment!.id)}
-              className="mt-3 w-full text-xs text-[#00B5A5] hover:underline flex items-center justify-center"
-            >
-              View Full Payment Details
-              <svg
-                className="w-3 h-3 ml-1"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M14 5l7 7m0 0l-7 7m7-7H3"
-                />
-              </svg>
-            </button>
-          </div>
-        )}
-
-        {certificate.token && (
-          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-              Verification Token
-            </p>
-            <code className="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded break-all">
-              {certificate.token}
-            </code>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+// Helper function to clean malformed URLs
+function cleanCertificateUrl(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+  
+  if (url.includes('/storage/https://') || url.includes('/storage/http://')) {
+    const match = url.match(/\/storage\/(https?:\/\/.+)/);
+    return match ? match[1] : url;
+  }
+  
+  return url;
 }
 
 export default function CertificatesClient() {
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
   const [userRole, setUserRole] = useState<string | null>(null);
+  
+  // PDF Viewer State
+  const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
+  const [currentPdfUrl, setCurrentPdfUrl] = useState("");
+  const [currentPdfFileName, setCurrentPdfFileName] = useState("");
 
   const router = useRouter();
 
@@ -240,7 +85,7 @@ export default function CertificatesClient() {
     if (role !== null) {
       fetchCertificates(role);
     }
-  }, [userRole]);
+  }, []);
 
   const fetchCertificates = async (role: string | null) => {
     try {
@@ -296,15 +141,14 @@ export default function CertificatesClient() {
                 id: cert.id,
                 name: cert.name,
                 member_number: cert.member_number,
-                certificate_number: cert.certificate_number,
+                certificate: cleanCertificateUrl(cert.certificate),
                 status: cert.status,
                 valid_from: cert.valid_from,
                 valid_until: cert.valid_until,
                 membership_term: cert.membership_term,
-                issued_date: cert.signed_date,
+                signed_date: cert.signed_date,
                 next_payment_date: cert.next_payment_date,
                 created_at: cert.created_at,
-                updated_at: cert.updated_at,
                 token: cert.token,
                 payment: cert.payment
                   ? {
@@ -315,6 +159,7 @@ export default function CertificatesClient() {
                       transaction_number: cert.payment.transaction_number,
                       gateway: cert.payment.gateway,
                       status: cert.payment.status,
+                      is_certificate_generated: cert.payment.is_certificate_generated,
                       payment_date: cert.payment.payment_date,
                     }
                   : undefined,
@@ -333,6 +178,12 @@ export default function CertificatesClient() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleViewPDF = (pdfUrl: string, fileName: string) => {
+    setCurrentPdfUrl(pdfUrl);
+    setCurrentPdfFileName(fileName);
+    setPdfViewerOpen(true);
   };
 
   const getStatusColor = (status: string) => {
@@ -368,21 +219,6 @@ export default function CertificatesClient() {
     }
   };
 
-  const formatDateTime = (dateString?: string) => {
-    if (!dateString) return "Not set";
-    try {
-      return new Date(dateString).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    } catch {
-      return dateString;
-    }
-  };
-
   const handleCertificateClick = (certificateId: number) => {
     const detailPath =
       userRole === "Member"
@@ -391,162 +227,187 @@ export default function CertificatesClient() {
     router.push(detailPath);
   };
 
-  const handleViewPayment = (paymentId: number) => {
-    const paymentPath =
-      userRole === "Member"
-        ? `/my-payments/${paymentId}`
-        : `/payments/${paymentId}`;
-    router.push(paymentPath);
-  };
-
-  const filteredCertificates = certificates.filter((certificate) => {
-    const matchesSearch =
-      certificate.certificate_number
-        ?.toLowerCase()
-        .includes(searchTerm.toLowerCase()) ||
-      certificate.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      certificate.member_number
-        ?.toLowerCase()
-        .includes(searchTerm.toLowerCase()) ||
-      certificate.membership_term
-        ?.toLowerCase()
-        .includes(searchTerm.toLowerCase()) ||
-      certificate.payment?.transaction_number
-        ?.toLowerCase()
-        .includes(searchTerm.toLowerCase());
-
-    const matchesStatus =
-      statusFilter === "all" ||
-      certificate.status.toLowerCase() === statusFilter.toLowerCase();
-
-    return matchesSearch && matchesStatus;
-  });
-
-  const getStatusStats = () => {
-    const stats = certificates.reduce(
-      (acc, cert) => {
-        const status = cert.status.toLowerCase();
-        acc[status] = (acc[status] || 0) + 1;
-        acc.total++;
-        return acc;
+  // Table columns configuration
+  const columns: BaseTableColumn<Certificate>[] = useMemo(() => [
+    {
+      key: "member_number",
+      label: "Member Number",
+      sortable: true,
+      filterable: true,
+      width: 150,
+      render: (cert, value) => (
+        <span className="font-mono text-sm">{value || `#${cert.id.toString().padStart(4, "0")}`}</span>
+      ),
+    },
+    {
+      key: "name",
+      label: "Member Name",
+      sortable: true,
+      filterable: true,
+      width: 200,
+      render: (cert, value) => (
+        <span className="text-sm">{value || "N/A"}</span>
+      ),
+    },
+    {
+      key: "membership_term",
+      label: "Term",
+      sortable: true,
+      filterable: true,
+      width: 120,
+      render: (cert, value) => (
+        <span className="text-sm">{value || "N/A"}</span>
+      ),
+    },
+    {
+      key: "status",
+      label: "Status",
+      sortable: true,
+      filterable: true,
+      filterComponent: {
+        type: "select",
+        options: [
+          { label: "Approved", value: "Approved" },
+          { label: "Active", value: "Active" },
+          { label: "Expired", value: "Expired" },
+          { label: "Suspended", value: "Suspended" },
+          { label: "Pending", value: "Pending" },
+        ],
       },
-      {
-        total: 0,
-        active: 0,
-        expired: 0,
-        suspended: 0,
-        revoked: 0,
-        abandoned: 0,
-        pending: 0,
-        valid: 0,
-        approved: 0,
-      } as Record<string, number>
-    );
-    return stats;
-  };
-
-  const stats = getStatusStats();
-
-  // ============================================================================
-  // SKELETON LOADER
-  // ============================================================================
-  if (loading || userRole === null) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Header Skeleton */}
-          <div className="mb-8">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-              <div className="flex-1">
-                <div className="h-9 bg-gray-200 dark:bg-gray-700 rounded-lg w-48 mb-2 animate-pulse"></div>
-                <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded-lg w-96 animate-pulse"></div>
-              </div>
-              <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-48 animate-pulse"></div>
-            </div>
-          </div>
-
-          {/* Stats Cards Skeleton */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            {[1, 2, 3, 4].map((i) => (
-              <div
-                key={i}
-                className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700 animate-pulse"
-              >
-                <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-12 mb-2"></div>
-                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
-              </div>
-            ))}
-          </div>
-
-          {/* Filters Skeleton */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32 animate-pulse"></div>
-                <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-              </div>
-              <div className="space-y-2">
-                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-28 animate-pulse"></div>
-                <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-              </div>
-            </div>
-          </div>
-
-          {/* Result Count Skeleton */}
-          <div className="mb-6">
-            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-48 animate-pulse"></div>
-          </div>
-
-          {/* Certificate Cards Skeleton */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div
-                key={i}
-                className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 animate-pulse"
-              >
-                {/* Header */}
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1 space-y-2">
-                    <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
-                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
-                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-40"></div>
-                  </div>
-                  <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-20"></div>
-                </div>
-
-                {/* Info Grid */}
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  {[1, 2, 3, 4].map((j) => (
-                    <div key={j} className="space-y-2">
-                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
-                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Payment Section */}
-                <div className="pt-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
-                  <div className="flex justify-between items-center">
-                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
-                    <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded-full w-20"></div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[1, 2, 3, 4].map((j) => (
-                      <div key={j} className="space-y-1">
-                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-12"></div>
-                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
-                </div>
-              </div>
-            ))}
-          </div>
+      width: 120,
+      render: (cert, value) => (
+        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(value)}`}>
+          {value}
+        </span>
+      ),
+    },
+    {
+      key: "valid_from",
+      label: "Valid From",
+      sortable: true,
+      filterable: true,
+      filterComponent: { type: "date" },
+      width: 120,
+      render: (cert, value) => (
+        <span className="text-sm text-gray-600 dark:text-gray-400">
+          {formatDate(value)}
+        </span>
+      ),
+      exportRender: (cert, value) => formatDate(value),
+    },
+    {
+      key: "valid_until",
+      label: "Valid Until",
+      sortable: true,
+      filterable: true,
+      filterComponent: { type: "date" },
+      width: 120,
+      render: (cert, value) => (
+        <span className="text-sm text-gray-600 dark:text-gray-400">
+          {formatDate(value)}
+        </span>
+      ),
+      exportRender: (cert, value) => formatDate(value),
+    },
+    {
+      key: "signed_date",
+      label: "Signed Date",
+      sortable: true,
+      filterable: true,
+      filterComponent: { type: "date" },
+      width: 120,
+      render: (cert, value) => (
+        <span className="text-sm text-gray-600 dark:text-gray-400">
+          {formatDate(value)}
+        </span>
+      ),
+      exportRender: (cert, value) => formatDate(value),
+    },
+    {
+      key: "payment.status",
+      label: "Payment",
+      sortable: true,
+      filterable: true,
+      filterComponent: {
+        type: "select",
+        options: [
+          { label: "Completed", value: "Completed" },
+          { label: "Pending", value: "Pending" },
+          { label: "Failed", value: "Failed" },
+        ],
+      },
+      width: 100,
+      render: (cert) => {
+        const paymentStatus = cert.payment?.status;
+        if (!paymentStatus) return <span className="text-sm">N/A</span>;
+        
+        return (
+          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+            paymentStatus === "Completed"
+              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+              : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300"
+          }`}>
+            {paymentStatus}
+          </span>
+        );
+      },
+      exportRender: (cert) => cert.payment?.status || "N/A",
+    },
+    {
+      key: "certificate",
+      label: "Actions",
+      sortable: false,
+      filterable: false,
+      width: 100,
+      render: (cert) => (
+        <div className="flex items-center gap-2">
+          {cert.certificate && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleViewPDF(cert.certificate!, `${cert.member_number || cert.id}.pdf`);
+              }}
+              className="inline-flex items-center px-2 py-1 text-xs bg-[#00B5A5] hover:bg-[#009985] text-white rounded transition-colors"
+              title="View Certificate"
+            >
+              <Eye className="w-3 h-3 mr-1" />
+              View
+            </button>
+          )}
         </div>
-      </div>
-    );
-  }
+      ),
+    },
+  ], [userRole]);
+
+  // Bulk actions
+  const bulkActions = useMemo(() => {
+    const actions = [];
+
+    actions.push({
+      label: "Export Selected",
+      icon: <Download className="w-4 h-4" />,
+      action: async (selectedCerts: Certificate[]) => {
+        showSuccessToast(`Exporting ${selectedCerts.length} certificate${selectedCerts.length > 1 ? 's' : ''}`);
+      },
+    });
+
+    if (userRole !== "Member") {
+      actions.push({
+        label: "Download PDFs",
+        icon: <FileText className="w-4 h-4" />,
+        action: async (selectedCerts: Certificate[]) => {
+          const certsWithPdf = selectedCerts.filter(c => c.certificate);
+          if (certsWithPdf.length === 0) {
+            showErrorToast("No certificates with PDFs selected");
+            return;
+          }
+          showSuccessToast(`Downloading ${certsWithPdf.length} certificate PDF${certsWithPdf.length > 1 ? 's' : ''}`);
+        },
+      });
+    }
+
+    return actions;
+  }, [userRole]);
 
   // ============================================================================
   // ERROR STATE
@@ -582,154 +443,40 @@ export default function CertificatesClient() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header with Refresh Button */}
-        <div className="mb-8">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                Certificates
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400">
-                {userRole === "Member"
-                  ? "Your membership certificates"
-                  : "Manage all membership certificates"}
-              </p>
-            </div>
-
-            {/* Refresh Button with Lucide Icon */}
-            <button
-              onClick={() => fetchCertificates(userRole)}
-              disabled={loading}
-              className="inline-flex items-center px-4 py-2 bg-[#00B5A5] hover:bg-[#009985] text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-              Refresh
-            </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
-            <div className="text-2xl font-bold text-gray-900 dark:text-white">
-              {stats.total}
-            </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Total Certificates
-            </p>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
-            <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-              {(stats.active || 0) + (stats.valid || 0) + (stats.approved || 0)}
-            </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Active/Approved
-            </p>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
-            <div className="text-2xl font-bold text-red-600 dark:text-red-400">
-              {stats.expired || 0}
-            </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Expired</p>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
-            <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
-              {stats.suspended || 0}
-            </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Suspended
-            </p>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label
-                htmlFor="search"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-              >
-                Search Certificates
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Search className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  id="search"
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search by certificate number, member name, transaction..."
-                  className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label
-                htmlFor="status-filter"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-              >
-                Filter by Status
-              </label>
-              <select
-                id="status-filter"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent"
-              >
-                <option value="all">All Status</option>
-                <option value="active">Active</option>
-                <option value="valid">Valid</option>
-                <option value="approved">Approved</option>
-                <option value="expired">Expired</option>
-                <option value="suspended">Suspended</option>
-                <option value="revoked">Revoked</option>
-                <option value="abandoned">Abandoned</option>
-                <option value="pending">Pending</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <div className="mb-6">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Showing {filteredCertificates.length} of {certificates.length}{" "}
-            certificates
-          </p>
-        </div>
-
-        {filteredCertificates.length === 0 ? (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8 text-center">
-            <div className="mx-auto w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
-              <FileText className="w-8 h-8 text-gray-400 dark:text-gray-500" />
-            </div>
-            <h3 className="text-gray-900 dark:text-white font-medium mb-2 text-lg">
-              No Certificates Found
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400 text-sm">
-              {searchTerm || statusFilter !== "all"
-                ? "Try adjusting your search or filters"
-                : "No certificates are available"}
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredCertificates.map((certificate) => (
-              <CertificateCard
-                key={certificate.id}
-                certificate={certificate}
-                onCertificateClick={handleCertificateClick}
-                onViewPaymentClick={handleViewPayment}
-                getStatusColor={getStatusColor}
-                formatDate={formatDate}
-                formatDateTime={formatDateTime}
-                userRole={userRole}
-              />
-            ))}
-          </div>
-        )}
+        <BaseTable
+          data={certificates}
+          columns={columns}
+          loading={loading}
+          title="Certificates"
+          exportFileName="certificates"
+          searchable={true}
+          searchFields={[
+            "member_number",
+            "name",
+            "membership_term",
+            "status",
+          ]}
+          pagination={true}
+          pageSize={10}
+          onRowClick={(cert) => handleCertificateClick(cert.id)}
+          emptyMessage="No certificates found matching your criteria"
+          enableExcelExport={true}
+          enablePDFExport={true}
+          enableBulkSelection={true}
+          bulkActions={bulkActions}
+          enableColumnManagement={true}
+          stickyHeader={true}
+          rowKey="id"
+        />
       </div>
+
+      {/* PDF Viewer Modal */}
+      <PDFViewer
+        pdfUrl={currentPdfUrl}
+        fileName={currentPdfFileName}
+        isOpen={pdfViewerOpen}
+        onClose={() => setPdfViewerOpen(false)}
+      />
     </div>
   );
 }

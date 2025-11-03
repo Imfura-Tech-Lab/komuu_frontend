@@ -117,9 +117,17 @@ export default function OTPVerification() {
         showSuccessToast("OTP verified successfully!");
 
         if (data.token && data.data) {
+          // Store authentication token
           localStorage.setItem("auth_token", data.token);
 
+          // Store user data
           localStorage.setItem("user_data", JSON.stringify(data.data));
+
+          // Store company_id from the first institution
+          if (data.data.institutions && data.data.institutions.length > 0) {
+            const companyId = data.data.institutions[0].id;
+            localStorage.setItem("company_id", companyId);
+          }
 
           const hasChangedPassword = data.data.has_changed_password;
 
