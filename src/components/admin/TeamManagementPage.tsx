@@ -31,14 +31,6 @@ export default function TeamManagementPage() {
       stats: { label: "Total Groups", value: "24" },
     },
     {
-      title: "Conversations",
-      description: "Manage discussions and forums",
-      icon: ChatBubbleLeftRightIcon,
-      href: "/team/conversations",
-      color: "bg-green-500",
-      stats: { label: "Active Threads", value: "156" },
-    },
-    {
       title: "Events/Conferences",
       description: "Manage events and conferences",
       icon: VideoCameraIcon,

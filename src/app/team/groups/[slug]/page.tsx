@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeftIcon,
@@ -20,10 +20,6 @@ import {
   showErrorToast,
 } from "@/components/layouts/auth-layer-out";
 import CreateConversationModal from "@/components/conversations/CreateConversationModal";
-
-// ============================================================================
-// SKELETON COMPONENTS (keep the same as before)
-// ============================================================================
 
 const GroupHeaderSkeleton = () => (
   <div className="p-4 border-b border-gray-200 dark:border-gray-700">
@@ -103,10 +99,6 @@ const MessagesListSkeleton = () => (
   </div>
 );
 
-// ============================================================================
-// MAIN COMPONENT
-// ============================================================================
-
 export default function GroupChatPage() {
   const params = useParams();
   const router = useRouter();
@@ -135,53 +127,53 @@ export default function GroupChatPage() {
     fetchConversationGroups,
     createConversation,
   } = useConversations();
-  
+
   const {
     messages,
     loading: messagesLoading,
     error: messagesError,
-    currentConversationId,
     fetchMessages,
     createMessage,
     clearMessages,
   } = useConversationMessages();
 
-  // Get current user ID on component mount - FIXED VERSION
   useEffect(() => {
     if (typeof window !== "undefined") {
       const userData = localStorage.getItem("user_data");
+      const userId = localStorage.getItem("user_id");
+      
       if (userData) {
         try {
           const user = JSON.parse(userData);
-          console.log("Current user loaded:", user); // Debug log
+          console.log("Current user loaded from user_data:", user);
           setCurrentUserId(user.id);
         } catch (error) {
-          console.error("Error parsing user data:", error);
+          console.error("Error parsing user_data:", error);
         }
+      } else if (userId) {
+        console.log("Current user loaded from user_id:", userId);
+        setCurrentUserId(parseInt(userId));
       } else {
-        console.log("No user_data found in localStorage");
+        console.warn("No user data found in localStorage");
+        console.log("localStorage keys:", Object.keys(localStorage));
       }
     }
   }, []);
 
-  // Load data on mount
   useEffect(() => {
     loadGroupData();
   }, [slug]);
 
-  // Auto-scroll to bottom when messages change
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
-  // Clear messages when component unmounts or group changes
   useEffect(() => {
     return () => {
       clearMessages();
     };
   }, [clearMessages]);
 
-  // Close sidebar when conversation is selected on mobile
   useEffect(() => {
     if (selectedConversation && window.innerWidth < 768) {
       setShowSidebar(false);
@@ -191,16 +183,14 @@ export default function GroupChatPage() {
   const loadGroupData = async () => {
     try {
       setIsLoadingGroup(true);
-      clearMessages(); // Clear previous messages
-      
+      clearMessages();
       const groupData = await fetchGroup(slug);
       if (groupData) {
         setGroup(groupData);
       }
-      
+
       await fetchConversations(slug);
       await loadTypesAndGroups();
-      
     } catch (error) {
       console.error("Error loading group data:", error);
       showErrorToast("Failed to load group data");
@@ -213,10 +203,7 @@ export default function GroupChatPage() {
     setTypesLoading(true);
     setTypesError(false);
     try {
-      await Promise.all([
-        fetchConversationTypes(),
-        fetchConversationGroups(),
-      ]);
+      await Promise.all([fetchConversationTypes(), fetchConversationGroups()]);
     } catch (err) {
       console.error("Failed to load types/groups:", err);
       setTypesError(true);
@@ -229,32 +216,43 @@ export default function GroupChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // FIXED: Check if message belongs to current user
-  const isOwnMessage = (message: any) => {
-    const isOwn = currentUserId && message.sender.id === currentUserId;
-    console.log(`Message ${message.id} check:`, {
-      senderId: message.sender.id,
-      currentUserId,
-      isOwn,
-      senderName: message.sender.name
-    });
-    return isOwn;
-  };
+  const isOwnMessage = useCallback(
+    (message: any) => {
+      if (currentUserId === null) return false;
+      
+      const senderId = typeof message.sender.id === 'string' 
+        ? parseInt(message.sender.id) 
+        : message.sender.id;
+      
+      const isOwn = senderId === currentUserId;
+      
+      console.log(`Message ${message.id} check:`, {
+        senderId,
+        senderIdType: typeof message.sender.id,
+        currentUserId,
+        currentUserIdType: typeof currentUserId,
+        isOwn,
+        senderName: message.sender.name,
+      });
+      
+      return isOwn;
+    },
+    [currentUserId]
+  );
 
   const handleConversationClick = async (conversation: Conversation) => {
-    console.log('Selecting conversation:', conversation.id, conversation.title);
-    
-    // Clear previous messages immediately when selecting new conversation
+    console.log("Selecting conversation:", conversation.id, conversation.title);
+
     if (selectedConversation?.id !== conversation.id) {
       clearMessages();
     }
-    
+
     setSelectedConversation(conversation);
-    
+
     try {
       await fetchMessages(conversation.id);
     } catch (error) {
-      console.error('Error loading messages:', error);
+      console.error("Error loading messages:", error);
       showErrorToast("Failed to load messages");
     }
   };
@@ -276,10 +274,9 @@ export default function GroupChatPage() {
 
       if (success) {
         setMessageText("");
-        await fetchMessages(selectedConversation.id);
       }
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error("Error sending message:", error);
       showErrorToast("Failed to send message");
     }
   };
@@ -332,17 +329,14 @@ export default function GroupChatPage() {
     }
   };
 
-  // Show full page loading skeleton
   if (isLoadingGroup) {
     return (
       <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
-        {/* Sidebar Skeleton */}
         <div className="w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col md:flex">
           <GroupHeaderSkeleton />
           <ConversationsListSkeleton />
         </div>
 
-        {/* Main Area Skeleton */}
         <div className="flex-1 flex flex-col">
           <ChatHeaderSkeleton />
           <div className="flex-1 flex items-center justify-center">
@@ -374,22 +368,22 @@ export default function GroupChatPage() {
 
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Mobile Overlay */}
       {showSidebar && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
           onClick={() => setShowSidebar(false)}
         />
       )}
 
-      {/* Sidebar - Conversations */}
-      <div className={`
+      <div
+        className={`
         fixed md:relative inset-y-0 left-0 z-50
-        w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 
+        w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700
         flex flex-col transform transition-transform duration-300 ease-in-out
-        ${showSidebar ? 'translate-x-0' : '-translate-x-full'} 
+        ${showSidebar ? "translate-x-0" : "-translate-x-full"}
         md:translate-x-0 md:flex
-      `}>
+      `}
+      >
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-3">
             <button
@@ -441,7 +435,6 @@ export default function GroupChatPage() {
           </div>
         </div>
 
-        {/* Error Alert for Conversations */}
         {conversationsError && conversations.length === 0 && (
           <div className="m-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
             <p className="text-xs text-red-800 dark:text-red-200">
@@ -507,11 +500,9 @@ export default function GroupChatPage() {
         </div>
       </div>
 
-      {/* Main Chat Area */}
       <div className="flex-1 flex flex-col">
         {selectedConversation ? (
           <>
-            {/* Chat Header */}
             <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 md:px-6 py-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
@@ -549,7 +540,9 @@ export default function GroupChatPage() {
                     className="flex items-center text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                     title="Refresh messages"
                   >
-                    <ArrowPathIcon className={`h-4 w-4 ${messagesLoading ? "animate-spin" : ""}`} />
+                    <ArrowPathIcon
+                      className={`h-4 w-4 ${messagesLoading ? "animate-spin" : ""}`}
+                    />
                   </button>
                   <button
                     onClick={toggleSidebar}
@@ -561,7 +554,6 @@ export default function GroupChatPage() {
               </div>
             </div>
 
-            {/* Error Alert for Messages */}
             {messagesError && messages.length === 0 && (
               <div className="mx-4 md:mx-6 mt-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
                 <p className="text-sm text-red-800 dark:text-red-200">
@@ -577,7 +569,6 @@ export default function GroupChatPage() {
               </div>
             )}
 
-            {/* Messages Area */}
             {messagesLoading && messages.length === 0 ? (
               <MessagesListSkeleton />
             ) : (
@@ -593,26 +584,38 @@ export default function GroupChatPage() {
                 ) : (
                   <>
                     {messages
-                      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+                      .sort(
+                        (a, b) =>
+                          new Date(a.created_at).getTime() -
+                          new Date(b.created_at).getTime()
+                      )
                       .map((message) => {
                         const ownMessage = isOwnMessage(message);
                         return (
-                          <div 
-                            key={message.id} 
-                            className={`flex items-start space-x-3 ${ownMessage ? 'flex-row-reverse space-x-reverse' : ''}`}
+                          <div
+                            key={message.id}
+                            className={`flex items-start space-x-3 ${
+                              ownMessage ? "flex-row-reverse space-x-reverse" : ""
+                            }`}
                           >
-                            {/* Avatar */}
                             <div className="h-10 w-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
                               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                                 {message.sender.name[0]?.toUpperCase() || "?"}
                               </span>
                             </div>
-                            
-                            {/* Message Content */}
-                            <div className={`flex-1 ${ownMessage ? 'flex flex-col items-end' : ''}`}>
-                              <div className={`flex items-baseline space-x-2 ${ownMessage ? 'flex-row-reverse space-x-reverse' : ''}`}>
+
+                            <div
+                              className={`flex-1 ${
+                                ownMessage ? "flex flex-col items-end" : ""
+                              }`}
+                            >
+                              <div
+                                className={`flex items-baseline space-x-2 ${
+                                  ownMessage ? "flex-row-reverse space-x-reverse" : ""
+                                }`}
+                              >
                                 <span className="font-medium text-gray-900 dark:text-white text-sm">
-                                  {ownMessage ? 'You' : message.sender.name}
+                                  {ownMessage ? "You" : message.sender.name}
                                 </span>
                                 {message.sender.role && !ownMessage && (
                                   <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400">
@@ -623,13 +626,16 @@ export default function GroupChatPage() {
                                   {formatTimeAgo(message.created_at)}
                                 </span>
                               </div>
-                              <div className={`
+                              <div
+                                className={`
                                 mt-1 rounded-lg p-3 shadow-sm max-w-[85%] md:max-w-[70%]
-                                ${ownMessage 
-                                  ? 'bg-[#00B5A5] text-white rounded-br-none' 
-                                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-bl-none'
+                                ${
+                                  ownMessage
+                                    ? "bg-[#00B5A5] text-white rounded-br-none"
+                                    : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-bl-none"
                                 }
-                              `}>
+                              `}
+                              >
                                 <p className="text-sm whitespace-pre-wrap">
                                   {message.content}
                                 </p>
@@ -640,17 +646,17 @@ export default function GroupChatPage() {
                                         src={message.file_url}
                                         alt="Attachment"
                                         className="max-w-full rounded-lg border cursor-pointer hover:opacity-90 transition-opacity"
-                                        onClick={() => window.open(message.file_url, '_blank')}
+                                        onClick={() => window.open(message.file_url, "_blank")}
                                       />
                                     ) : (
-                                      <a
-                                        href={message.file_url}
+                                      
+                                        <a href={message.file_url}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className={`inline-flex items-center text-xs ${
-                                          ownMessage 
-                                            ? 'text-white/80 hover:text-white' 
-                                            : 'text-[#00B5A5] hover:underline'
+                                          ownMessage
+                                            ? "text-white/80 hover:text-white"
+                                            : "text-[#00B5A5] hover:underline"
                                         }`}
                                       >
                                         <svg
@@ -682,7 +688,6 @@ export default function GroupChatPage() {
               </div>
             )}
 
-            {/* Message Input */}
             <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
               <form onSubmit={handleSendMessage} className="flex items-end space-x-3">
                 <div className="flex-1">
@@ -707,7 +712,11 @@ export default function GroupChatPage() {
                 </div>
                 <button
                   type="submit"
-                  disabled={!messageText.trim() || messageText.trim().length < 10 || messagesLoading}
+                  disabled={
+                    !messageText.trim() ||
+                    messageText.trim().length < 10 ||
+                    messagesLoading
+                  }
                   className="p-3 bg-[#00B5A5] text-white rounded-lg hover:bg-[#008f82] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
                 >
                   <PaperAirplaneIcon className="h-5 w-5" />
@@ -720,7 +729,6 @@ export default function GroupChatPage() {
           </>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center">
-            {/* Mobile: Show conversations button when no conversation is selected */}
             <div className="md:hidden p-4">
               <button
                 onClick={toggleSidebar}
@@ -730,8 +738,7 @@ export default function GroupChatPage() {
                 Show Conversations
               </button>
             </div>
-            
-            {/* Desktop: Show the usual message */}
+
             <div className="hidden md:flex flex-col items-center justify-center h-full">
               <ChatBubbleLeftRightIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-500 dark:text-gray-400">
@@ -742,7 +749,6 @@ export default function GroupChatPage() {
         )}
       </div>
 
-      {/* Create Conversation Modal */}
       <CreateConversationModal
         isOpen={showNewConversationModal}
         onClose={() => setShowNewConversationModal(false)}
