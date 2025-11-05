@@ -10,15 +10,16 @@ import {
   TrashIcon,
   UserPlusIcon,
   UserMinusIcon,
-  EyeIcon,
-  ArrowPathIcon,
   ShieldExclamationIcon,
+  ArrowPathIcon,
   MagnifyingGlassIcon,
   FunnelIcon,
   ChatBubbleLeftIcon,
   UsersIcon,
   Squares2X2Icon,
   TableCellsIcon,
+  EyeIcon,
+  ArrowTopRightOnSquareIcon,
 } from "@heroicons/react/24/outline";
 import { Menu, Transition } from "@headlessui/react";
 import { Fragment } from "react";
@@ -112,7 +113,8 @@ const StatsSkeleton = () => (
 
 interface ActionsDropdownProps {
   group: Group;
-  onView: (group: Group) => void;
+  onViewModal: (group: Group) => void;
+  onGoToPage: (group: Group) => void;
   onEdit: (group: Group) => void;
   onAddMember: (slug: string) => void;
   onRemoveMember: (slug: string) => void;
@@ -123,7 +125,8 @@ interface ActionsDropdownProps {
 
 const ActionsDropdown: React.FC<ActionsDropdownProps> = ({
   group,
-  onView,
+  onViewModal,
+  onGoToPage,
   onEdit,
   onAddMember,
   onRemoveMember,
@@ -131,13 +134,24 @@ const ActionsDropdown: React.FC<ActionsDropdownProps> = ({
   onDelete,
   disabled,
 }) => {
+  const [isRightEdge, setIsRightEdge] = React.useState(false);
+
+  const handleButtonClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    // Check if button is near right edge of viewport
+    const button = e.currentTarget as HTMLElement;
+    const rect = button.getBoundingClientRect();
+    const spaceOnRight = window.innerWidth - rect.right;
+    setIsRightEdge(spaceOnRight < 200); // 200px is approximate menu width + padding
+  };
+
   return (
     <Menu as="div" className="relative inline-block text-left">
       <div>
         <Menu.Button
           disabled={disabled}
           className="flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-full p-1 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          onClick={(e) => e.stopPropagation()}
+          onClick={handleButtonClick}
         >
           <EllipsisVerticalIcon className="h-5 w-5" />
         </Menu.Button>
@@ -152,14 +166,14 @@ const ActionsDropdown: React.FC<ActionsDropdownProps> = ({
         leaveFrom="transform opacity-100 scale-100"
         leaveTo="transform opacity-0 scale-95"
       >
-        <Menu.Items className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none border border-gray-200 dark:border-gray-700">
+        <Menu.Items className={`absolute ${isRightEdge ? 'right-0 origin-top-right' : 'left-0 origin-top-left'} z-50 mt-2 w-48 rounded-md bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none border border-gray-200 dark:border-gray-700`}>
           <div className="py-1">
             <Menu.Item>
               {({ active }) => (
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    onView(group);
+                    onViewModal(group);
                   }}
                   className={`${
                     active ? "bg-gray-100 dark:bg-gray-700" : ""
@@ -170,6 +184,25 @@ const ActionsDropdown: React.FC<ActionsDropdownProps> = ({
                 </button>
               )}
             </Menu.Item>
+
+            <Menu.Item>
+              {({ active }) => (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onGoToPage(group);
+                  }}
+                  className={`${
+                    active ? "bg-gray-100 dark:bg-gray-700" : ""
+                  } flex w-full items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300`}
+                >
+                  <ArrowTopRightOnSquareIcon className="mr-3 h-4 w-4" />
+                  Go to Page
+                </button>
+              )}
+            </Menu.Item>
+
+            <div className="border-t border-gray-100 dark:border-gray-700"></div>
 
             <Menu.Item>
               {({ active }) => (
@@ -466,7 +499,8 @@ export default function GroupsPage() {
     }
   };
 
-  const handleViewGroup = async (group: Group) => {
+  // View Details opens modal with detailed group info
+  const handleViewModal = async (group: Group) => {
     setSelectedGroup(group);
     setShowViewModal(true);
 
@@ -483,15 +517,17 @@ export default function GroupsPage() {
     }
   };
 
+  // Go to Page navigates to single group page
+  const handleGoToPage = (group: Group) => {
+    router.push(`/team/groups/${group.slug}`);
+  };
+
   const handleEditClick = (group: Group) => {
     setSelectedGroup(group);
     setShowEditModal(true);
   };
 
-  const handleCardClick = (group: Group) => {
-    router.push(`/team/groups/${group.slug}`);
-  };
-
+  // Table row click also navigates to single group page
   const handleRowClick = (group: Group) => {
     router.push(`/team/groups/${group.slug}`);
   };
@@ -602,7 +638,8 @@ export default function GroupsPage() {
         <div className="flex justify-end">
           <ActionsDropdown
             group={group}
-            onView={handleViewGroup}
+            onViewModal={handleViewModal}
+            onGoToPage={handleGoToPage}
             onEdit={handleEditClick}
             onAddMember={handleOpenAddMemberModal}
             onRemoveMember={handleOpenRemoveMemberModal}
@@ -806,8 +843,7 @@ export default function GroupsPage() {
             {filteredGroups.map((group) => (
               <div
                 key={group.slug}
-                onClick={() => handleCardClick(group)}
-                className="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition-shadow cursor-pointer"
+                className="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition-shadow"
               >
                 <div className="p-6">
                   <div className="flex items-start justify-between mb-4">
@@ -858,16 +894,19 @@ export default function GroupsPage() {
                       </span>
                     </div>
 
-                    <ActionsDropdown
-                      group={group}
-                      onView={handleViewGroup}
-                      onEdit={handleEditClick}
-                      onAddMember={handleOpenAddMemberModal}
-                      onRemoveMember={handleOpenRemoveMemberModal}
-                      onBlockMember={handleOpenBlockMemberModal}
-                      onDelete={handleDeleteGroup}
-                      disabled={actionLoading === group.slug}
-                    />
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <ActionsDropdown
+                        group={group}
+                        onViewModal={handleViewModal}
+                        onGoToPage={handleGoToPage}
+                        onEdit={handleEditClick}
+                        onAddMember={handleOpenAddMemberModal}
+                        onRemoveMember={handleOpenRemoveMemberModal}
+                        onBlockMember={handleOpenBlockMemberModal}
+                        onDelete={handleDeleteGroup}
+                        disabled={actionLoading === group.slug}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
