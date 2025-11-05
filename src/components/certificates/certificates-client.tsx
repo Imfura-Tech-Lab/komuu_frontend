@@ -17,7 +17,7 @@ import {
   Shield
 } from "lucide-react";
 import { BaseTable, BaseTableColumn } from "@/components/ui/BaseTable";
-import { PDFViewer } from "@/components/ui/FileViwer";
+import { FileViewer } from "@/components/ui/FileViwer";
 
 interface Certificate {
   id: number;
@@ -67,10 +67,10 @@ export default function CertificatesClient() {
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   
-  // PDF Viewer State
-  const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
-  const [currentPdfUrl, setCurrentPdfUrl] = useState("");
-  const [currentPdfFileName, setCurrentPdfFileName] = useState("");
+  // File Viewer State
+  const [fileViewerOpen, setFileViewerOpen] = useState(false);
+  const [currentFileUrl, setCurrentFileUrl] = useState("");
+  const [currentFileName, setCurrentFileName] = useState("");
 
   const router = useRouter();
 
@@ -180,10 +180,10 @@ export default function CertificatesClient() {
     }
   };
 
-  const handleViewPDF = (pdfUrl: string, fileName: string) => {
-    setCurrentPdfUrl(pdfUrl);
-    setCurrentPdfFileName(fileName);
-    setPdfViewerOpen(true);
+  const handleViewFile = (fileUrl: string, fileName: string) => {
+    setCurrentFileUrl(fileUrl);
+    setCurrentFileName(fileName);
+    setFileViewerOpen(true);
   };
 
   const getStatusColor = (status: string) => {
@@ -365,7 +365,7 @@ export default function CertificatesClient() {
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                handleViewPDF(cert.certificate!, `${cert.member_number || cert.id}.pdf`);
+                handleViewFile(cert.certificate!, `Certificate-${cert.member_number || cert.id}.pdf`);
               }}
               className="inline-flex items-center px-2 py-1 text-xs bg-[#00B5A5] hover:bg-[#009985] text-white rounded transition-colors"
               title="View Certificate"
@@ -470,12 +470,13 @@ export default function CertificatesClient() {
         />
       </div>
 
-      {/* PDF Viewer Modal */}
-      <PDFViewer
-        pdfUrl={currentPdfUrl}
-        fileName={currentPdfFileName}
-        isOpen={pdfViewerOpen}
-        onClose={() => setPdfViewerOpen(false)}
+      {/* File Viewer Modal */}
+      <FileViewer
+        fileUrl={currentFileUrl}
+        fileName={currentFileName}
+        fileType="pdf"
+        isOpen={fileViewerOpen}
+        onClose={() => setFileViewerOpen(false)}
       />
     </div>
   );
