@@ -11,7 +11,7 @@ export interface Resource {
   type: string;
   category?: string;
   visibility: string;
-  file_url?: string; // Changed from file
+  file_url?: string;
   link?: string;
   file_size?: string;
   downloads?: number;
@@ -24,6 +24,8 @@ export interface Resource {
   created_at: string;
   updated_at?: string;
 }
+
+export type ResourceType = string;
 
 interface CreateResourceParams {
   title: string;
@@ -42,9 +44,11 @@ interface UpdateResourceParams extends CreateResourceParams {
 
 interface UseResourcesReturn {
   resources: Resource[];
+  resourceTypes: ResourceType[];
   loading: boolean;
   error: string | null;
   fetchResources: () => Promise<void>;
+  fetchResourceTypes: () => Promise<void>;
   fetchResource: (id: number) => Promise<Resource | null>;
   createResource: (params: CreateResourceParams) => Promise<boolean>;
   updateResource: (params: UpdateResourceParams) => Promise<boolean>;
@@ -65,7 +69,7 @@ const normalizeResource = (resource: any): Resource => ({
   type: resource.type,
   category: resource.category,
   visibility: resource.visibility,
-  file_url: sanitizeFileUrl(resource.file_url), // HTTPS enforcement
+  file_url: sanitizeFileUrl(resource.file_url),
   link: resource.link,
   file_size: resource.file_size,
   downloads: resource.downloads || 0,
@@ -85,6 +89,7 @@ const normalizeResource = (resource: any): Resource => ({
 
 export function useResources(): UseResourcesReturn {
   const [resources, setResources] = useState<Resource[]>([]);
+  const [resourceTypes, setResourceTypes] = useState<ResourceType[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -98,6 +103,35 @@ export function useResources(): UseResourcesReturn {
       "X-Company-ID": institutionId || "",
     };
   }, []);
+
+  const fetchResourceTypes = useCallback(async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
+      const token = localStorage.getItem("auth_token");
+
+      if (!token || !apiUrl) {
+        return;
+      }
+
+      const response = await fetch(`${apiUrl}resource-types`, {
+        method: "GET",
+        headers: getHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.status === "success" && data.types) {
+        setResourceTypes(Array.isArray(data.types) ? data.types : []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch resource types:", err);
+      // Silent fail - types are optional for UI
+    }
+  }, [getHeaders]);
 
   const fetchResources = useCallback(async () => {
     try {
@@ -368,9 +402,11 @@ export function useResources(): UseResourcesReturn {
 
   return {
     resources,
+    resourceTypes,
     loading,
     error,
     fetchResources,
+    fetchResourceTypes,
     fetchResource,
     createResource,
     updateResource,

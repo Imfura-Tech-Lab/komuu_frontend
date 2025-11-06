@@ -10,15 +10,16 @@ export interface EventFormData {
   description?: string;
   type: string;
   location: string;
-  event_mode: "In-Person" | "Virtual" | "Hybrid";
+  event_mode: "In-Person" | "Online" | "Hybrid";
   attendance_link?: string;
   event_link?: string;
   start_time: string;
   end_time: string;
+  registration_deadline: string;
   is_paid: boolean;
   price?: number;
   capacity: number;
-  status?: "Scheduled" | "Ongoing" | "Completed" | "Cancelled";
+  status?: "Scheduled" | "Ongoing" | "Completed" | "Cancelled" | "Draft";
   thumbnail?: File;
 }
 
@@ -40,13 +41,14 @@ const EVENT_TYPES = [
   "Other",
 ];
 
-const EVENT_MODES = ["In-Person", "Virtual", "Hybrid"] as const;
+const EVENT_MODES = ["In-Person", "Online","Hybrid"] as const;
 
 const EVENT_STATUSES = [
-  "Scheduled",
-  "Ongoing",
-  "Completed",
-  "Cancelled",
+ "Draft",
+ "Scheduled",
+ "Ongoing",
+ "Completed",
+ "Cancelled"
 ] as const;
 
 export function EventModal({
@@ -66,6 +68,7 @@ export function EventModal({
     event_link: "",
     start_time: "",
     end_time: "",
+    registration_deadline: "",
     is_paid: false,
     price: undefined,
     capacity: 100,
@@ -97,6 +100,7 @@ export function EventModal({
         event_link: event.event_link || "",
         start_time: formatDateTime(event.start_time),
         end_time: formatDateTime(event.end_time),
+        registration_deadline: formatDateTime(event.registration_deadline || event.start_time),
         is_paid: event.is_paid,
         price: event.price,
         capacity: event.capacity,
@@ -116,6 +120,7 @@ export function EventModal({
         event_link: "",
         start_time: "",
         end_time: "",
+        registration_deadline: "",
         is_paid: false,
         price: undefined,
         capacity: 100,
@@ -150,11 +155,23 @@ export function EventModal({
       newErrors.end_time = "End date & time is required";
     }
 
+    if (!formData.registration_deadline) {
+      newErrors.registration_deadline = "Registration deadline is required";
+    }
+
     if (formData.start_time && formData.end_time) {
       const start = new Date(formData.start_time);
       const end = new Date(formData.end_time);
       if (end <= start) {
         newErrors.end_time = "End time must be after start time";
+      }
+    }
+
+    if (formData.start_time && formData.registration_deadline) {
+      const start = new Date(formData.start_time);
+      const deadline = new Date(formData.registration_deadline);
+      if (deadline > start) {
+        newErrors.registration_deadline = "Registration deadline must be before event start time";
       }
     }
 
@@ -167,12 +184,12 @@ export function EventModal({
     }
 
     if (
-      (formData.event_mode === "Virtual" || formData.event_mode === "Hybrid") &&
+      (formData.event_mode === "Online" || formData.event_mode === "Hybrid") &&
       !formData.attendance_link &&
       !formData.event_link
     ) {
       newErrors.attendance_link =
-        "At least one link is required for virtual/hybrid events";
+        "At least one link is required for online/hybrid events";
     }
 
     setClientErrors(newErrors);
@@ -192,6 +209,7 @@ export function EventModal({
 
     const formatForAPI = (dateString: string) => {
       try {
+        if (!dateString) return "";
         const date = new Date(dateString);
         const month = String(date.getMonth() + 1).padStart(2, "0");
         const day = String(date.getDate()).padStart(2, "0");
@@ -208,7 +226,10 @@ export function EventModal({
       ...formData,
       start_time: formatForAPI(formData.start_time),
       end_time: formatForAPI(formData.end_time),
+      registration_deadline: formatForAPI(formData.registration_deadline),
     };
+
+    console.log("Submission data:", submissionData);
 
     const result = await onSubmit(submissionData);
     
@@ -537,11 +558,11 @@ export function EventModal({
                   </div>
 
                   {/* Virtual Links */}
-                  {(formData.event_mode === "Virtual" ||
+                  {(formData.event_mode === "Online" ||
                     formData.event_mode === "Hybrid") && (
                     <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
                       <p className="text-sm font-medium text-blue-900 dark:text-blue-300 mb-4">
-                        Virtual Event Links
+                        Online Event Links
                       </p>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
@@ -647,7 +668,7 @@ export function EventModal({
                     </div>
                   </div>
 
-                  {/* Registration Deadline - Add this new field */}
+                  {/* Registration Deadline */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Registration Deadline <span className="text-red-500">*</span>
@@ -655,6 +676,10 @@ export function EventModal({
                     <input
                       type="datetime-local"
                       required
+                      value={formData.registration_deadline}
+                      onChange={(e) =>
+                        setFormData({ ...formData, registration_deadline: e.target.value })
+                      }
                       className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent dark:bg-gray-700 dark:text-white transition-colors ${
                         hasError('registration_deadline')
                           ? "border-red-500 dark:border-red-500"
