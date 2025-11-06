@@ -10,7 +10,7 @@ export interface Event {
   description?: string;
   type: string;
   location: string;
-  event_mode: "In-Person" | "Virtual" | "Hybrid";
+  event_mode: "In-Person" | "Online" | "Hybrid";
   attendance_link?: string;
   event_link?: string;
   start_time: string;
@@ -18,8 +18,9 @@ export interface Event {
   is_paid: boolean;
   price?: number;
   capacity: number;
+  registration_deadline: string;
   attendees_count?: number;
-  status: "Scheduled" | "Ongoing" | "Completed" | "Cancelled";
+  status: "Scheduled" | "Ongoing" | "Completed" | "Cancelled" | "Draft";
   thumbnail?: string;
   organizer?: string;
   created_at: string;
@@ -31,12 +32,13 @@ interface CreateEventParams {
   description?: string;
   type: string;
   location: string;
-  event_mode: "In-Person" | "Virtual" | "Hybrid";
+  event_mode: "In-Person" | "Online" | "Hybrid";
   attendance_link?: string;
   event_link?: string;
   start_time: string;
   end_time: string;
   is_paid: boolean;
+  registration_deadline: string;
   price?: number;
   capacity: number;
   thumbnail?: File;
@@ -44,7 +46,7 @@ interface CreateEventParams {
 
 interface UpdateEventParams extends CreateEventParams {
   id: string;
-  status?: "Scheduled" | "Ongoing" | "Completed" | "Cancelled";
+  status?: "Scheduled" | "Ongoing" | "Completed" | "Cancelled" | "Draft";
 }
 
 interface UseEventsReturn {
@@ -53,8 +55,8 @@ interface UseEventsReturn {
   error: string | null;
   fetchEvents: () => Promise<void>;
   fetchEvent: (id: string) => Promise<Event | null>;
-  createEvent: (params: CreateEventParams) => Promise<boolean>;
-  updateEvent: (params: UpdateEventParams) => Promise<boolean>;
+  createEvent: (params: CreateEventParams) => Promise<{ success: boolean; errors?: Record<string, string[]> }>;
+  updateEvent: (params: UpdateEventParams) => Promise<{ success: boolean; errors?: Record<string, string[]> }>;
   deleteEvent: (id: string) => Promise<boolean>;
 }
 
@@ -129,6 +131,7 @@ export function useEvents(): UseEventsReturn {
                 attendees_count: event.attendees_count || 0,
                 status: event.status || "Scheduled",
                 thumbnail: event.thumbnail,
+                registration_deadline: event.registration_deadline,
                 organizer: event.organizer,
                 created_at: event.created_at,
                 updated_at: event.updated_at,
@@ -190,6 +193,7 @@ export function useEvents(): UseEventsReturn {
             is_paid: event.is_paid === 1 || event.is_paid === true,
             price: event.price,
             capacity: event.capacity,
+            registration_deadline: event.registration_deadline,
             attendees_count: event.attendees_count || 0,
             status: event.status || "Scheduled",
             thumbnail: event.thumbnail,
@@ -212,7 +216,7 @@ export function useEvents(): UseEventsReturn {
   );
 
   const createEvent = useCallback(
-    async (params: CreateEventParams): Promise<boolean> => {
+    async (params: CreateEventParams): Promise<{ success: boolean; errors?: Record<string, string[]> }> => {
       try {
         setLoading(true);
         setError(null);
@@ -222,7 +226,7 @@ export function useEvents(): UseEventsReturn {
 
         if (!token || !apiUrl) {
           showErrorToast("Configuration error");
-          return false;
+          return { success: false };
         }
 
         const formData = new FormData();
@@ -237,6 +241,7 @@ export function useEvents(): UseEventsReturn {
         if (params.event_link) formData.append("event_link", params.event_link);
         formData.append("start_time", params.start_time);
         formData.append("start_end", params.end_time);
+        formData.append("registration_deadline", params.registration_deadline);
         formData.append("is_paid", params.is_paid ? "1" : "0");
         if (params.price) formData.append("price", params.price.toString());
         formData.append("capacity", params.capacity.toString());
@@ -251,16 +256,17 @@ export function useEvents(): UseEventsReturn {
           body: formData,
         });
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
         const data = await response.json();
 
         if (data.status === "success") {
-          showSuccessToast("Event created successfully");
+          showSuccessToast(data.message || "Event created successfully");
           await fetchEvents();
-          return true;
+          return { success: true };
+        }
+
+        // Handle validation errors
+        if (data.status === "error" && data.errors) {
+          return { success: false, errors: data.errors };
         }
 
         throw new Error(data.message || "Failed to create event");
@@ -269,7 +275,7 @@ export function useEvents(): UseEventsReturn {
         showErrorToast(
           err instanceof Error ? err.message : "Failed to create event"
         );
-        return false;
+        return { success: false };
       } finally {
         setLoading(false);
       }
@@ -278,7 +284,7 @@ export function useEvents(): UseEventsReturn {
   );
 
   const updateEvent = useCallback(
-    async (params: UpdateEventParams): Promise<boolean> => {
+    async (params: UpdateEventParams): Promise<{ success: boolean; errors?: Record<string, string[]> }> => {
       try {
         setLoading(true);
         setError(null);
@@ -288,7 +294,7 @@ export function useEvents(): UseEventsReturn {
 
         if (!token || !apiUrl) {
           showErrorToast("Configuration error");
-          return false;
+          return { success: false };
         }
 
         const formData = new FormData();
@@ -303,6 +309,7 @@ export function useEvents(): UseEventsReturn {
         if (params.event_link) formData.append("event_link", params.event_link);
         formData.append("start_time", params.start_time);
         formData.append("start_end", params.end_time);
+        formData.append("registration_deadline", params.registration_deadline);
         formData.append("is_paid", params.is_paid ? "1" : "0");
         if (params.price) formData.append("price", params.price.toString());
         formData.append("capacity", params.capacity.toString());
@@ -319,16 +326,17 @@ export function useEvents(): UseEventsReturn {
           body: formData,
         });
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
         const data = await response.json();
 
         if (data.status === "success") {
-          showSuccessToast("Event updated successfully");
+          showSuccessToast(data.message || "Event updated successfully");
           await fetchEvents();
-          return true;
+          return { success: true };
+        }
+
+        // Handle validation errors
+        if (data.status === "error" && data.errors) {
+          return { success: false, errors: data.errors };
         }
 
         throw new Error(data.message || "Failed to update event");
@@ -337,7 +345,7 @@ export function useEvents(): UseEventsReturn {
         showErrorToast(
           err instanceof Error ? err.message : "Failed to update event"
         );
-        return false;
+        return { success: false };
       } finally {
         setLoading(false);
       }
@@ -371,7 +379,7 @@ export function useEvents(): UseEventsReturn {
         const data = await response.json();
 
         if (data.status === "success") {
-          showSuccessToast("Event deleted successfully");
+          showSuccessToast(data.message || "Event deleted successfully");
           await fetchEvents();
           return true;
         }

@@ -96,13 +96,15 @@ const EventCard: React.FC<EventCardProps> = ({ event, onEdit, onDelete }) => {
         "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300",
       Cancelled:
         "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
+      Draft:
+        "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300",
     };
     return colors[status] || colors.Scheduled;
   };
 
   const getModeIcon = (mode: string) => {
     switch (mode) {
-      case "Virtual":
+      case "Online":
         return <GlobeAltIcon className="h-4 w-4" />;
       case "In-Person":
         return <BuildingOfficeIcon className="h-4 w-4" />;
@@ -354,7 +356,7 @@ export default function EventsPage() {
 
   const handleCreateEvent = async (formData: EventFormData) => {
     setModalLoading(true);
-    const success = await createEvent({
+    const result = await createEvent({
       title: formData.title,
       description: formData.description,
       type: formData.type,
@@ -364,6 +366,7 @@ export default function EventsPage() {
       event_link: formData.event_link,
       start_time: formData.start_time,
       end_time: formData.end_time,
+      registration_deadline: formData.registration_deadline,
       is_paid: formData.is_paid,
       price: formData.price,
       capacity: formData.capacity,
@@ -371,19 +374,18 @@ export default function EventsPage() {
     });
     setModalLoading(false);
 
-    if (success) {
+    if (result.success) {
       setShowCreateModal(false);
     }
 
-    // Return the expected format
-    return { success, errors: {} };
+    return result;
   };
 
   const handleUpdateEvent = async (formData: EventFormData) => {
     if (!selectedEvent) return { success: false, errors: {} };
 
     setModalLoading(true);
-    const success = await updateEvent({
+    const result = await updateEvent({
       id: selectedEvent.id,
       title: formData.title,
       description: formData.description,
@@ -394,6 +396,7 @@ export default function EventsPage() {
       event_link: formData.event_link,
       start_time: formData.start_time,
       end_time: formData.end_time,
+      registration_deadline: formData.registration_deadline,
       is_paid: formData.is_paid,
       price: formData.price,
       capacity: formData.capacity,
@@ -402,13 +405,12 @@ export default function EventsPage() {
     });
     setModalLoading(false);
 
-    if (success) {
+    if (result.success) {
       setShowEditModal(false);
       setSelectedEvent(null);
     }
 
-    // Return the expected format
-    return { success, errors: {} };
+    return result;
   };
 
   const handleEditClick = (event: Event) => {
