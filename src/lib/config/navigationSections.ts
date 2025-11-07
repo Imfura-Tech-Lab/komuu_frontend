@@ -1,43 +1,54 @@
 import { NavigationSection } from "@/types/navigation";
 
-
 export const NAVIGATION_SECTIONS: NavigationSection[] = [
   {
-    id: "main",
-    label: "Main",
+    id: "overview",
+    label: "Overview",
     order: 1,
   },
   {
-    id: "professional",
-    label: "Professional",
+    id: "membership",
+    label: "Membership",
     order: 2,
-    condition: (userRole) => userRole !== "Member",
+    condition: (userRole) => userRole !== "Member" && userRole !== "Pending",
   },
   {
-    id: "management",
-    label: "Management",
+    id: "finance",
+    label: "Finance & Reports",
     order: 3,
-    labelByRole: {
-      Administrator: "Administration",
-      President: "Management",
-      Board: "Management",
-    },
+    condition: (userRole) => userRole !== "Member" && userRole !== "Pending",
   },
   {
-    id: "data",
-    label: "Data & Reports",
+    id: "governance",
+    label: "Governance",
     order: 4,
+    condition: (userRole) => userRole === "Board",
   },
   {
-    id: "tools",
-    label: "Tools",
+    id: "engagement",
+    label: "Engagement",
     order: 5,
     labelByRole: {
-      Pending: "Support",
-      Member: "Resources",
-      Board: "Tools",
-      President: "Tools",
-      Administrator: "Tools",
+      Member: "Community & Resources",
+      Pending: "Resources",
     },
+  },
+  {
+    id: "communication",
+    label: "Communication",
+    order: 6,
+    condition: (userRole) => userRole === "Administrator",
+  },
+  {
+    id: "support",
+    label: "Support",
+    order: 7,
+    condition: (userRole) => userRole === "Pending",
+  },
+  {
+    id: "settings",
+    label: "Settings",
+    order: 8,
+    condition: (userRole) => userRole === "Administrator" || userRole === "President",
   },
 ];

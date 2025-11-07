@@ -1,23 +1,21 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import {
-  showErrorToast,
-  showSuccessToast,
-} from "@/components/layouts/auth-layer-out";
+import { showErrorToast, showSuccessToast } from "@/components/layouts/auth-layer-out";
 import { 
   FileText, 
   RefreshCw, 
   AlertCircle, 
   Eye,
   Download,
-  Calendar,
-  CreditCard,
-  Shield
 } from "lucide-react";
 import { BaseTable, BaseTableColumn } from "@/components/ui/BaseTable";
 import { FileViewer } from "@/components/ui/FileViwer";
+import { useCertificates } from "@/lib/hooks/useCertificates";
+import { useAuth } from "@/lib/hooks/Use-auth";
+import { useFileViewer } from "@/lib/hooks/useFileViewer";
+import { generateCertificatePDF } from "@/lib/utils/certificateGenerator";
 
 interface Certificate {
   id: number;
@@ -45,146 +43,135 @@ interface Certificate {
   };
 }
 
-interface UserData {
-  role: string;
-}
+// Skeleton Loader Component
+function CertificatesTableSkeleton() {
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+      {/* Header Skeleton */}
+      <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between">
+          <div className="h-8 w-48 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+            <div className="h-10 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+          </div>
+        </div>
+      </div>
 
-// Helper function to clean malformed URLs
-function cleanCertificateUrl(url: string | undefined): string | undefined {
-  if (!url) return undefined;
-  
-  if (url.includes('/storage/https://') || url.includes('/storage/http://')) {
-    const match = url.match(/\/storage\/(https?:\/\/.+)/);
-    return match ? match[1] : url;
-  }
-  
-  return url;
+      {/* Search and Filters Skeleton */}
+      <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+          <div className="h-10 w-full sm:w-80 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+          <div className="flex items-center gap-2">
+            <div className="h-10 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+            <div className="h-10 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+          </div>
+        </div>
+      </div>
+
+      {/* Table Skeleton */}
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+          <thead className="bg-gray-50 dark:bg-gray-800">
+            <tr>
+              <th className="w-12 px-6 py-3">
+                <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+              </th>
+              <th className="px-6 py-3">
+                <div className="h-4 w-28 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+              </th>
+              <th className="px-6 py-3">
+                <div className="h-4 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+              </th>
+              <th className="px-6 py-3">
+                <div className="h-4 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+              </th>
+              <th className="px-6 py-3">
+                <div className="h-4 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+              </th>
+              <th className="px-6 py-3">
+                <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+              </th>
+              <th className="px-6 py-3">
+                <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+              </th>
+              <th className="px-6 py-3">
+                <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+              </th>
+              <th className="px-6 py-3">
+                <div className="h-4 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+              </th>
+              <th className="px-6 py-3">
+                <div className="h-4 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+            {[...Array(10)].map((_, index) => (
+              <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                <td className="px-6 py-4">
+                  <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                </td>
+                <td className="px-6 py-4">
+                  <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                </td>
+                <td className="px-6 py-4">
+                  <div className="h-4 w-36 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                </td>
+                <td className="px-6 py-4">
+                  <div className="h-4 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                </td>
+                <td className="px-6 py-4">
+                  <div className="h-6 w-20 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse" />
+                </td>
+                <td className="px-6 py-4">
+                  <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                </td>
+                <td className="px-6 py-4">
+                  <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                </td>
+                <td className="px-6 py-4">
+                  <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                </td>
+                <td className="px-6 py-4">
+                  <div className="h-6 w-20 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse" />
+                </td>
+                <td className="px-6 py-4">
+                  <div className="h-7 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination Skeleton */}
+      <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between">
+          <div className="h-4 w-48 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+            <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+            <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+            <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function CertificatesClient() {
-  const [certificates, setCertificates] = useState<Certificate[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [userRole, setUserRole] = useState<string | null>(null);
-  
-  // File Viewer State
-  const [fileViewerOpen, setFileViewerOpen] = useState(false);
-  const [currentFileUrl, setCurrentFileUrl] = useState("");
-  const [currentFileName, setCurrentFileName] = useState("");
-
   const router = useRouter();
+  const { role: userRole } = useAuth();
+  const { certificates, loading, error, fetchingCertificate, fetchCertificates, getCertificateData } = useCertificates();
+  const { isOpen: fileViewerOpen, fileUrl: currentFileUrl, fileName: currentFileName, openFile, closeFile } = useFileViewer();
 
   useEffect(() => {
-    const userData = localStorage.getItem("user_data");
-    const parsedUserData: UserData | null = userData
-      ? JSON.parse(userData)
-      : null;
-    const role = parsedUserData?.role || null;
-    setUserRole(role);
-
-    if (role !== null) {
-      fetchCertificates(role);
+    if (userRole !== null) {
+      fetchCertificates(userRole);
     }
-  }, []);
-
-  const fetchCertificates = async (role: string | null) => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
-      const token = localStorage.getItem("auth_token");
-
-      if (!token) {
-        showErrorToast("Please login to view certificates");
-        router.push("/login");
-        return;
-      }
-
-      if (!apiUrl) {
-        showErrorToast("Backend API URL is not configured.");
-        setError("Configuration error: Backend API URL missing.");
-        return;
-      }
-
-      const endpoint =
-        role === "Member"
-          ? `${apiUrl}membership/certificates`
-          : `${apiUrl}certificates`;
-
-      const response = await fetch(endpoint, {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        if (response.status === 401 || response.status === 403) {
-          showErrorToast("Unauthorized. Please log in again.");
-          localStorage.removeItem("auth_token");
-          localStorage.removeItem("user_data");
-          router.push("/login");
-          return;
-        }
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      if (data.status === "success") {
-        const certificatesData = data.data?.data || data.data || [];
-        setCertificates(
-          Array.isArray(certificatesData)
-            ? certificatesData.map((cert: any) => ({
-                id: cert.id,
-                name: cert.name,
-                member_number: cert.member_number,
-                certificate: cleanCertificateUrl(cert.certificate),
-                status: cert.status,
-                valid_from: cert.valid_from,
-                valid_until: cert.valid_until,
-                membership_term: cert.membership_term,
-                signed_date: cert.signed_date,
-                next_payment_date: cert.next_payment_date,
-                created_at: cert.created_at,
-                token: cert.token,
-                payment: cert.payment
-                  ? {
-                      id: cert.payment.id,
-                      member: cert.payment.member,
-                      amount_paid: cert.payment.amount_paid,
-                      payment_method: cert.payment.payment_method,
-                      transaction_number: cert.payment.transaction_number,
-                      gateway: cert.payment.gateway,
-                      status: cert.payment.status,
-                      is_certificate_generated: cert.payment.is_certificate_generated,
-                      payment_date: cert.payment.payment_date,
-                    }
-                  : undefined,
-              }))
-            : []
-        );
-      } else {
-        throw new Error(data.message || "Failed to fetch certificates");
-      }
-    } catch (err) {
-      console.error("Failed to fetch certificates:", err);
-      setError(
-        err instanceof Error ? err.message : "Failed to fetch certificates"
-      );
-      showErrorToast("Failed to load certificates");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleViewFile = (fileUrl: string, fileName: string) => {
-    setCurrentFileUrl(fileUrl);
-    setCurrentFileName(fileName);
-    setFileViewerOpen(true);
-  };
+  }, [userRole, fetchCertificates]);
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -225,6 +212,30 @@ export default function CertificatesClient() {
         ? `/my-certificates/${certificateId}`
         : `/certificates/${certificateId}`;
     router.push(detailPath);
+  };
+
+  const handleViewCertificate = async (certificateId: number, memberNumber?: string) => {
+    try {
+      // Get certificate data from backend
+      const certificateData = await getCertificateData(certificateId);
+      
+      if (!certificateData) {
+        showErrorToast("Failed to load certificate data");
+        return;
+      }
+
+      // Generate PDF blob from the data
+      const pdfBlob = await generateCertificatePDF(certificateData);
+      
+      // Create blob URL
+      const blobUrl = URL.createObjectURL(pdfBlob);
+      
+      // Open in file viewer
+      openFile(blobUrl, `Certificate-${memberNumber || certificateId}.pdf`, "pdf");
+    } catch (error) {
+      console.error("Error viewing certificate:", error);
+      showErrorToast("Failed to generate certificate preview");
+    }
   };
 
   // Table columns configuration
@@ -361,23 +372,22 @@ export default function CertificatesClient() {
       width: 100,
       render: (cert) => (
         <div className="flex items-center gap-2">
-          {cert.certificate && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleViewFile(cert.certificate!, `Certificate-${cert.member_number || cert.id}.pdf`);
-              }}
-              className="inline-flex items-center px-2 py-1 text-xs bg-[#00B5A5] hover:bg-[#009985] text-white rounded transition-colors"
-              title="View Certificate"
-            >
-              <Eye className="w-3 h-3 mr-1" />
-              View
-            </button>
-          )}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleViewCertificate(cert.id, cert.member_number);
+            }}
+            disabled={fetchingCertificate}
+            className="inline-flex items-center px-2 py-1 text-xs bg-[#00B5A5] hover:bg-[#009985] text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title="View Certificate"
+          >
+            <Eye className="w-3 h-3 mr-1" />
+            {fetchingCertificate ? "Loading..." : "View"}
+          </button>
         </div>
       ),
     },
-  ], [userRole]);
+  ], [userRole, fetchingCertificate]);
 
   // Bulk actions
   const bulkActions = useMemo(() => {
@@ -393,21 +403,40 @@ export default function CertificatesClient() {
 
     if (userRole !== "Member") {
       actions.push({
-        label: "Download PDFs",
+        label: "Generate PDFs",
         icon: <FileText className="w-4 h-4" />,
         action: async (selectedCerts: Certificate[]) => {
-          const certsWithPdf = selectedCerts.filter(c => c.certificate);
-          if (certsWithPdf.length === 0) {
-            showErrorToast("No certificates with PDFs selected");
+          if (selectedCerts.length === 0) {
+            showErrorToast("No certificates selected");
             return;
           }
-          showSuccessToast(`Downloading ${certsWithPdf.length} certificate PDF${certsWithPdf.length > 1 ? 's' : ''}`);
+          
+          showSuccessToast(`Generating ${selectedCerts.length} certificate${selectedCerts.length > 1 ? 's' : ''}...`);
+          
+          for (const cert of selectedCerts) {
+            await handleViewCertificate(cert.id, cert.member_number);
+            // Add delay between requests
+            await new Promise(resolve => setTimeout(resolve, 800));
+          }
         },
       });
     }
 
     return actions;
   }, [userRole]);
+
+  // ============================================================================
+  // LOADING STATE
+  // ============================================================================
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <CertificatesTableSkeleton />
+        </div>
+      </div>
+    );
+  }
 
   // ============================================================================
   // ERROR STATE
@@ -476,7 +505,7 @@ export default function CertificatesClient() {
         fileName={currentFileName}
         fileType="pdf"
         isOpen={fileViewerOpen}
-        onClose={() => setFileViewerOpen(false)}
+        onClose={closeFile}
       />
     </div>
   );

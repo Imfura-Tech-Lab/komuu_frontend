@@ -1,14 +1,14 @@
 import { Suspense } from "react";
+import EventsPage from "@/components/admin/EventsPage";
 import SecureDashboardLayout from "@/components/dashboard/secure-dashboard-layout";
-import EventsClient from "@/components/events/EventsClient";
 
-export default function EventsPage() {
+export default function AdminEventsPage() {
   return (
     <SecureDashboardLayout
       requiredRoles={["Administrator", "Board", "President"]}
     >
-      <Suspense fallback={<div>Loading events...</div>}>
-        <EventsClient />
+      <Suspense>
+        <EventsPage />
       </Suspense>
     </SecureDashboardLayout>
   );
