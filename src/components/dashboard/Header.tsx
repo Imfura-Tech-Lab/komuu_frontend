@@ -1,5 +1,6 @@
 import React, { RefObject, useState } from "react";
 import { UserData, UserRole } from "@/types";
+import Image from "next/image";
 
 interface HeaderProps {
   userData: UserData;
@@ -31,6 +32,7 @@ export function Header({
   dropdownRef,
 }: HeaderProps) {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   const handleLogoutClick = () => {
     setProfileDropdownOpen(false);
@@ -45,6 +47,8 @@ export function Header({
   const cancelLogout = () => {
     setShowLogoutModal(false);
   };
+
+  const hasProfileImage = userData.public_profile && !imageError;
 
   return (
     <>
@@ -88,11 +92,24 @@ export function Header({
                   aria-expanded={profileDropdownOpen}
                   aria-haspopup="true"
                 >
-                  <div className="h-8 w-8 rounded-full bg-[#00B5A5] flex items-center justify-center">
-                    <span className="text-sm font-medium text-white">
-                      {getUserInitials(userData.name)}
-                    </span>
-                  </div>
+                  {hasProfileImage ? (
+                    <div className="h-8 w-8 rounded-full overflow-hidden ring-2 ring-[#00B5A5]/20">
+                      <Image
+                        src={userData.public_profile}
+                        alt={userData.name}
+                        width={32}
+                        height={32}
+                        className="h-full w-full object-cover"
+                        onError={() => setImageError(true)}
+                      />
+                    </div>
+                  ) : (
+                    <div className="h-8 w-8 rounded-full bg-[#00B5A5] flex items-center justify-center">
+                      <span className="text-sm font-medium text-white">
+                        {getUserInitials(userData.name)}
+                      </span>
+                    </div>
+                  )}
                   <div className="hidden md:block text-left">
                     <p className="text-sm font-medium text-gray-900 dark:text-white">
                       {userData.name}
@@ -120,72 +137,92 @@ export function Header({
 
                 {/* Dropdown menu */}
                 {profileDropdownOpen && (
-                  <div className="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 divide-y divide-gray-100 dark:divide-gray-700 focus:outline-none z-50">
+                  <div className="origin-top-right absolute right-0 mt-2 w-64 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 divide-y divide-gray-100 dark:divide-gray-700 focus:outline-none z-50">
                     <div className="px-4 py-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          <p className="text-sm text-gray-900 dark:text-white font-medium">
-                            {userData.name}
-                          </p>
-                          {userData.role !== "Pending" && (
-                            <div className="relative group ml-2">
-                              <button
-                                type="button"
-                                className="flex items-center justify-center h-4 w-4 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-800/40 transition-colors"
-                                aria-label="Member information"
-                              >
-                                <svg
-                                  className="h-3 w-3"
-                                  fill="currentColor"
-                                  viewBox="0 0 20 20"
+                      {/* Profile Image and Name */}
+                      <div className="flex items-center space-x-3 mb-3">
+                        {hasProfileImage ? (
+                          <div className="h-12 w-12 rounded-full overflow-hidden ring-2 ring-[#00B5A5]/20 flex-shrink-0">
+                            <Image
+                              src={userData.public_profile}
+                              alt={userData.name}
+                              width={48}
+                              height={48}
+                              className="h-full w-full object-cover"
+                              onError={() => setImageError(true)}
+                            />
+                          </div>
+                        ) : (
+                          <div className="h-12 w-12 rounded-full bg-[#00B5A5] flex items-center justify-center flex-shrink-0">
+                            <span className="text-base font-medium text-white">
+                              {getUserInitials(userData.name)}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center">
+                            <p className="text-sm text-gray-900 dark:text-white font-medium truncate">
+                              {userData.name}
+                            </p>
+                            {userData.role !== "Pending" && (
+                              <div className="relative group ml-2 flex-shrink-0">
+                                <button
+                                  type="button"
+                                  className="flex items-center justify-center h-4 w-4 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-800/40 transition-colors"
+                                  aria-label="Member information"
                                 >
-                                  <path
-                                    fillRule="evenodd"
-                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
-                                    clipRule="evenodd"
-                                  />
-                                </svg>
-                              </button>
-                              <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2 hidden group-hover:block group-focus-within:block z-50">
-                                <div className="bg-gray-900 dark:bg-gray-700 text-white text-xs rounded py-2 px-3 shadow-lg min-w-48 w-auto">
-                                  <div className="font-medium">
-                                    {userData.role}
+                                  <svg
+                                    className="h-3 w-3"
+                                    fill="currentColor"
+                                    viewBox="0 0 20 20"
+                                  >
+                                    <path
+                                      fillRule="evenodd"
+                                      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                                      clipRule="evenodd"
+                                    />
+                                  </svg>
+                                </button>
+                                <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2 hidden group-hover:block group-focus-within:block z-50">
+                                  <div className="bg-gray-900 dark:bg-gray-700 text-white text-xs rounded py-2 px-3 shadow-lg min-w-48 w-auto">
+                                    <div className="font-medium">
+                                      {userData.role}
+                                    </div>
+                                    <div className="text-gray-200 mt-1">
+                                      {getRoleDescription(userData.role)}
+                                    </div>
+                                    <div className="absolute left-full top-1/2 -translate-y-1/2 border-4 border-transparent border-l-gray-900 dark:border-l-gray-700"></div>
                                   </div>
-                                  <div className="text-gray-200 mt-1">
-                                    {getRoleDescription(userData.role)}
-                                  </div>
-                                  <div className="absolute left-full top-1/2 -translate-y-1/2 border-4 border-transparent border-l-gray-900 dark:border-l-gray-700"></div>
                                 </div>
                               </div>
-                            </div>
-                          )}
+                            )}
+                          </div>
+                          <div className="flex items-center mt-1">
+                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                              {userData.email}
+                            </p>
+                            {userData.role !== "Pending" && userData.verified && (
+                              <span className="ml-1.5 flex-shrink-0 inline-flex items-center justify-center h-4 w-4 rounded-full bg-green-100 dark:bg-green-900/30">
+                                <svg
+                                  className="h-3 w-3 text-green-600 dark:text-green-400"
+                                  fill="currentColor"
+                                  viewBox="0 0 12 12"
+                                >
+                                  <path d="M10.28 2.28L3.989 8.575 1.695 6.28A1 1 0 00.28 7.695l3 3a1 1 0 001.414 0l7-7A1 1 0 0010.28 2.28z" />
+                                </svg>
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center mt-1">
-                        <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                          {userData.email}
-                        </p>
-                        {userData.role !== "Pending" && userData.verified && (
-                          <span className="ml-1.5 flex-shrink-0 inline-flex items-center justify-center h-4 w-4 rounded-full bg-green-100 dark:bg-green-900/30">
-                            <svg
-                              className="h-3 w-3 text-green-600 dark:text-green-400"
-                              fill="currentColor"
-                              viewBox="0 0 12 12"
-                            >
-                              <path d="M10.28 2.28L3.989 8.575 1.695 6.28A1 1 0 00.28 7.695l3 3a1 1 0 001.414 0l7-7A1 1 0 0010.28 2.28z" />
-                            </svg>
-                          </span>
-                        )}
-                      </div>
 
-                      {/* Role badge without tooltip */}
-                      <div className="mt-2">
+                      {/* Role badge */}
+                      <div className="mt-3">
                         <span
                           className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${roleColor}`}
                         >
                           {userData.role}
                         </span>
-
                         <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                           {getRoleDescription(userData.role)}
                         </p>

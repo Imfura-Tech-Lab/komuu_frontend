@@ -17,7 +17,7 @@ export default function OTPVerification() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [isResending, setIsResending] = useState(false);
 
-  const { loading } = useAuth();
+  const { refreshUser } = useAuth(); // Add refreshUser
   const router = useRouter();
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -128,6 +128,9 @@ export default function OTPVerification() {
             const companyId = data.data.institutions[0].id;
             localStorage.setItem("company_id", companyId);
           }
+
+          // Refresh user state in useAuth hook
+          refreshUser();
 
           const hasChangedPassword = data.data.has_changed_password;
 
