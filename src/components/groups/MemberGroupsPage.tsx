@@ -200,11 +200,11 @@ export default function MemberGroupsPage() {
   };
 
   const handleGoToPage = (group: MemberGroup) => {
-    router.push(`/member/groups/${group.slug}`);
+    router.push(`/community/groups/${group.slug}`);
   };
 
   const handleRowClick = (group: MemberGroup) => {
-    router.push(`/member/groups/${group.slug}`);
+    router.push(`/community/groups/${group.slug}`);
   };
 
   const handleTabChange = (tab: ViewTab) => {
