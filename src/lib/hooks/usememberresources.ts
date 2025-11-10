@@ -38,6 +38,7 @@ interface UseMemberResourcesReturn {
   downloadResource: (id: number) => Promise<boolean>;
   likeResource: (id: number) => Promise<boolean>;
   dislikeResource: (id: number) => Promise<boolean>;
+  commentResource: (id: number, comment: string) => Promise<boolean>;
 }
 
 // Utility: Force HTTPS on Cloudinary URLs
@@ -99,7 +100,7 @@ export function useMemberResources(): UseMemberResourcesReturn {
 
   /**
    * Fetch available resource types
-   * Member endpoint: GET /resource-types (same as admin)
+   * Member endpoint: GET /resource-types
    */
   const fetchResourceTypes = useCallback(async () => {
     try {
@@ -132,9 +133,7 @@ export function useMemberResources(): UseMemberResourcesReturn {
 
   /**
    * Fetch all community resources (member view)
-   * Member endpoint: GET /resources
-   * 
-   * Returns only resources visible to members based on visibility settings
+   * Member endpoint: GET /resources/all
    */
   const fetchResources = useCallback(async () => {
     try {
@@ -155,7 +154,7 @@ export function useMemberResources(): UseMemberResourcesReturn {
         return;
       }
 
-      const response = await fetch(`${apiUrl}resources`, {
+      const response = await fetch(`${apiUrl}resources/all`, {
         method: "GET",
         headers: getHeaders(),
       });
@@ -193,7 +192,7 @@ export function useMemberResources(): UseMemberResourcesReturn {
 
   /**
    * Fetch single resource details
-   * Member endpoint: GET /resources/{id}
+   * Member endpoint: GET /resources/all/{id}
    */
   const fetchResource = useCallback(
     async (id: number): Promise<Resource | null> => {
@@ -209,7 +208,7 @@ export function useMemberResources(): UseMemberResourcesReturn {
           return null;
         }
 
-        const response = await fetch(`${apiUrl}resources/${id}`, {
+        const response = await fetch(`${apiUrl}resources/all/${id}`, {
           method: "GET",
           headers: getHeaders(),
         });
@@ -246,8 +245,6 @@ export function useMemberResources(): UseMemberResourcesReturn {
   /**
    * Download/access a resource (increments download count)
    * Member endpoint: GET /resources/{id}/download
-   * 
-   * This tracks downloads and may enforce access permissions
    */
   const downloadResource = useCallback(
     async (id: number): Promise<boolean> => {
@@ -316,7 +313,7 @@ export function useMemberResources(): UseMemberResourcesReturn {
 
   /**
    * Like a resource
-   * Member endpoint: POST /resources/{id}/like
+   * Member endpoint: GET /resources/{id}/like
    */
   const likeResource = useCallback(
     async (id: number): Promise<boolean> => {
@@ -330,7 +327,7 @@ export function useMemberResources(): UseMemberResourcesReturn {
         }
 
         const response = await fetch(`${apiUrl}resources/${id}/like`, {
-          method: "POST",
+          method: "GET",
           headers: getHeaders(),
         });
 
@@ -368,7 +365,7 @@ export function useMemberResources(): UseMemberResourcesReturn {
 
   /**
    * Dislike a resource
-   * Member endpoint: POST /resources/{id}/dislike
+   * Member endpoint: GET /resources/{id}/dislike
    */
   const dislikeResource = useCallback(
     async (id: number): Promise<boolean> => {
@@ -382,7 +379,7 @@ export function useMemberResources(): UseMemberResourcesReturn {
         }
 
         const response = await fetch(`${apiUrl}resources/${id}/dislike`, {
-          method: "POST",
+          method: "GET",
           headers: getHeaders(),
         });
 
@@ -418,6 +415,65 @@ export function useMemberResources(): UseMemberResourcesReturn {
     [getHeaders]
   );
 
+  /**
+   * Comment on a resource
+   * Member endpoint: GET /resources/comment/{id}?comment={text}
+   * 
+   * Note: Your API uses GET with query param + form data which is unusual.
+   * Standard REST would be POST with body. Kept as-is per your cURL.
+   */
+  const commentResource = useCallback(
+    async (id: number, comment: string): Promise<boolean> => {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
+        const token = localStorage.getItem("auth_token");
+
+        if (!token || !apiUrl) {
+          showErrorToast("Configuration error");
+          return false;
+        }
+
+        const encodedComment = encodeURIComponent(comment);
+        const response = await fetch(
+          `${apiUrl}resources/comment/${id}?comment=${encodedComment}`,
+          {
+            method: "GET",
+            headers: getHeaders(),
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (data.status === "success") {
+          // Update local comment count
+          setResources((prev) =>
+            prev.map((r) =>
+              r.id === id
+                ? { ...r, comments_count: (r.comments_count || 0) + 1 }
+                : r
+            )
+          );
+
+          showSuccessToast("Comment added");
+          return true;
+        }
+
+        throw new Error(data.message || "Failed to add comment");
+      } catch (err) {
+        console.error("Failed to add comment:", err);
+        showErrorToast(
+          err instanceof Error ? err.message : "Failed to add comment"
+        );
+        return false;
+      }
+    },
+    [getHeaders]
+  );
+
   return {
     resources,
     resourceTypes,
@@ -429,5 +485,6 @@ export function useMemberResources(): UseMemberResourcesReturn {
     downloadResource,
     likeResource,
     dislikeResource,
+    commentResource,
   };
 }

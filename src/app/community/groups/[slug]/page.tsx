@@ -22,8 +22,8 @@ import {
   showErrorToast,
 } from "@/components/layouts/auth-layer-out";
 import { FileViewer } from "@/components/ui/FileViwer";
-import { Conversation, useMemberConversations } from "@/lib/hooks/usememberconversations";
-import { useMemberConversationMessages } from "@/lib/hooks/usememberconversationmessages";
+import { Conversation, useMemberConversations } from "@/lib/hooks/useMemberConversations";
+import { useMemberConversationMessages } from "@/lib/hooks/useMemberConversationMessages";
 import StartConversationModal from "@/components/community/Startconversationmodal";
 
 const GroupHeaderSkeleton = () => (

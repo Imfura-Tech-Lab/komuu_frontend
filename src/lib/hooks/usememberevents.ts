@@ -5,30 +5,26 @@ import {
 } from "@/components/layouts/auth-layer-out";
 
 export interface Event {
-  id: string; // UUID format
+  id: string;
   title: string;
   description?: string;
-  event_type?: string;
+  type: string;
   location?: string;
-  venue?: string;
-  start_date: string;
-  end_date?: string;
-  start_time?: string;
-  end_time?: string;
-  capacity?: number;
-  available_slots?: number;
-  registration_deadline?: string;
+  attendance_link?: string;
+  event_link?: string;
+  event_mode: "Online" | "In-Person" | "Hybrid";
+  start_time: string;
+  start_end?: string;
   is_paid: boolean;
-  ticket_price?: number;
-  currency?: string;
-  status: "upcoming" | "ongoing" | "completed" | "cancelled";
-  visibility: "public" | "private" | "members_only";
-  banner_url?: string;
+  price?: string;
+  capacity?: number;
+  status: "Scheduled" | "Ongoing" | "Completed" | "Cancelled" | "Draft";
+  thumbnail?: string;
   organizer?: string;
-  organizer_contact?: string;
-  registration_count?: number;
+  registrations?: number;
+  available_slots?: number;
   is_registered?: boolean;
-  created_at: string;
+  created_at?: string;
   updated_at?: string;
 }
 
@@ -85,34 +81,35 @@ interface UseMemberEventsReturn {
   cancelRegistration: (eventId: string) => Promise<boolean>;
 }
 
-// Utility: Normalize API event to frontend type
-const normalizeEvent = (event: any): Event => ({
-  id: event.id,
-  title: event.title,
-  description: event.description,
-  event_type: event.event_type || event.type,
-  location: event.location,
-  venue: event.venue,
-  start_date: event.start_date,
-  end_date: event.end_date,
-  start_time: event.start_time,
-  end_time: event.end_time,
-  capacity: event.capacity,
-  available_slots: event.available_slots,
-  registration_deadline: event.registration_deadline,
-  is_paid: Boolean(event.is_paid),
-  ticket_price: event.ticket_price,
-  currency: event.currency || "RWF",
-  status: event.status || "upcoming",
-  visibility: event.visibility || "public",
-  banner_url: event.banner_url,
-  organizer: event.organizer,
-  organizer_contact: event.organizer_contact,
-  registration_count: event.registration_count || 0,
-  is_registered: Boolean(event.is_registered),
-  created_at: event.created_at,
-  updated_at: event.updated_at,
-});
+const normalizeEvent = (event: any): Event => {
+  const capacity = event.capacity || 0;
+  const registrations = event.registrations || 0;
+  const availableSlots = capacity > 0 ? Math.max(capacity - registrations, 0) : 0;
+
+  return {
+    id: event.id,
+    title: event.title,
+    description: event.description,
+    type: event.type || "Other",
+    location: event.location,
+    attendance_link: event.attendance_link,
+    event_link: event.event_link,
+    event_mode: event.event_mode || "In-Person",
+    start_time: event.start_time,
+    start_end: event.start_end,
+    is_paid: Boolean(event.is_paid),
+    price: event.price,
+    capacity: event.capacity,
+    status: event.status || "Scheduled",
+    thumbnail: event.thumbnail,
+    organizer: event.organizer,
+    registrations: event.registrations || 0,
+    available_slots: availableSlots,
+    is_registered: Boolean(event.is_registered),
+    created_at: event.created_at,
+    updated_at: event.updated_at,
+  };
+};
 
 export function useMemberEvents(): UseMemberEventsReturn {
   const [events, setEvents] = useState<Event[]>([]);
@@ -141,12 +138,6 @@ export function useMemberEvents(): UseMemberEventsReturn {
     };
   }, []);
 
-  /**
-   * Fetch all available events (member view)
-   * Member endpoint: GET /events/all
-   * 
-   * Returns events visible to members based on visibility settings
-   */
   const fetchEvents = useCallback(async () => {
     try {
       setLoading(true);
@@ -171,20 +162,10 @@ export function useMemberEvents(): UseMemberEventsReturn {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data: ApiResponse<PaginatedResponse<any> | any[]> = await response.json();
+      const data: ApiResponse<PaginatedResponse<any>> = await response.json();
 
-      if (data.status === "success") {
-        let eventsData: any[] = [];
-
-        // Handle different response structures
-        if (data.data) {
-          if (Array.isArray(data.data)) {
-            eventsData = data.data;
-          } else if (data.data.data && Array.isArray(data.data.data)) {
-            eventsData = data.data.data;
-          }
-        }
-
+      if (data.status === "success" && data.data) {
+        const eventsData = data.data.data || [];
         setEvents(
           Array.isArray(eventsData) ? eventsData.map(normalizeEvent) : []
         );
@@ -202,12 +183,6 @@ export function useMemberEvents(): UseMemberEventsReturn {
     }
   }, [apiUrl, getAuthHeaders]);
 
-  /**
-   * Fetch single event details
-   * Member endpoint: GET /events/all/{id}
-   * 
-   * @param id - Event UUID
-   */
   const fetchEvent = useCallback(
     async (id: string): Promise<Event | null> => {
       try {
@@ -253,21 +228,6 @@ export function useMemberEvents(): UseMemberEventsReturn {
     [apiUrl, getAuthHeaders]
   );
 
-  /**
-   * Register for an event
-   * Member endpoint: POST /events/register/{id}
-   * 
-   * Required fields:
-   * - is_paid: boolean (1 or 0)
-   * 
-   * Optional fields (for paid events):
-   * - amount_paid: number
-   * - transaction_number: string
-   * - payment_method: string ("Credit/Debit Card", "Mobile Money", "Bank Transfer", etc.)
-   * - status: string ("pending", "confirmed", "failed")
-   * 
-   * @param params - Registration parameters
-   */
   const registerForEvent = useCallback(
     async (params: RegisterEventParams): Promise<boolean> => {
       try {
@@ -279,7 +239,6 @@ export function useMemberEvents(): UseMemberEventsReturn {
           return false;
         }
 
-        // Validate required fields
         if (params.is_paid && !params.amount_paid) {
           showErrorToast("Amount paid is required for paid events");
           return false;
@@ -290,7 +249,6 @@ export function useMemberEvents(): UseMemberEventsReturn {
           return false;
         }
 
-        // Build FormData
         const formData = new FormData();
         formData.append("is_paid", params.is_paid ? "1" : "0");
 
@@ -310,7 +268,6 @@ export function useMemberEvents(): UseMemberEventsReturn {
           formData.append("status", params.status);
         }
 
-        // Remove Accept header for FormData
         const headers = getAuthHeaders();
         delete (headers as any).Accept;
 
@@ -339,23 +296,21 @@ export function useMemberEvents(): UseMemberEventsReturn {
               : "Successfully registered for the event"
           );
 
-          // Update event registration status locally
           setEvents((prev) =>
             prev.map((event) =>
               event.id === params.event_id
                 ? {
                     ...event,
                     is_registered: true,
-                    registration_count: (event.registration_count || 0) + 1,
+                    registrations: (event.registrations || 0) + 1,
                     available_slots: event.available_slots
                       ? event.available_slots - 1
-                      : undefined,
+                      : 0,
                   }
                 : event
             )
           );
 
-          // Add to my registrations if data is returned
           if (data.data) {
             setMyRegistrations((prev) => [...prev, data.data!]);
           }
@@ -377,13 +332,6 @@ export function useMemberEvents(): UseMemberEventsReturn {
     [apiUrl, getAuthHeaders]
   );
 
-  /**
-   * Cancel event registration
-   * Member endpoint: POST /events/register/{id}/cancel
-   * (Assuming this endpoint exists based on common patterns)
-   * 
-   * @param eventId - Event UUID
-   */
   const cancelRegistration = useCallback(
     async (eventId: string): Promise<boolean> => {
       try {
@@ -415,26 +363,24 @@ export function useMemberEvents(): UseMemberEventsReturn {
         if (data.status === "success" || data.status === true) {
           showSuccessToast("Registration cancelled successfully");
 
-          // Update event registration status locally
           setEvents((prev) =>
             prev.map((event) =>
               event.id === eventId
                 ? {
                     ...event,
                     is_registered: false,
-                    registration_count: Math.max(
-                      (event.registration_count || 0) - 1,
+                    registrations: Math.max(
+                      (event.registrations || 0) - 1,
                       0
                     ),
                     available_slots: event.available_slots
                       ? event.available_slots + 1
-                      : undefined,
+                      : (event.capacity || 0),
                   }
                 : event
             )
           );
 
-          // Remove from my registrations
           setMyRegistrations((prev) =>
             prev.filter((reg) => reg.event_id !== eventId)
           );

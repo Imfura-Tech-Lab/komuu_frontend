@@ -513,7 +513,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
       },
       {
         name: "Events",
-        href: "/events",
+        href: "/my-events",
         permission: "member_events",
         section: "engagement",
         icon: "events",
@@ -522,7 +522,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
       },
       {
         name: "Resources",
-        href: "/resources",
+        href: "/my-resources",
         permission: "member_resources",
         section: "engagement",
         icon: "resources",
