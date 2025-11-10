@@ -25,7 +25,7 @@ import {
   showSuccessToast,
   showErrorToast,
 } from "@/components/layouts/auth-layer-out";
-import { useMemberResources, Resource } from "@/lib/hooks/usememberresources";
+import { useMemberResources, Resource } from "@/lib/hooks/useMemberResources";
 
 // ============================================================================
 // SKELETON LOADERS
