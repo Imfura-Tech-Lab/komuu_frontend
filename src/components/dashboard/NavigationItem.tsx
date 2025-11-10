@@ -110,7 +110,7 @@ export function NavigationItem({
       {hasChildren && visibleChildren && visibleChildren.length > 0 && isExpanded && (
         <div className="mt-1 space-y-1 pl-11">
           {visibleChildren
-            .sort((a, b) => a._order - b._order)
+            .sort((a, b) => a.order - b.order)
             .map((child) => {
               const isChildItemActive =
                 pathname === child.href || pathname.startsWith(child.href + "/");

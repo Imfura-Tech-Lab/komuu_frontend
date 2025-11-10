@@ -3,23 +3,25 @@
 import React, { useState, useEffect } from "react";
 import {
   VideoCameraIcon,
-  PlusIcon,
   MagnifyingGlassIcon,
   CalendarIcon,
   MapPinIcon,
   UserGroupIcon,
-  EllipsisVerticalIcon,
-  PencilIcon,
-  TrashIcon,
   ArrowPathIcon,
   ClockIcon,
   CurrencyDollarIcon,
   GlobeAltIcon,
   BuildingOfficeIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  UserPlusIcon,
 } from "@heroicons/react/24/outline";
-import { useEvents, Event } from "@/lib/hooks/useEvents";
-import { EventFormData, EventModal } from "./modals/EventModal";
-import { DeleteConfirmModal } from "./modals/DeleteConfirmModal";
+import { useMemberEvents, Event } from "@/lib/hooks/useMemberEvents";
+import {
+  showSuccessToast,
+  showErrorToast,
+} from "@/components/layouts/auth-layer-out";
+import { RegisterEventModal } from "../admin/modals/RegisterEventModal";
 
 // ============================================================================
 // SKELETON LOADERS
@@ -66,13 +68,15 @@ const EventsGridSkeleton = () => (
 
 interface EventCardProps {
   event: Event;
-  onEdit: (event: Event) => void;
-  onDelete: (event: Event) => void;
+  onRegister: (event: Event) => void;
+  onCancelRegistration: (event: Event) => void;
 }
 
-const EventCard: React.FC<EventCardProps> = ({ event, onEdit, onDelete }) => {
-  const [showActions, setShowActions] = useState(false);
-
+const EventCard: React.FC<EventCardProps> = ({
+  event,
+  onRegister,
+  onCancelRegistration,
+}) => {
   const getEventColor = (type: string) => {
     const colors: Record<string, string> = {
       Conference: "bg-purple-500",
@@ -145,8 +149,11 @@ const EventCard: React.FC<EventCardProps> = ({ event, onEdit, onDelete }) => {
   };
 
   const attendancePercentage = event.capacity
-    ? ((event.attendees_count || 0) / event.capacity) * 100
+    ? ((event.registrations || 0) / event.capacity) * 100
     : 0;
+
+  const availableSlots = event.available_slots || 0;
+  const isFullyBooked = availableSlots === 0;
 
   return (
     <div className="group relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:shadow-lg transition-all duration-300 overflow-hidden">
@@ -173,7 +180,7 @@ const EventCard: React.FC<EventCardProps> = ({ event, onEdit, onDelete }) => {
             {event.is_paid && (
               <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300">
                 <CurrencyDollarIcon className="h-3 w-3" />
-                ${event.price}
+                RWF {event.price}
               </span>
             )}
           </div>
@@ -203,47 +210,15 @@ const EventCard: React.FC<EventCardProps> = ({ event, onEdit, onDelete }) => {
             </h3>
           </div>
 
-          {/* Actions dropdown */}
-          <div className="relative ml-2">
-            <button
-              onClick={() => setShowActions(!showActions)}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
-            >
-              <EllipsisVerticalIcon className="h-5 w-5 text-gray-500 dark:text-gray-400" />
-            </button>
-
-            {showActions && (
-              <>
-                <div
-                  className="fixed inset-0 z-10"
-                  onClick={() => setShowActions(false)}
-                ></div>
-                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 z-20">
-                  <button
-                    onClick={() => {
-                      onEdit(event);
-                      setShowActions(false);
-                    }}
-                    className="w-full flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                  >
-                    <PencilIcon className="h-4 w-4 mr-3" />
-                    Edit Event
-                  </button>
-                  <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
-                  <button
-                    onClick={() => {
-                      onDelete(event);
-                      setShowActions(false);
-                    }}
-                    className="w-full flex items-center px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                  >
-                    <TrashIcon className="h-4 w-4 mr-3" />
-                    Delete Event
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+          {/* Registration status badge */}
+          {event.is_registered && (
+            <div className="ml-2">
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                <CheckCircleIcon className="h-4 w-4 mr-1" />
+                Registered
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Description */}
@@ -274,15 +249,25 @@ const EventCard: React.FC<EventCardProps> = ({ event, onEdit, onDelete }) => {
           <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
             <UserGroupIcon className="h-4 w-4 mr-2 flex-shrink-0" />
             <span>
-              {event.attendees_count || 0} / {event.capacity} attendees
+              {event.registrations || 0} / {event.capacity} registered
             </span>
           </div>
+
+          {/* Available slots warning */}
+          {availableSlots <= 10 && availableSlots > 0 && (
+            <div className="flex items-center text-sm text-orange-600 dark:text-orange-400">
+              <ClockIcon className="h-4 w-4 mr-2 flex-shrink-0" />
+              <span className="font-medium">
+                Only {availableSlots} {availableSlots === 1 ? "slot" : "slots"} left!
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Attendance Progress Bar */}
         <div className="mt-4">
           <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
-            <span>Attendance</span>
+            <span>Registration</span>
             <span>{Math.round(attendancePercentage)}%</span>
           </div>
           <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
@@ -300,13 +285,49 @@ const EventCard: React.FC<EventCardProps> = ({ event, onEdit, onDelete }) => {
         </div>
 
         {/* Footer */}
-        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
-          <span className="text-xs text-gray-500 dark:text-gray-400">
-            {event.organizer && `By ${event.organizer}`}
-          </span>
-          <button className="text-[#00B5A5] hover:text-[#008F82] text-sm font-medium transition-colors">
-            View Details →
-          </button>
+        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              {event.organizer && `By ${event.organizer}`}
+            </span>
+          </div>
+
+          {/* Action buttons */}
+          <div className="mt-3 flex gap-2">
+            {event.is_registered ? (
+              <button
+                onClick={() => onCancelRegistration(event)}
+                className="flex-1 inline-flex items-center justify-center px-4 py-2.5 border border-red-300 dark:border-red-600 text-sm font-medium rounded-lg text-red-600 dark:text-red-400 bg-white dark:bg-gray-800 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+              >
+                <XCircleIcon className="h-5 w-5 mr-2" />
+                Cancel Registration
+              </button>
+            ) : (
+              <button
+                onClick={() => onRegister(event)}
+                disabled={isFullyBooked || event.status === "Completed" || event.status === "Cancelled"}
+                className="flex-1 inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium rounded-lg text-white bg-[#00B5A5] hover:bg-[#008F82] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                title={
+                  isFullyBooked
+                    ? "Event is fully booked"
+                    : event.status === "Completed"
+                    ? "Event has ended"
+                    : event.status === "Cancelled"
+                    ? "Event has been cancelled"
+                    : "Register for this event"
+                }
+              >
+                <UserPlusIcon className="h-5 w-5 mr-2" />
+                {isFullyBooked
+                  ? "Fully Booked"
+                  : event.status === "Completed"
+                  ? "Event Ended"
+                  : event.status === "Cancelled"
+                  ? "Event Cancelled"
+                  : "Register Now"}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -314,19 +335,17 @@ const EventCard: React.FC<EventCardProps> = ({ event, onEdit, onDelete }) => {
 };
 
 // ============================================================================
-// MAIN EVENTS PAGE COMPONENT
+// MAIN MEMBER EVENTS PAGE COMPONENT
 // ============================================================================
 
-export default function EventsPage() {
+export default function MemberEventsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("upcoming");
   const [typeFilter, setTypeFilter] = useState("all");
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Modal states
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [modalLoading, setModalLoading] = useState(false);
 
@@ -335,10 +354,9 @@ export default function EventsPage() {
     loading,
     error,
     fetchEvents,
-    createEvent,
-    updateEvent,
-    deleteEvent,
-  } = useEvents();
+    registerForEvent,
+    cancelRegistration,
+  } = useMemberEvents();
 
   useEffect(() => {
     fetchEvents();
@@ -354,86 +372,43 @@ export default function EventsPage() {
     setIsRefreshing(false);
   };
 
-  const handleCreateEvent = async (formData: EventFormData) => {
-    setModalLoading(true);
-    const result = await createEvent({
-      title: formData.title,
-      description: formData.description,
-      type: formData.type,
-      location: formData.location,
-      event_mode: formData.event_mode,
-      attendance_link: formData.attendance_link,
-      event_link: formData.event_link,
-      start_time: formData.start_time,
-      end_time: formData.end_time,
-      registration_deadline: formData.registration_deadline,
-      is_paid: formData.is_paid,
-      price: formData.price,
-      capacity: formData.capacity,
-      thumbnail: formData.thumbnail,
-    });
-    setModalLoading(false);
-
-    if (result.success) {
-      setShowCreateModal(false);
-    }
-
-    return result;
-  };
-
-  const handleUpdateEvent = async (formData: EventFormData) => {
-    if (!selectedEvent) return { success: false, errors: {} };
-
-    setModalLoading(true);
-    const result = await updateEvent({
-      id: selectedEvent.id,
-      title: formData.title,
-      description: formData.description,
-      type: formData.type,
-      location: formData.location,
-      event_mode: formData.event_mode,
-      attendance_link: formData.attendance_link,
-      event_link: formData.event_link,
-      start_time: formData.start_time,
-      end_time: formData.end_time,
-      registration_deadline: formData.registration_deadline,
-      is_paid: formData.is_paid,
-      price: formData.price,
-      capacity: formData.capacity,
-      status: formData.status,
-      thumbnail: formData.thumbnail,
-    });
-    setModalLoading(false);
-
-    if (result.success) {
-      setShowEditModal(false);
-      setSelectedEvent(null);
-    }
-
-    return result;
-  };
-
-  const handleEditClick = (event: Event) => {
+  const handleRegisterClick = (event: Event) => {
     setSelectedEvent(event);
-    setShowEditModal(true);
+    setShowRegisterModal(true);
   };
 
-  const handleDeleteClick = (event: Event) => {
-    setSelectedEvent(event);
-    setShowDeleteModal(true);
-  };
-
-  const handleDeleteConfirm = async () => {
+  const handleRegisterConfirm = async (registrationData: {
+    is_paid: boolean;
+    amount_paid?: number;
+    transaction_number?: string;
+    payment_method?: string;
+    status?: "pending" | "confirmed" | "cancelled" | "failed";
+  }) => {
     if (!selectedEvent) return;
 
     setModalLoading(true);
-    const success = await deleteEvent(selectedEvent.id);
+    const success = await registerForEvent({
+      event_id: selectedEvent.id,
+      ...registrationData,
+    });
     setModalLoading(false);
 
     if (success) {
-      setShowDeleteModal(false);
+      setShowRegisterModal(false);
       setSelectedEvent(null);
     }
+  };
+
+  const handleCancelRegistration = async (event: Event) => {
+    if (
+      !confirm(
+        "Are you sure you want to cancel your registration? You can register again if slots are available."
+      )
+    ) {
+      return;
+    }
+
+    await cancelRegistration(event.id);
   };
 
   // ============================================================================
@@ -443,12 +418,12 @@ export default function EventsPage() {
   const filteredEvents = events.filter((event) => {
     const matchesSearch =
       event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      event.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      event.location.toLowerCase().includes(searchQuery.toLowerCase());
+      event.type?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      event.location?.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesType =
       typeFilter === "all" ||
-      event.type.toLowerCase() === typeFilter.toLowerCase();
+      event.type?.toLowerCase() === typeFilter.toLowerCase();
 
     if (activeTab === "upcoming") {
       return (
@@ -456,6 +431,10 @@ export default function EventsPage() {
         matchesType &&
         (event.status === "Scheduled" || event.status === "Ongoing")
       );
+    }
+
+    if (activeTab === "registered") {
+      return matchesSearch && matchesType && event.is_registered;
     }
 
     if (activeTab === "past") {
@@ -472,21 +451,19 @@ export default function EventsPage() {
   const upcomingEvents = events.filter(
     (e) => e.status === "Scheduled" || e.status === "Ongoing"
   );
+  const registeredEvents = events.filter((e) => e.is_registered);
   const pastEvents = events.filter(
     (e) => e.status === "Completed" || e.status === "Cancelled"
   );
 
-  const totalAttendees = upcomingEvents.reduce(
-    (sum, event) => sum + (event.attendees_count || 0),
+  const totalAvailableSlots = upcomingEvents.reduce(
+    (sum, event) => sum + (event.available_slots || 0),
     0
   );
 
-  const availableSeats = upcomingEvents.reduce(
-    (sum, event) => sum + (event.capacity - (event.attendees_count || 0)),
-    0
-  );
-
-  const eventTypes = Array.from(new Set(events.map((e) => e.type))).sort();
+  const eventTypes = Array.from(
+    new Set(events.map((e) => e.type).filter(Boolean))
+  ).sort();
 
   // ============================================================================
   // RENDER
@@ -501,7 +478,7 @@ export default function EventsPage() {
             Events & Conferences
           </h1>
           <p className="mt-2 text-lg text-gray-600 dark:text-gray-400">
-            Manage and organize community events
+            Discover and register for upcoming community events
           </p>
         </div>
         <div className="flex items-center space-x-3">
@@ -514,13 +491,6 @@ export default function EventsPage() {
               className={`h-5 w-5 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
             />
             Refresh
-          </button>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center px-5 py-2.5 bg-[#00B5A5] text-white rounded-lg hover:bg-[#008F82] transition-colors shadow-md text-sm font-medium"
-          >
-            <PlusIcon className="h-5 w-5 mr-2" />
-            Create Event
           </button>
         </div>
       </div>
@@ -544,10 +514,10 @@ export default function EventsPage() {
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Total Attendees
+                My Registrations
               </p>
               <p className="text-3xl font-bold text-gray-900 dark:text-white mt-1">
-                {totalAttendees.toLocaleString()}
+                {registeredEvents.length}
               </p>
             </div>
             <UserGroupIcon className="h-10 w-10 text-blue-500/60 dark:text-blue-400/40" />
@@ -555,10 +525,10 @@ export default function EventsPage() {
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Available Seats
+                Available Slots
               </p>
               <p className="text-3xl font-bold text-gray-900 dark:text-white mt-1">
-                {availableSeats.toLocaleString()}
+                {totalAvailableSlots.toLocaleString()}
               </p>
             </div>
             <ClockIcon className="h-10 w-10 text-green-500/60 dark:text-green-400/40" />
@@ -610,6 +580,11 @@ export default function EventsPage() {
         <div className="flex space-x-6 px-6 pt-4 border-b border-gray-200 dark:border-gray-700">
           {[
             { id: "upcoming", label: "Upcoming", count: upcomingEvents.length },
+            {
+              id: "registered",
+              label: "My Registrations",
+              count: registeredEvents.length,
+            },
             { id: "past", label: "Past", count: pastEvents.length },
           ].map((tab) => (
             <button
@@ -636,8 +611,8 @@ export default function EventsPage() {
                 <EventCard
                   key={event.id}
                   event={event}
-                  onEdit={handleEditClick}
-                  onDelete={handleDeleteClick}
+                  onRegister={handleRegisterClick}
+                  onCancelRegistration={handleCancelRegistration}
                 />
               ))}
             </div>
@@ -650,52 +625,25 @@ export default function EventsPage() {
               </h3>
               <p className="mt-1 text-base text-gray-500 dark:text-gray-400">
                 {events.length === 0
-                  ? "Create your first event to get started."
+                  ? "No events available yet. Check back later!"
+                  : activeTab === "registered"
+                  ? "You haven't registered for any events yet."
                   : "Try adjusting your search or filters."}
               </p>
-              {events.length === 0 && (
-                <div className="mt-6">
-                  <button
-                    onClick={() => setShowCreateModal(true)}
-                    className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-[#00B5A5] hover:bg-[#008F82] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00B5A5]"
-                  >
-                    <PlusIcon className="h-5 w-5 mr-2 -ml-1" />
-                    Create Event
-                  </button>
-                </div>
-              )}
             </div>
           )}
         </div>
       </div>
 
-      {/* Modals */}
-      <EventModal
-        isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        onSubmit={handleCreateEvent}
-        loading={modalLoading}
-      />
-
-      <EventModal
-        isOpen={showEditModal}
+      {/* Register Modal */}
+      <RegisterEventModal
+        isOpen={showRegisterModal}
         onClose={() => {
-          setShowEditModal(false);
+          setShowRegisterModal(false);
           setSelectedEvent(null);
         }}
-        onSubmit={handleUpdateEvent}
+        onConfirm={handleRegisterConfirm}
         event={selectedEvent}
-        loading={modalLoading}
-      />
-
-      <DeleteConfirmModal
-        isOpen={showDeleteModal}
-        onClose={() => {
-          setShowDeleteModal(false);
-          setSelectedEvent(null);
-        }}
-        onConfirm={handleDeleteConfirm}
-        eventTitle={selectedEvent?.title || ""}
         loading={modalLoading}
       />
     </div>

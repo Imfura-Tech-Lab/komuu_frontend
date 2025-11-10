@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   UserGroupIcon,
   PlusIcon,
@@ -9,9 +10,16 @@ import {
   TrashIcon,
   UserPlusIcon,
   UserMinusIcon,
-  EyeIcon,
-  ArrowPathIcon,
   ShieldExclamationIcon,
+  ArrowPathIcon,
+  MagnifyingGlassIcon,
+  FunnelIcon,
+  ChatBubbleLeftIcon,
+  UsersIcon,
+  Squares2X2Icon,
+  TableCellsIcon,
+  EyeIcon,
+  ArrowTopRightOnSquareIcon,
 } from "@heroicons/react/24/outline";
 import { Menu, Transition } from "@headlessui/react";
 import { Fragment } from "react";
@@ -33,9 +41,36 @@ import { useInstitutionMembers } from "@/lib/hooks/useInstitutionMembers";
 import { BlockMemberModal } from "./modals/BlockmemberModal";
 import { ViewGroupModal } from "./modals/ViewGroupModal";
 
-// ============================================================================
-// SKELETON COMPONENTS
-// ============================================================================
+const CardSkeleton = () => (
+  <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 animate-pulse">
+    <div className="flex items-start justify-between mb-4">
+      <div className="flex items-center space-x-3">
+        <div className="h-12 w-12 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+        <div className="space-y-2">
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
+        </div>
+      </div>
+      <div className="h-5 w-16 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+    </div>
+    <div className="space-y-2 mb-4">
+      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
+      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-4/5"></div>
+    </div>
+    <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
+      <div className="h-9 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
+    </div>
+  </div>
+);
+
+const GridSkeleton = () => (
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    {[...Array(6)].map((_, i) => (
+      <CardSkeleton key={i} />
+    ))}
+  </div>
+);
 
 const TableSkeleton = () => (
   <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
@@ -76,13 +111,10 @@ const StatsSkeleton = () => (
   </div>
 );
 
-// ============================================================================
-// ACTIONS DROPDOWN COMPONENT
-// ============================================================================
-
 interface ActionsDropdownProps {
   group: Group;
-  onView: (group: Group) => void;
+  onViewModal: (group: Group) => void;
+  onGoToPage: (group: Group) => void;
   onEdit: (group: Group) => void;
   onAddMember: (slug: string) => void;
   onRemoveMember: (slug: string) => void;
@@ -93,7 +125,8 @@ interface ActionsDropdownProps {
 
 const ActionsDropdown: React.FC<ActionsDropdownProps> = ({
   group,
-  onView,
+  onViewModal,
+  onGoToPage,
   onEdit,
   onAddMember,
   onRemoveMember,
@@ -101,13 +134,24 @@ const ActionsDropdown: React.FC<ActionsDropdownProps> = ({
   onDelete,
   disabled,
 }) => {
+  const [isRightEdge, setIsRightEdge] = React.useState(false);
+
+  const handleButtonClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    // Check if button is near right edge of viewport
+    const button = e.currentTarget as HTMLElement;
+    const rect = button.getBoundingClientRect();
+    const spaceOnRight = window.innerWidth - rect.right;
+    setIsRightEdge(spaceOnRight < 200); // 200px is approximate menu width + padding
+  };
+
   return (
     <Menu as="div" className="relative inline-block text-left">
       <div>
         <Menu.Button
           disabled={disabled}
           className="flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-full p-1 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          onClick={(e) => e.stopPropagation()}
+          onClick={handleButtonClick}
         >
           <EllipsisVerticalIcon className="h-5 w-5" />
         </Menu.Button>
@@ -122,15 +166,14 @@ const ActionsDropdown: React.FC<ActionsDropdownProps> = ({
         leaveFrom="transform opacity-100 scale-100"
         leaveTo="transform opacity-0 scale-95"
       >
-        <Menu.Items className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none border border-gray-200 dark:border-gray-700">
+        <Menu.Items className={`absolute ${isRightEdge ? 'right-0 origin-top-right' : 'left-0 origin-top-left'} z-50 mt-2 w-48 rounded-md bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none border border-gray-200 dark:border-gray-700`}>
           <div className="py-1">
-            {/* View Details */}
             <Menu.Item>
               {({ active }) => (
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    onView(group);
+                    onViewModal(group);
                   }}
                   className={`${
                     active ? "bg-gray-100 dark:bg-gray-700" : ""
@@ -142,7 +185,25 @@ const ActionsDropdown: React.FC<ActionsDropdownProps> = ({
               )}
             </Menu.Item>
 
-            {/* Edit Group */}
+            <Menu.Item>
+              {({ active }) => (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onGoToPage(group);
+                  }}
+                  className={`${
+                    active ? "bg-gray-100 dark:bg-gray-700" : ""
+                  } flex w-full items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300`}
+                >
+                  <ArrowTopRightOnSquareIcon className="mr-3 h-4 w-4" />
+                  Go to Page
+                </button>
+              )}
+            </Menu.Item>
+
+            <div className="border-t border-gray-100 dark:border-gray-700"></div>
+
             <Menu.Item>
               {({ active }) => (
                 <button
@@ -162,7 +223,6 @@ const ActionsDropdown: React.FC<ActionsDropdownProps> = ({
 
             <div className="border-t border-gray-100 dark:border-gray-700"></div>
 
-            {/* Add Member */}
             <Menu.Item>
               {({ active }) => (
                 <button
@@ -180,7 +240,6 @@ const ActionsDropdown: React.FC<ActionsDropdownProps> = ({
               )}
             </Menu.Item>
 
-            {/* Remove Member */}
             <Menu.Item>
               {({ active }) => (
                 <button
@@ -199,7 +258,6 @@ const ActionsDropdown: React.FC<ActionsDropdownProps> = ({
               )}
             </Menu.Item>
 
-            {/* Block Member */}
             <Menu.Item>
               {({ active }) => (
                 <button
@@ -220,7 +278,6 @@ const ActionsDropdown: React.FC<ActionsDropdownProps> = ({
 
             <div className="border-t border-gray-100 dark:border-gray-700"></div>
 
-            {/* Delete Group */}
             <Menu.Item>
               {({ active }) => (
                 <button
@@ -244,11 +301,9 @@ const ActionsDropdown: React.FC<ActionsDropdownProps> = ({
   );
 };
 
-// ============================================================================
-// MAIN COMPONENT
-// ============================================================================
-
 export default function GroupsPage() {
+  const router = useRouter();
+  const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
@@ -260,6 +315,9 @@ export default function GroupsPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingGroupDetails, setIsLoadingGroupDetails] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterPrivacy, setFilterPrivacy] = useState<string>("all");
+  const [filterActivity, setFilterActivity] = useState<string>("all");
 
   const {
     groups,
@@ -441,7 +499,8 @@ export default function GroupsPage() {
     }
   };
 
-  const handleViewGroup = async (group: Group) => {
+  // View Details opens modal with detailed group info
+  const handleViewModal = async (group: Group) => {
     setSelectedGroup(group);
     setShowViewModal(true);
 
@@ -458,14 +517,33 @@ export default function GroupsPage() {
     }
   };
 
+  // Go to Page navigates to single group page
+  const handleGoToPage = (group: Group) => {
+    router.push(`/team/groups/${group.slug}`);
+  };
+
   const handleEditClick = (group: Group) => {
     setSelectedGroup(group);
     setShowEditModal(true);
   };
 
+  // Table row click also navigates to single group page
   const handleRowClick = (group: Group) => {
-    setSelectedGroup(group);
+    router.push(`/team/groups/${group.slug}`);
   };
+
+  const filteredGroups = groups.filter((group) => {
+    const matchesSearch =
+      group.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      group.description.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesPrivacy =
+      filterPrivacy === "all" || group.privacy === filterPrivacy;
+    const matchesActivity =
+      filterActivity === "all" || group.activity === filterActivity;
+
+    return matchesSearch && matchesPrivacy && matchesActivity;
+  });
 
   const totalGroups = groups.length;
   const totalMembers = groups.reduce((sum, group) => sum + group.members, 0);
@@ -560,7 +638,8 @@ export default function GroupsPage() {
         <div className="flex justify-end">
           <ActionsDropdown
             group={group}
-            onView={handleViewGroup}
+            onViewModal={handleViewModal}
+            onGoToPage={handleGoToPage}
             onEdit={handleEditClick}
             onAddMember={handleOpenAddMemberModal}
             onRemoveMember={handleOpenRemoveMemberModal}
@@ -583,181 +662,271 @@ export default function GroupsPage() {
     };
   };
 
-  const bulkActions = [
-    {
-      label: "Delete Selected",
-      action: async (selectedRows: Group[]) => {
-        if (
-          !confirm(
-            `Are you sure you want to delete ${selectedRows.length} group(s)? This action cannot be undone.`
-          )
-        )
-          return;
-
-        try {
-          setActionLoading("bulk-delete");
-          await Promise.all(
-            selectedRows.map((group) => deleteGroup(group.slug))
-          );
-          showSuccessToast(
-            `${selectedRows.length} group(s) deleted successfully`
-          );
-        } catch (error) {
-          showErrorToast("Failed to delete some groups");
-        } finally {
-          setActionLoading(null);
-        }
-      },
-      className: "text-red-600 hover:text-red-700",
-    },
-  ];
-
   return (
     <div className="space-y-6 p-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Groups Management
+            Groups
           </h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Manage your organization groups and members
+            Connect and collaborate with your community
           </p>
         </div>
 
         <div className="flex items-center space-x-3">
           <button
+            onClick={handlePageRefresh}
+            disabled={loading || isRefreshing}
+            className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+          >
+            <ArrowPathIcon
+              className={`h-5 w-5 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
+            />
+            Refresh
+          </button>
+          <button
             onClick={() => setShowCreateModal(true)}
             disabled={loading || isRefreshing}
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#00B5A5] hover:bg-[#008f82] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00B5A5] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#00B5A5] hover:bg-[#008f82] disabled:opacity-50"
           >
             <PlusIcon className="-ml-1 mr-2 h-5 w-5" />
             Create Group
           </button>
-
-          <Menu as="div" className="relative inline-block text-left">
-            <div>
-              <Menu.Button
-                disabled={loading || isRefreshing}
-                className="inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-100 disabled:opacity-50"
-              >
-                Actions
-                <EllipsisVerticalIcon
-                  className="-mr-1 ml-2 h-5 w-5"
-                  aria-hidden="true"
-                />
-              </Menu.Button>
-            </div>
-
-            <Transition
-              as={Fragment}
-              enter="transition ease-out duration-100"
-              enterFrom="transform opacity-0 scale-95"
-              enterTo="transform opacity-100 scale-100"
-              leave="transition ease-in duration-75"
-              leaveFrom="transform opacity-100 scale-100"
-              leaveTo="transform opacity-0 scale-95"
-            >
-              <Menu.Items className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
-                <div className="py-1">
-                  <Menu.Item>
-                    {({ active }) => (
-                      <button
-                        onClick={() => setShowCreateModal(true)}
-                        className={`${
-                          active ? "bg-gray-100 dark:bg-gray-700" : ""
-                        } flex w-full items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300`}
-                        disabled={loading}
-                      >
-                        <PlusIcon className="mr-3 h-4 w-4" />
-                        Create New Group
-                      </button>
-                    )}
-                  </Menu.Item>
-                  <Menu.Item>
-                    {({ active }) => (
-                      <button
-                        onClick={handlePageRefresh}
-                        className={`${
-                          active ? "bg-gray-100 dark:bg-gray-700" : ""
-                        } flex w-full items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300`}
-                        disabled={isRefreshing || loading}
-                      >
-                        <ArrowPathIcon
-                          className={`mr-3 h-4 w-4 ${
-                            isRefreshing ? "animate-spin" : ""
-                          }`}
-                        />
-                        Refresh Page
-                      </button>
-                    )}
-                  </Menu.Item>
-                </div>
-              </Menu.Items>
-            </Transition>
-          </Menu>
         </div>
       </div>
 
-      {/* Stats Cards */}
       {loading ? (
         <StatsSkeleton />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Total Groups
-            </p>
-            <p className="text-2xl font-bold text-gray-900 dark:text-white">
-              {totalGroups}
-            </p>
+            <div className="flex items-center">
+              <UserGroupIcon className="h-8 w-8 text-[#00B5A5]" />
+              <div className="ml-3">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Total Groups
+                </p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {totalGroups}
+                </p>
+              </div>
+            </div>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Total Members
-            </p>
-            <p className="text-2xl font-bold text-gray-900 dark:text-white">
-              {totalMembers}
-            </p>
+            <div className="flex items-center">
+              <UsersIcon className="h-8 w-8 text-[#00B5A5]" />
+              <div className="ml-3">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Total Members
+                </p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {totalMembers}
+                </p>
+              </div>
+            </div>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Public Groups
-            </p>
-            <p className="text-2xl font-bold text-gray-900 dark:text-white">
-              {publicGroups}
-            </p>
+            <div className="flex items-center">
+              <ChatBubbleLeftIcon className="h-8 w-8 text-[#00B5A5]" />
+              <div className="ml-3">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Active Today
+                </p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {highActivityGroups}
+                </p>
+              </div>
+            </div>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              High Activity
-            </p>
-            <p className="text-2xl font-bold text-gray-900 dark:text-white">
-              {highActivityGroups}
-            </p>
+            <div className="flex items-center">
+              <UserGroupIcon className="h-8 w-8 text-[#00B5A5]" />
+              <div className="ml-3">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Public Groups
+                </p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {publicGroups}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Groups Table */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1 relative">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search groups..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent dark:bg-gray-700 dark:text-white"
+            />
+          </div>
+
+          <div className="flex items-center space-x-3">
+            <FunnelIcon className="h-5 w-5 text-gray-400" />
+            <select
+              value={filterPrivacy}
+              onChange={(e) => setFilterPrivacy(e.target.value)}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent dark:bg-gray-700 dark:text-white"
+            >
+              <option value="all">All Privacy</option>
+              <option value="Public">Public</option>
+              <option value="Private">Private</option>
+            </select>
+
+            <select
+              value={filterActivity}
+              onChange={(e) => setFilterActivity(e.target.value)}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent dark:bg-gray-700 dark:text-white"
+            >
+              <option value="all">All Activity</option>
+              <option value="High">High</option>
+              <option value="Medium">Medium</option>
+              <option value="Low">Low</option>
+            </select>
+
+            <div className="border-l border-gray-300 dark:border-gray-600 pl-3 flex items-center space-x-1">
+              <button
+                onClick={() => setViewMode("grid")}
+                className={`p-2 rounded-md ${
+                  viewMode === "grid"
+                    ? "bg-[#00B5A5] text-white"
+                    : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                }`}
+                title="Grid view"
+              >
+                <Squares2X2Icon className="h-5 w-5" />
+              </button>
+              <button
+                onClick={() => setViewMode("table")}
+                className={`p-2 rounded-md ${
+                  viewMode === "table"
+                    ? "bg-[#00B5A5] text-white"
+                    : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                }`}
+                title="Table view"
+              >
+                <TableCellsIcon className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {loading || isRefreshing ? (
-        <TableSkeleton />
+        viewMode === "grid" ? (
+          <GridSkeleton />
+        ) : (
+          <TableSkeleton />
+        )
+      ) : viewMode === "grid" ? (
+        filteredGroups.length === 0 ? (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
+            <UserGroupIcon className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
+              No groups found
+            </h3>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              {searchQuery
+                ? "Try adjusting your search"
+                : "Create your first group to get started"}
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredGroups.map((group) => (
+              <div
+                key={group.slug}
+                className="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition-shadow"
+              >
+                <div className="p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-[#00B5A5] to-[#008f82] flex items-center justify-center">
+                        <UserGroupIcon className="h-6 w-6 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                          {group.name}
+                        </h3>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {group.category}
+                        </p>
+                      </div>
+                    </div>
+                    <span
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        group.privacy === "Public"
+                          ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                          : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+                      }`}
+                    >
+                      {group.privacy}
+                    </span>
+                  </div>
+
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 line-clamp-2 min-h-[40px]">
+                    {group.description}
+                  </p>
+
+                  <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center space-x-4">
+                      <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
+                        <UsersIcon className="h-4 w-4 mr-1" />
+                        <span>{group.members}</span>
+                      </div>
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                          group.activity === "High"
+                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                            : group.activity === "Medium"
+                            ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
+                            : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                        }`}
+                      >
+                        {group.activity}
+                      </span>
+                    </div>
+
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <ActionsDropdown
+                        group={group}
+                        onViewModal={handleViewModal}
+                        onGoToPage={handleGoToPage}
+                        onEdit={handleEditClick}
+                        onAddMember={handleOpenAddMemberModal}
+                        onRemoveMember={handleOpenRemoveMemberModal}
+                        onBlockMember={handleOpenBlockMemberModal}
+                        onDelete={handleDeleteGroup}
+                        disabled={actionLoading === group.slug}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
       ) : (
         <BaseTable<Group>
-          data={groups}
+          data={filteredGroups}
           columns={columns}
           loading={loading}
           title="Groups"
           exportFileName="groups-export"
-          searchable={true}
-          searchFields={["name", "description", "category"]}
+          searchable={false}
           pagination={false}
           onRowClick={handleRowClick}
           emptyMessage="No groups found. Create your first group to get started."
           enableExcelExport={true}
           enablePDFExport={true}
           enableBulkSelection={true}
-          bulkActions={bulkActions}
           enableColumnManagement={true}
           stickyHeader={true}
           rowKey="slug"
@@ -765,9 +934,8 @@ export default function GroupsPage() {
         />
       )}
 
-      {/* Pagination */}
       {!loading && pagination.total > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mt-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="text-sm text-gray-500 dark:text-gray-400">
               Showing {pagination.from} to {pagination.to} of {pagination.total}{" "}
@@ -831,7 +999,6 @@ export default function GroupsPage() {
         </div>
       )}
 
-      {/* Modals */}
       <ViewGroupModal
         isOpen={showViewModal}
         onClose={() => {

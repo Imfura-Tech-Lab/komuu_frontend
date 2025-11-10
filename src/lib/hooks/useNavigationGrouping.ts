@@ -45,14 +45,14 @@ export function useNavigationGrouping(
       if (matchingRule && groups[matchingRule.section]) {
         groups[matchingRule.section].items.push({
           ...item,
-          _order: matchingRule.order || 100,
+          order: matchingRule.order || 100,
         });
       }
     });
 
     // Sort items within each section
     Object.values(groups).forEach((group) => {
-      group.items.sort((a, b) => (a._order || 100) - (b._order || 100));
+      group.items.sort((a, b) => (a.order || 100) - (b.order || 100));
     });
 
     return groups;

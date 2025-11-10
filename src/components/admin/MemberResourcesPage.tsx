@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
   FolderIcon,
-  PlusIcon,
   MagnifyingGlassIcon,
   ArrowDownTrayIcon,
   DocumentTextIcon,
@@ -12,21 +11,21 @@ import {
   VideoCameraIcon,
   ArrowPathIcon,
   EyeIcon,
-  PencilIcon,
-  TrashIcon,
   ArrowTopRightOnSquareIcon,
   LinkIcon,
-  EllipsisVerticalIcon,
   HeartIcon,
   ChatBubbleLeftIcon,
   UserCircleIcon,
   CalendarIcon,
+  HandThumbDownIcon,
 } from "@heroicons/react/24/outline";
 import { HeartIcon as HeartIconSolid } from "@heroicons/react/24/solid";
-import { useResources, Resource } from "@/lib/hooks/useResources";
 import { FileViewer } from "@/components/ui/FileViwer";
-import { ResourceFormData, ResourceModal } from "./modals/Resourcemodal";
-import { DeleteConfirmModal } from "./modals/DeleteConfirmModal";
+import {
+  showSuccessToast,
+  showErrorToast,
+} from "@/components/layouts/auth-layer-out";
+import { useMemberResources, Resource } from "@/lib/hooks/useMemberResources";
 
 // ============================================================================
 // SKELETON LOADERS
@@ -78,41 +77,20 @@ const ResourcesGridSkeleton = () => (
 interface ResourceCardProps {
   resource: Resource;
   onView: (fileUrl: string, fileName: string) => void;
-  onDownload: (fileUrl: string, fileName: string) => void;
-  onEdit: (resource: Resource) => void;
-  onDelete: (resource: Resource) => void;
+  onDownload: (resourceId: number, fileUrl: string, fileName: string) => void;
+  onLike: (resourceId: number) => void;
+  onDislike: (resourceId: number) => void;
 }
 
 const ResourceCard: React.FC<ResourceCardProps> = ({
   resource,
   onView,
   onDownload,
-  onEdit,
-  onDelete,
+  onLike,
+  onDislike,
 }) => {
-  const [showActions, setShowActions] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        setShowActions(false);
-      }
-    };
-
-    if (showActions) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [showActions]);
+  const [isDisliked, setIsDisliked] = useState(false);
 
   const getPreviewContent = () => {
     const type = resource.type.toLowerCase();
@@ -227,6 +205,22 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
     }
   };
 
+  const handleLike = () => {
+    if (!isLiked) {
+      setIsLiked(true);
+      setIsDisliked(false);
+      onLike(resource.id);
+    }
+  };
+
+  const handleDislike = () => {
+    if (!isDisliked) {
+      setIsDisliked(true);
+      setIsLiked(false);
+      onDislike(resource.id);
+    }
+  };
+
   return (
     <div className="group relative bg-white dark:bg-gray-800 rounded-2xl shadow-md hover:shadow-2xl transition-all duration-300 border border-gray-200 dark:border-gray-700 hover:border-[#00B5A5] dark:hover:border-[#00B5A5] flex flex-col">
       {/* Preview Section */}
@@ -248,7 +242,9 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
                 <EyeIcon className="h-6 w-6 text-gray-700 dark:text-gray-300" />
               </button>
               <button
-                onClick={() => onDownload(resource.file_url!, resource.title)}
+                onClick={() =>
+                  onDownload(resource.id, resource.file_url!, resource.title)
+                }
                 className="p-4 bg-[#00B5A5] rounded-full hover:bg-[#008F82] transition-all shadow-lg transform hover:scale-110 active:scale-95"
                 title="Download"
               >
@@ -275,79 +271,6 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
             {resource.type}
           </span>
         </div>
-      </div>
-
-      {/* Actions dropdown button - positioned relative to card */}
-      <div className="absolute top-4 right-4 z-20" ref={dropdownRef}>
-        <button
-          onClick={() => setShowActions(!showActions)}
-          className="p-2.5 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm rounded-full hover:bg-white dark:hover:bg-gray-800 transition-all shadow-lg hover:shadow-xl"
-        >
-          <EllipsisVerticalIcon className="h-5 w-5 text-gray-700 dark:text-gray-300" />
-        </button>
-
-        {/* Dropdown menu */}
-        {showActions && (
-          <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-            {resource.file_url && (
-              <>
-                <button
-                  onClick={() => {
-                    onView(resource.file_url!, resource.title);
-                    setShowActions(false);
-                  }}
-                  className="w-full flex items-center px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                >
-                  <EyeIcon className="h-5 w-5 mr-3 text-gray-500 dark:text-gray-400" />
-                  View File
-                </button>
-                <button
-                  onClick={() => {
-                    onDownload(resource.file_url!, resource.title);
-                    setShowActions(false);
-                  }}
-                  className="w-full flex items-center px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                >
-                  <ArrowDownTrayIcon className="h-5 w-5 mr-3 text-gray-500 dark:text-gray-400" />
-                  Download
-                </button>
-              </>
-            )}
-            {resource.link && (
-              <a
-                href={resource.link}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => setShowActions(false)}
-                className="w-full flex items-center px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-              >
-                <ArrowTopRightOnSquareIcon className="h-5 w-5 mr-3 text-gray-500 dark:text-gray-400" />
-                Open Link
-              </a>
-            )}
-            <button
-              onClick={() => {
-                onEdit(resource);
-                setShowActions(false);
-              }}
-              className="w-full flex items-center px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-            >
-              <PencilIcon className="h-5 w-5 mr-3 text-gray-500 dark:text-gray-400" />
-              Edit Resource
-            </button>
-            <div className="border-t border-gray-200 dark:border-gray-700 my-2"></div>
-            <button
-              onClick={() => {
-                onDelete(resource);
-                setShowActions(false);
-              }}
-              className="w-full flex items-center px-4 py-3 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-            >
-              <TrashIcon className="h-5 w-5 mr-3" />
-              Delete Resource
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Content Section */}
@@ -389,11 +312,17 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
         {/* Engagement Stats */}
         <div className="flex items-center gap-4 mb-4 pb-4 border-b border-gray-200 dark:border-gray-700">
           <button
-            onClick={() => setIsLiked(!isLiked)}
-            className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-[#00B5A5] dark:hover:text-[#00B5A5] transition-colors"
+            onClick={handleLike}
+            disabled={isLiked}
+            className={`flex items-center gap-1.5 text-sm transition-colors ${
+              isLiked
+                ? "text-red-500 cursor-not-allowed"
+                : "text-gray-600 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400"
+            }`}
+            title="Like this resource"
           >
             {isLiked ? (
-              <HeartIconSolid className="h-5 w-5 text-red-500" />
+              <HeartIconSolid className="h-5 w-5" />
             ) : (
               <HeartIcon className="h-5 w-5" />
             )}
@@ -401,10 +330,30 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
               {(resource.likes_count || 0) + (isLiked ? 1 : 0)}
             </span>
           </button>
+
+          <button
+            onClick={handleDislike}
+            disabled={isDisliked}
+            className={`flex items-center gap-1.5 text-sm transition-colors ${
+              isDisliked
+                ? "text-gray-700 dark:text-gray-300 cursor-not-allowed"
+                : "text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+            }`}
+            title="Dislike this resource"
+          >
+            <HandThumbDownIcon
+              className={`h-5 w-5 ${isDisliked ? "fill-current" : ""}`}
+            />
+            <span className="font-medium">
+              {(resource.dislikes_count || 0) + (isDisliked ? 1 : 0)}
+            </span>
+          </button>
+
           <div className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400">
             <ChatBubbleLeftIcon className="h-5 w-5" />
             <span className="font-medium">{resource.comments_count || 0}</span>
           </div>
+          
           <div className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400 ml-auto">
             <ArrowDownTrayIcon className="h-5 w-5" />
             <span className="font-medium">{resource.downloads || 0}</span>
@@ -455,23 +404,14 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
 };
 
 // ============================================================================
-// MAIN RESOURCES PAGE COMPONENT
+// MAIN MEMBER RESOURCES PAGE COMPONENT
 // ============================================================================
 
-export default function ResourcesPage() {
+export default function MemberResourcesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [isRefreshing, setIsRefreshing] = useState(false);
-
-  // Modal States
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [selectedResource, setSelectedResource] = useState<Resource | null>(
-    null
-  );
-  const [modalLoading, setModalLoading] = useState(false);
 
   // File Viewer State
   const [fileViewerOpen, setFileViewerOpen] = useState(false);
@@ -483,10 +423,10 @@ export default function ResourcesPage() {
     loading,
     error,
     fetchResources,
-    createResource,
-    updateResource,
-    deleteResource,
-  } = useResources();
+    downloadResource,
+    likeResource,
+    dislikeResource,
+  } = useMemberResources();
 
   useEffect(() => {
     fetchResources();
@@ -502,95 +442,32 @@ export default function ResourcesPage() {
     setIsRefreshing(false);
   };
 
-  const handleCreateResource = async (formData: ResourceFormData) => {
-    setModalLoading(true);
-    const success = await createResource({
-      title: formData.title,
-      description: formData.description,
-      link: formData.link,
-      type: formData.type,
-      visibility: formData.visibility,
-      group: formData.group,
-      tags: formData.tags,
-      file: formData.file,
-    });
-    setModalLoading(false);
-
-    if (success) {
-      setShowCreateModal(false);
-    }
-  };
-
-  const handleUpdateResource = async (formData: ResourceFormData) => {
-    if (!selectedResource) return;
-
-    setModalLoading(true);
-    const success = await updateResource({
-      id: selectedResource.id,
-      title: formData.title,
-      description: formData.description,
-      link: formData.link,
-      type: formData.type,
-      visibility: formData.visibility,
-      group: formData.group,
-      tags: formData.tags,
-      file: formData.file,
-    });
-    setModalLoading(false);
-
-    if (success) {
-      setShowEditModal(false);
-      setSelectedResource(null);
-    }
-  };
-
-  const handleDeleteClick = (resource: Resource) => {
-    setSelectedResource(resource);
-    setShowDeleteModal(true);
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!selectedResource) return;
-
-    setModalLoading(true);
-    const success = await deleteResource(selectedResource.id);
-    setModalLoading(false);
-
-    if (success) {
-      setShowDeleteModal(false);
-      setSelectedResource(null);
-    }
-  };
-
-  const handleEditClick = (resource: Resource) => {
-    setSelectedResource(resource);
-    setShowEditModal(true);
-  };
-
   const handleViewFile = (fileUrl: string, fileName: string) => {
     setCurrentFileUrl(fileUrl);
     setCurrentFileName(fileName);
     setFileViewerOpen(true);
   };
 
-  const handleDownload = async (fileUrl: string, fileName: string) => {
-    try {
-      const response = await fetch(fileUrl);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (err) {
-      console.error("Download failed:", err);
+  const handleDownload = async (
+    resourceId: number,
+    fileUrl: string,
+    fileName: string
+  ) => {
+    // Call API to track download
+    const success = await downloadResource(resourceId);
+    
+    if (success) {
+      // The hook already triggers the download
+      showSuccessToast("Download started");
     }
+  };
+
+  const handleLike = async (resourceId: number) => {
+    await likeResource(resourceId);
+  };
+
+  const handleDislike = async (resourceId: number) => {
+    await dislikeResource(resourceId);
   };
 
   // ============================================================================
@@ -685,7 +562,7 @@ export default function ResourcesPage() {
             Resource Library
           </h1>
           <p className="mt-2 text-lg text-gray-600 dark:text-gray-400">
-            Organize, share, and manage all your team's essential resources.
+            Access and download resources shared by your community.
           </p>
         </div>
         <div className="flex items-center space-x-3">
@@ -698,13 +575,6 @@ export default function ResourcesPage() {
               className={`h-5 w-5 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
             />
             Refresh
-          </button>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center px-5 py-2.5 bg-[#00B5A5] text-white rounded-lg hover:bg-[#008F82] transition-colors shadow-md text-sm font-medium"
-          >
-            <PlusIcon className="h-5 w-5 mr-2" />
-            Upload New Resource
           </button>
         </div>
       </div>
@@ -838,8 +708,8 @@ export default function ResourcesPage() {
               resource={resource}
               onView={handleViewFile}
               onDownload={handleDownload}
-              onEdit={handleEditClick}
-              onDelete={handleDeleteClick}
+              onLike={handleLike}
+              onDislike={handleDislike}
             />
           ))}
         </div>
@@ -852,58 +722,18 @@ export default function ResourcesPage() {
           </h3>
           <p className="mt-1 text-base text-gray-500 dark:text-gray-400">
             {resources.length === 0
-              ? "Upload your first resource to get started."
+              ? "No resources available yet. Check back later!"
               : "Try adjusting your search query, filters, or active tab."}
           </p>
-          {resources.length === 0 && (
-            <div className="mt-6">
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-[#00B5A5] hover:bg-[#008F82] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00B5A5]"
-              >
-                <PlusIcon className="h-5 w-5 mr-2 -ml-1" />
-                Upload Resource
-              </button>
-            </div>
-          )}
         </div>
       )}
 
-      {/* Modals */}
+      {/* File Viewer Modal */}
       <FileViewer
         fileUrl={currentFileUrl}
         fileName={currentFileName}
         isOpen={fileViewerOpen}
         onClose={() => setFileViewerOpen(false)}
-      />
-
-      <ResourceModal
-        isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        onSubmit={handleCreateResource}
-        loading={modalLoading}
-      />
-
-      <ResourceModal
-        isOpen={showEditModal}
-        onClose={() => {
-          setShowEditModal(false);
-          setSelectedResource(null);
-        }}
-        onSubmit={handleUpdateResource}
-        resource={selectedResource}
-        loading={modalLoading}
-      />
-
-      <DeleteConfirmModal
-        isOpen={showDeleteModal}
-        onClose={() => {
-          setShowDeleteModal(false);
-          setSelectedResource(null);
-        }}
-        onConfirm={handleDeleteConfirm}
-        eventTitle={selectedResource?.title || ""}
-        loading={modalLoading}
       />
     </div>
   );

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import {
   showErrorToast,
   showSuccessToast,
@@ -50,10 +50,9 @@ export interface ConversationGroup {
   total_members?: number;
 }
 
-export interface CreateConversationParams {
-  group?: number;
+export interface StartConversationParams {
+  group: number;
   title: string;
-  type: string;
   content: string;
   attachment?: File;
 }
@@ -86,34 +85,23 @@ interface PaginatedResponse<T> {
   total: number;
 }
 
-interface UseConversationsReturn {
+interface UseMemberConversationsReturn {
   conversations: Conversation[];
   stats: ConversationsStats | null;
-  conversationTypes: ConversationType[];
-  conversationGroups: ConversationGroup[];
   loading: boolean;
   error: string | null;
-  typesLoading: boolean;
-  typesError: boolean;
   fetchConversations: (groupSlug?: string) => Promise<void>;
   fetchConversation: (id: number) => Promise<Conversation | null>;
-  fetchConversationTypes: () => Promise<void>;
-  fetchConversationGroups: () => Promise<void>;
-  createConversation: (
-    params: CreateConversationParams
+  startConversation: (
+    params: StartConversationParams
   ) => Promise<Conversation | null>;
-  deleteConversation: (id: number) => Promise<boolean>;
 }
 
-export function useConversations(): UseConversationsReturn {
+export function useMemberConversations(): UseMemberConversationsReturn {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [stats, setStats] = useState<ConversationsStats | null>(null);
-  const [conversationTypes, setConversationTypes] = useState<ConversationType[]>([]);
-  const [conversationGroups, setConversationGroups] = useState<ConversationGroup[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [typesLoading, setTypesLoading] = useState(false);
-  const [typesError, setTypesError] = useState(false);
 
   const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
 
@@ -173,6 +161,10 @@ export function useConversations(): UseConversationsReturn {
     [apiUrl, getAuthHeaders]
   );
 
+  /**
+   * Fetch conversations with optional group filter
+   * Member endpoint: GET /conversations?group={slug}
+   */
   const fetchConversations = useCallback(
     async (groupSlug?: string) => {
       try {
@@ -180,8 +172,8 @@ export function useConversations(): UseConversationsReturn {
         setError(null);
 
         const endpoint = groupSlug
-          ? `community/conversations?group=${groupSlug}`
-          : `community/conversations`;
+          ? `conversations?group=${groupSlug}`
+          : `conversations`;
 
         const response = await fetch(`${apiUrl}${endpoint}`, {
           headers: getAuthHeaders(),
@@ -211,12 +203,19 @@ export function useConversations(): UseConversationsReturn {
 
           setConversations(transformedConversations);
 
+          // Set stats from pagination metadata
           if (result.data.total !== undefined) {
             setStats({
               total_topics: result.data.total,
-              total_replies: 0,
-              total_views: 0,
-              active_today: 0,
+              total_replies: transformedConversations.reduce(
+                (sum, conv) => sum + (conv.replies || 0),
+                0
+              ),
+              total_views: transformedConversations.reduce(
+                (sum, conv) => sum + (conv.views || 0),
+                0
+              ),
+              active_today: 0, // Backend should provide this
             });
           }
         }
@@ -232,15 +231,17 @@ export function useConversations(): UseConversationsReturn {
     [apiUrl, getAuthHeaders]
   );
 
+  /**
+   * Fetch single conversation details
+   * Member endpoint: GET /conversations/{id}
+   */
   const fetchConversation = useCallback(
     async (id: number): Promise<Conversation | null> => {
       try {
         setLoading(true);
         setError(null);
 
-        const data = await apiCall<Conversation>(
-          `community/conversations/${id}`
-        );
+        const data = await apiCall<Conversation>(`conversations/${id}`);
 
         if (data) {
           return {
@@ -263,118 +264,97 @@ export function useConversations(): UseConversationsReturn {
     [apiCall]
   );
 
-  const fetchConversationTypes = useCallback(async () => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    try {
-      setTypesLoading(true);
-      setTypesError(false);
-
-      const authToken = localStorage.getItem("auth_token");
-      const companyId = localStorage.getItem("company_id");
-
-      const response = await fetch(`${apiUrl}conversation-types`, {
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${authToken}`,
-          "X-Company-ID": companyId || "",
-        },
-      });
-
-      const result: ApiResponse = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || "Failed to fetch types");
-      }
-
-      if (
-        result.status === "success" &&
-        result.types &&
-        Array.isArray(result.types)
-      ) {
-        const formattedTypes: ConversationType[] = result.types.map(
-          (type: string, index: number) => ({
-            id: index + 1,
-            name: type,
-            slug: type.toLowerCase().replace(/\s+/g, "-"),
-            description: `${type} conversation type`,
-          })
-        );
-
-        setConversationTypes(formattedTypes);
-      } else {
-        setConversationTypes([]);
-        setTypesError(true);
-      }
-    } catch (err) {
-      setTypesError(true);
-      setConversationTypes([]);
-      showErrorToast("Failed to load conversation types");
-    } finally {
-      setTypesLoading(false);
-    }
-  }, [apiUrl]);
-
-  const fetchConversationGroups = useCallback(async () => {
-    try {
-      const data = await apiCall<{ data: ConversationGroup[] }>(
-        "community/groups"
-      );
-
-      if (data && data.data && Array.isArray(data.data)) {
-        setConversationGroups(data.data);
-      } else if (data && Array.isArray(data)) {
-        setConversationGroups(data as any);
-      } else {
-        setConversationGroups([]);
-      }
-    } catch (err) {
-      setConversationGroups([]);
-    }
-  }, [apiCall]);
-
-  const createConversation = useCallback(
-    async (params: CreateConversationParams): Promise<Conversation | null> => {
+  /**
+   * Start a new conversation (member-initiated)
+   * Member endpoint: POST /conversations/start-conversation
+   * 
+   * Required fields:
+   * - group: number (group ID)
+   * - title: string
+   * - content: string
+   * - attachment: File (optional)
+   */
+  const startConversation = useCallback(
+    async (params: StartConversationParams): Promise<Conversation | null> => {
       try {
         setLoading(true);
         setError(null);
 
-        const formData = new FormData();
-
-        if (params.group) {
-          formData.append("group", params.group.toString());
+        // Validate required fields
+        if (!params.group) {
+          throw new Error("Group is required");
         }
 
-        formData.append("title", params.title);
-        formData.append("type", params.type);
-        formData.append("content", params.content);
+        if (!params.title || params.title.trim().length < 5) {
+          throw new Error("Title must be at least 5 characters long");
+        }
+
+        if (!params.content || params.content.trim().length < 10) {
+          throw new Error("Content must be at least 10 characters long");
+        }
+
+        // Validate attachment if provided
+        if (params.attachment) {
+          const maxSize = 10 * 1024 * 1024; // 10MB
+          if (params.attachment.size > maxSize) {
+            throw new Error("File size must be less than 10MB");
+          }
+
+          const allowedTypes = [
+            "image/jpeg",
+            "image/jpg",
+            "image/png",
+            "image/gif",
+            "image/webp",
+            "application/pdf",
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "application/vnd.ms-excel",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          ];
+
+          if (!allowedTypes.includes(params.attachment.type)) {
+            throw new Error("File type not supported");
+          }
+        }
+
+        // Build FormData
+        const formData = new FormData();
+        formData.append("group", params.group.toString());
+        formData.append("title", params.title.trim());
+        formData.append("content", params.content.trim());
 
         if (params.attachment) {
           formData.append("attachment", params.attachment);
         }
 
+        // Remove Accept header for FormData
         const headers = getAuthHeaders();
         delete (headers as any).Accept;
 
-        const data = await apiCall<Conversation>("community/conversations", {
-          method: "POST",
-          body: formData,
-          headers,
-        });
+        const data = await apiCall<Conversation>(
+          "conversations/start-conversation",
+          {
+            method: "POST",
+            body: formData,
+            headers,
+          }
+        );
 
         if (data) {
-          showSuccessToast("Conversation created successfully");
+          showSuccessToast("Conversation started successfully");
+          
+          // Refresh conversations list
           await fetchConversations();
+          
           return data;
         }
 
         return null;
       } catch (err) {
-        showErrorToast(
-          err instanceof Error ? err.message : "Failed to create conversation"
-        );
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to start conversation";
+        showErrorToast(errorMessage);
         return null;
       } finally {
         setLoading(false);
@@ -383,54 +363,13 @@ export function useConversations(): UseConversationsReturn {
     [apiCall, fetchConversations, getAuthHeaders]
   );
 
-  const deleteConversation = useCallback(
-    async (id: number): Promise<boolean> => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        await apiCall<void>(`community/conversations/${id}`, {
-          method: "DELETE",
-        });
-
-        showSuccessToast("Conversation deleted successfully");
-
-        setConversations((prev) => prev.filter((conv) => conv.id !== id));
-
-        if (stats) {
-          setStats({
-            ...stats,
-            total_topics: stats.total_topics - 1,
-          });
-        }
-
-        return true;
-      } catch (err) {
-        showErrorToast(
-          err instanceof Error ? err.message : "Failed to delete conversation"
-        );
-        return false;
-      } finally {
-        setLoading(false);
-      }
-    },
-    [apiCall, stats]
-  );
-
   return {
     conversations,
     stats,
-    conversationTypes,
-    conversationGroups,
     loading,
     error,
-    typesLoading,
-    typesError,
     fetchConversations,
     fetchConversation,
-    fetchConversationTypes,
-    fetchConversationGroups,
-    createConversation,
-    deleteConversation,
+    startConversation,
   };
 }

@@ -1,12 +1,12 @@
 import { Suspense } from "react";
-import MemberGroupsPage from "@/components/groups/MemberGroupsPage";
 import SecureDashboardLayout from "@/components/dashboard/secure-dashboard-layout";
+import MemberResourcesPage from "@/components/admin/MemberResourcesPage";
 
-export default function MemberCommunityGroupsPage() {
+export default function MemberCommunityResourcesPage() {
   return (
     <SecureDashboardLayout requiredRoles={["Member"]}>
       <Suspense>
-        <MemberGroupsPage />
+        <MemberResourcesPage />
       </Suspense>
     </SecureDashboardLayout>
   );

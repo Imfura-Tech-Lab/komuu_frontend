@@ -40,13 +40,25 @@ interface ProfileFormData {
   public_profile: File | null;
 }
 
+const ROLE_COLORS = {
+  Administrator: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+  President: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+  Board: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+  Member: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
+  MemberUnverified: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+  Pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
+};
+
+const TITLES = ["Mr", "Mrs", "Ms", "Dr", "Prof", "Sir", "Madam"];
+
 export default function ProfilePage() {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
-  const router = useRouter();
+  const [profileImagePreview, setProfileImagePreview] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Partial<ProfileFormData>>({});
   const [formData, setFormData] = useState<ProfileFormData>({
     title: "",
     first_name: "",
@@ -62,53 +74,22 @@ export default function ProfilePage() {
     passport: "",
     public_profile: null,
   });
-  const [errors, setErrors] = useState<Partial<ProfileFormData>>({});
-  const [profileImagePreview, setProfileImagePreview] = useState<string | null>(
-    null
-  );
+  
+  const router = useRouter();
 
-  // Handle image load error (for blob URLs this shouldn't happen)
-  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    const imgElement = e.currentTarget;
-    if (process.env.NODE_ENV === 'development') {
-      console.log("🚨 Blob image failed to load:");
-      console.log("  URL:", imgElement.src);
-      console.log("  This should not happen with blob URLs");
-    }
-    setProfileImagePreview(null);
-  };
-
-  // Handle image load success
-  const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    const imgElement = e.currentTarget;
-    if (process.env.NODE_ENV === 'development') {
-      console.log("✅ Image loaded successfully:");
-      console.log("  URL:", imgElement.src);
-      console.log("  Natural width:", imgElement.naturalWidth);
-      console.log("  Natural height:", imgElement.naturalHeight);
-      console.log("  Complete:", imgElement.complete);
-    }
-  };
-
-  // Better name parsing function
-  const parseFullName = (fullName: string) => {
+  // Utility Functions
+  const parseFullName = useCallback((fullName: string) => {
     if (!fullName) return { title: "", first_name: "", middle_name: "", surname: "" };
 
     const nameParts = fullName.trim().split(" ").filter(part => part.length > 0);
-    
-    // Common titles to filter out
-    const titles = ["Mr", "Mrs", "Ms", "Dr", "Prof", "Sir", "Madam"];
-    
-    // Find and extract title
     let title = "";
     let namePartsWithoutTitle = [...nameParts];
     
-    if (nameParts.length > 0 && titles.includes(nameParts[0])) {
+    if (nameParts.length > 0 && TITLES.includes(nameParts[0])) {
       title = nameParts[0];
       namePartsWithoutTitle = nameParts.slice(1);
     }
     
-    // Handle remaining name parts
     if (namePartsWithoutTitle.length === 0) {
       return { title, first_name: "", middle_name: "", surname: "" };
     } else if (namePartsWithoutTitle.length === 1) {
@@ -121,7 +102,6 @@ export default function ProfilePage() {
         surname: namePartsWithoutTitle[1] 
       };
     } else {
-      // 3+ parts: first, middle(s), last
       return {
         title,
         first_name: namePartsWithoutTitle[0],
@@ -129,115 +109,63 @@ export default function ProfilePage() {
         surname: namePartsWithoutTitle[namePartsWithoutTitle.length - 1]
       };
     }
-  };
-
-  // Check if profile image is valid
-  const hasValidProfileImage = (profileUrl: string | null | undefined) => {
-    if (!profileUrl || profileUrl.trim() === "") return false;
-    
-    // Check for invalid/placeholder URLs
-    const invalidUrls = [
-      "null",
-      "undefined",
-      "/storage", // Just the path without domain
-      "https://membership-portal-master-s83ce2.laravel.cloud/storage" // Base storage URL without file
-    ];
-    
-    // Check if it's a valid URL format and not in the invalid list
-    const isValidUrl = profileUrl.startsWith("http") && 
-                       !invalidUrls.includes(profileUrl.trim()) &&
-                       profileUrl.includes(".") && // Should have a file extension
-                       (profileUrl.includes(".jpg") || 
-                        profileUrl.includes(".jpeg") || 
-                        profileUrl.includes(".png") || 
-                        profileUrl.includes(".gif") || 
-                        profileUrl.includes(".webp"));
-    
-    return isValidUrl;
-  };
-
-  // Monitor profile image state changes
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log("🔄 profileImagePreview state changed to:", profileImagePreview);
-    }
-  }, [profileImagePreview]);
-
-  // Load user data - simplified since auth is handled by SecureDashboardLayout
-  useEffect(() => {
-    const loadUserData = () => {
-      try {
-        const storedUserData = localStorage.getItem("user_data");
-        if (!storedUserData) {
-          setIsLoading(false);
-          return;
-        }
-
-        const parsedUserData = JSON.parse(storedUserData);
-        setUserData(parsedUserData);
-
-        // Parse the name field into components using improved logic
-        const parsedName = parseFullName(parsedUserData.name || "");
-
-        // Initialize form data
-        setFormData({
-          title: parsedName.title,
-          first_name: parsedName.first_name,
-          surname: parsedName.surname,
-          middle_name: parsedName.middle_name,
-          email: parsedUserData.email || "",
-          phone_number: parsedUserData.phone_number || "",
-          secondary_email: parsedUserData.secondary_email || "",
-          alternative_phone: parsedUserData.alternative_phone || "",
-          whatsapp_number: parsedUserData.whatsapp_number || "",
-          date_of_birth: parsedUserData.date_of_birth
-            ? new Date(parsedUserData.date_of_birth).toISOString().split("T")[0]
-            : "",
-          national_id: parsedUserData.national_ID || "",
-          passport: parsedUserData.passport || "",
-          public_profile: null,
-        });
-
-        // Set profile image preview if available
-        const imageUrl = parsedUserData.public_profile;
-        if (process.env.NODE_ENV === 'development') {
-          console.log("📸 Setting up profile image:");
-          console.log("  Raw profile URL from API:", imageUrl);
-        }
-        
-        const isValidImage = hasValidProfileImage(imageUrl);
-        if (process.env.NODE_ENV === 'development') {
-          console.log("  Validation result:", isValidImage);
-        }
-        
-        if (isValidImage) {
-          if (process.env.NODE_ENV === 'development') {
-            console.log("  ✅ Profile image passed validation");
-            console.log("  🔐 Fetching image with authentication (403 error expected without auth)");
-          }
-          
-          // Since images require authentication, fetch with auth token directly
-          // fetchImageWithAuth(imageUrl);
-          
-        } else {
-          if (process.env.NODE_ENV === 'development') {
-            console.log("  ❌ Profile image failed validation, clearing preview");
-          }
-          setProfileImagePreview(null);
-        }
-      } catch (error) {
-        console.error("Failed to load user data:", error);
-        showErrorToast("Failed to load profile data.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadUserData();
   }, []);
 
-  // Validation
-  const validateForm = (): boolean => {
+  const hasValidProfileImage = useCallback((profileUrl: string | null | undefined) => {
+    if (!profileUrl || profileUrl.trim() === "") return false;
+    
+    const invalidUrls = ["null", "undefined", "/storage", "https://membership-portal-master-s83ce2.laravel.cloud/storage"];
+    const validExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
+    
+    return profileUrl.startsWith("http") && 
+           !invalidUrls.includes(profileUrl.trim()) &&
+           validExtensions.some(ext => profileUrl.includes(ext));
+  }, []);
+
+  const getUserInitials = useCallback((name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .substring(0, 2)
+      .toUpperCase();
+  }, []);
+
+  const getRoleColor = useCallback((role: string) => {
+    return ROLE_COLORS[role as keyof typeof ROLE_COLORS] || ROLE_COLORS.Member;
+  }, []);
+
+  // Image Handling
+  const fetchImageWithAuth = useCallback(async (imageUrl: string): Promise<string | null> => {
+    try {
+      const token = localStorage.getItem("auth_token");
+      if (!token) {
+        console.error("No auth token found for image fetch");
+        return null;
+      }
+
+      const response = await fetch(imageUrl, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        console.error(`Failed to fetch image: ${response.status}`);
+        return null;
+      }
+
+      const blob = await response.blob();
+      return URL.createObjectURL(blob);
+    } catch (error) {
+      console.error("Error fetching authenticated image:", error);
+      return null;
+    }
+  }, []);
+
+  // Form Validation
+  const validateForm = useCallback((): boolean => {
     const newErrors: Partial<ProfileFormData> = {};
 
     if (!formData.first_name.trim()) {
@@ -264,18 +192,13 @@ export default function ProfilePage() {
       newErrors.national_id = "National ID is required";
     }
 
-    if (
-      formData.secondary_email &&
-      formData.secondary_email.trim() &&
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.secondary_email)
-    ) {
+    if (formData.secondary_email?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.secondary_email)) {
       newErrors.secondary_email = "Please enter a valid email address";
     }
 
     if (!formData.date_of_birth) {
       newErrors.date_of_birth = "Date of birth is required";
     } else {
-      // Check if date is not in the future and person is at least 16 years old
       const selectedDate = new Date(formData.date_of_birth);
       const today = new Date();
       const minAge = new Date();
@@ -288,23 +211,110 @@ export default function ProfilePage() {
       }
     }
 
-    // Validate alternative phone if provided
-    if (formData.alternative_phone && formData.alternative_phone.trim() && 
-        !/^\+?[\d\s\-\(\)]+$/.test(formData.alternative_phone)) {
+    if (formData.alternative_phone?.trim() && !/^\+?[\d\s\-\(\)]+$/.test(formData.alternative_phone)) {
       newErrors.alternative_phone = "Please enter a valid phone number";
     }
 
-    // Validate WhatsApp number if provided
-    if (formData.whatsapp_number && formData.whatsapp_number.trim() && 
-        !/^\+?[\d\s\-\(\)]+$/.test(formData.whatsapp_number)) {
+    if (formData.whatsapp_number?.trim() && !/^\+?[\d\s\-\(\)]+$/.test(formData.whatsapp_number)) {
       newErrors.whatsapp_number = "Please enter a valid WhatsApp number";
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
+  }, [formData]);
 
-  // Handle form submission
+  // Load User Data
+  useEffect(() => {
+    const loadUserData = async () => {
+      try {
+        const storedUserData = localStorage.getItem("user_data");
+        if (!storedUserData) {
+          setIsLoading(false);
+          return;
+        }
+
+        const parsedUserData = JSON.parse(storedUserData);
+        setUserData(parsedUserData);
+
+        const parsedName = parseFullName(parsedUserData.name || "");
+
+        setFormData({
+          title: parsedName.title,
+          first_name: parsedName.first_name,
+          surname: parsedName.surname,
+          middle_name: parsedName.middle_name,
+          email: parsedUserData.email || "",
+          phone_number: parsedUserData.phone_number || "",
+          secondary_email: parsedUserData.secondary_email || "",
+          alternative_phone: parsedUserData.alternative_phone || "",
+          whatsapp_number: parsedUserData.whatsapp_number || "",
+          date_of_birth: parsedUserData.date_of_birth
+            ? new Date(parsedUserData.date_of_birth).toISOString().split("T")[0]
+            : "",
+          national_id: parsedUserData.national_ID || "",
+          passport: parsedUserData.passport || "",
+          public_profile: null,
+        });
+
+        // Load profile image
+        const imageUrl = parsedUserData.public_profile;
+        if (hasValidProfileImage(imageUrl)) {
+          const blobUrl = await fetchImageWithAuth(imageUrl);
+          if (blobUrl) {
+            setProfileImagePreview(blobUrl);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load user data:", error);
+        showErrorToast("Failed to load profile data.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadUserData();
+  }, [parseFullName, hasValidProfileImage, fetchImageWithAuth]);
+
+  // Cleanup blob URLs
+  useEffect(() => {
+    return () => {
+      if (profileImagePreview?.startsWith('blob:')) {
+        URL.revokeObjectURL(profileImagePreview);
+      }
+    };
+  }, [profileImagePreview]);
+
+  // Form Handlers
+  const handleInputChange = useCallback((field: keyof ProfileFormData, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: undefined }));
+    }
+  }, [errors]);
+
+  const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      showErrorToast("Please select a valid image file (JPG, PNG, GIF, etc.).");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      showErrorToast("Image size must be less than 5MB.");
+      return;
+    }
+
+    setFormData((prev) => ({ ...prev, public_profile: file }));
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setProfileImagePreview(e.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  }, []);
+
   const handleSave = async () => {
     if (!validateForm()) {
       showErrorToast("Please fix the errors in the form.");
@@ -320,7 +330,6 @@ export default function ProfilePage() {
         throw new Error("No authentication token found");
       }
 
-      // Create FormData for file upload
       const formDataPayload = new FormData();
       formDataPayload.append("_method", "PATCH");
       formDataPayload.append("title", formData.title);
@@ -352,7 +361,6 @@ export default function ProfilePage() {
       if (!response.ok) {
         const errorData = await response.json();
         
-        // Handle validation errors from backend
         if (errorData.errors) {
           const backendErrors: Partial<ProfileFormData> = {};
           Object.keys(errorData.errors).forEach(key => {
@@ -369,14 +377,19 @@ export default function ProfilePage() {
       const data = await response.json();
       const updatedUserData = data.data;
 
-      // Update localStorage and state
       localStorage.setItem("user_data", JSON.stringify(updatedUserData));
       setUserData(updatedUserData);
       setIsEditing(false);
       showSuccessToast("Profile updated successfully!");
-      
-      // Clear any previous errors
       setErrors({});
+      
+      // Reload profile image if updated
+      if (hasValidProfileImage(updatedUserData.public_profile)) {
+        const blobUrl = await fetchImageWithAuth(updatedUserData.public_profile);
+        if (blobUrl) {
+          setProfileImagePreview(blobUrl);
+        }
+      }
     } catch (error) {
       console.error("Profile update failed:", error);
       if (error instanceof Error) {
@@ -389,43 +402,7 @@ export default function ProfilePage() {
     }
   };
 
-  // Handle input changes
-  const handleInputChange = (field: keyof ProfileFormData, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors((prev) => ({ ...prev, [field]: undefined }));
-    }
-  };
-
-  // Handle file upload
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      // Validate file type
-      if (!file.type.startsWith("image/")) {
-        showErrorToast("Please select a valid image file (JPG, PNG, GIF, etc.).");
-        return;
-      }
-
-      // Validate file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        showErrorToast("Image size must be less than 5MB.");
-        return;
-      }
-
-      setFormData((prev) => ({ ...prev, public_profile: file }));
-
-      // Create preview
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setProfileImagePreview(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  // Cancel editing
-  const handleCancel = () => {
+  const handleCancel = useCallback(() => {
     if (userData) {
       const parsedName = parseFullName(userData.name || "");
 
@@ -447,40 +424,19 @@ export default function ProfilePage() {
         public_profile: null,
       });
 
-      // Reset profile image
       if (hasValidProfileImage(userData.public_profile)) {
-        setProfileImagePreview(userData.public_profile);
+        fetchImageWithAuth(userData.public_profile).then(blobUrl => {
+          if (blobUrl) setProfileImagePreview(blobUrl);
+        });
       } else {
         setProfileImagePreview(null);
       }
     }
     setErrors({});
     setIsEditing(false);
-  };
+  }, [userData, parseFullName, hasValidProfileImage, fetchImageWithAuth]);
 
-  // Get user initials for avatar
-  const getUserInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .substring(0, 2)
-      .toUpperCase();
-  };
-
-  // Role color mapping
-  const getRoleColor = (role: string) => {
-    const colors = {
-      Administrator: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
-      President: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
-      Board: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-      Member: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
-      MemberUnverified: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
-      Pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
-    };
-    return colors[role as keyof typeof colors] || colors.Member;
-  };
-
+  // Loading State
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -492,6 +448,7 @@ export default function ProfilePage() {
     );
   }
 
+  // No Data State
   if (!userData) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -530,24 +487,6 @@ export default function ProfilePage() {
 
   return (
     <div className="space-y-6">
-      {/* Debug Information - Remove this in production */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-yellow-800 dark:text-yellow-200 mb-2">🐛 Debug Info</h3>
-          <div className="text-xs text-yellow-700 dark:text-yellow-300 space-y-1">
-            <div><strong>Raw API URL:</strong> {userData.public_profile || 'null'}</div>
-            <div><strong>Profile Preview State:</strong> {profileImagePreview || 'null'}</div>
-            <div><strong>Has Valid Image:</strong> {hasValidProfileImage(userData.public_profile) ? 'Yes' : 'No'}</div>
-            <div><strong>URL Validation:</strong></div>
-            <div className="ml-4">
-              <div>• Starts with http: {userData.public_profile?.startsWith('http') ? 'Yes' : 'No'}</div>
-              <div>• Not null string: {userData.public_profile !== 'null' ? 'Yes' : 'No'}</div>
-              <div>• Length {">"} 10: {(userData.public_profile?.length || 0) > 10 ? 'Yes' : 'No'}</div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Page Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -569,8 +508,6 @@ export default function ProfilePage() {
                     src={profileImagePreview}
                     alt="Profile"
                     className="w-full h-full object-cover"
-                    onError={handleImageError}
-                    onLoad={handleImageLoad}
                   />
                 ) : (
                   <span className="text-xl font-bold text-white">
@@ -688,9 +625,9 @@ export default function ProfilePage() {
             aria-label="Tabs"
           >
             {[
-              { id: "overview", name: "Overview", icon: "user" },
-              { id: "contact", name: "Contact", icon: "phone" },
-              { id: "security", name: "Security", icon: "shield" },
+              { id: "overview", name: "Overview" },
+              { id: "contact", name: "Contact" },
+              { id: "security", name: "Security" },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -715,22 +652,20 @@ export default function ProfilePage() {
             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-6 transition-colors duration-200">
               Personal Information
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-6">
               {/* Profile Picture */}
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-200">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-gray-200 dark:border-gray-700">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors duration-200 flex-shrink-0">
                   Profile Picture
                 </label>
                 {isEditing ? (
                   <div className="flex items-center space-x-4">
-                    <div className="h-16 w-16 rounded-full bg-[#00B5A5] dark:bg-[#008F82] flex items-center justify-center overflow-hidden">
+                    <div className="h-16 w-16 rounded-full bg-[#00B5A5] dark:bg-[#008F82] flex items-center justify-center overflow-hidden flex-shrink-0">
                       {profileImagePreview ? (
                         <img
                           src={profileImagePreview}
                           alt="Preview"
                           className="w-full h-full object-cover"
-                          onError={handleImageError}
-                          onLoad={handleImageLoad}
                         />
                       ) : (
                         <span className="text-lg font-bold text-white">
@@ -747,14 +682,12 @@ export default function ProfilePage() {
                   </div>
                 ) : (
                   <div className="flex items-center space-x-4">
-                    <div className="h-16 w-16 rounded-full bg-[#00B5A5] dark:bg-[#008F82] flex items-center justify-center overflow-hidden">
+                    <div className="h-16 w-16 rounded-full bg-[#00B5A5] dark:bg-[#008F82] flex items-center justify-center overflow-hidden flex-shrink-0">
                       {profileImagePreview ? (
                         <img
                           src={profileImagePreview}
                           alt="Profile"
                           className="w-full h-full object-cover"
-                          onError={handleImageError}
-                          onLoad={handleImageLoad}
                         />
                       ) : (
                         <span className="text-lg font-bold text-white">
@@ -772,197 +705,205 @@ export default function ProfilePage() {
               </div>
 
               {/* Title */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-200">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-gray-200 dark:border-gray-700">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors duration-200 flex-shrink-0 sm:w-1/3">
                   Title
                 </label>
-                {isEditing ? (
-                  <select
-                    value={formData.title}
-                    onChange={(e) => handleInputChange("title", e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent transition-colors duration-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  >
-                    <option value="">Select Title</option>
-                    <option value="Mr">Mr</option>
-                    <option value="Ms">Ms</option>
-                    <option value="Mrs">Mrs</option>
-                    <option value="Dr">Dr</option>
-                    <option value="Prof">Prof</option>
-                  </select>
-                ) : (
-                  <p className="py-2 text-gray-900 dark:text-white transition-colors duration-200">
-                    {formData.title || "Not specified"}
-                  </p>
-                )}
+                <div className="flex-1">
+                  {isEditing ? (
+                    <select
+                      value={formData.title}
+                      onChange={(e) => handleInputChange("title", e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent transition-colors duration-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    >
+                      <option value="">Select Title</option>
+                      {TITLES.map(title => (
+                        <option key={title} value={title}>{title}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <p className="py-2 text-gray-900 dark:text-white transition-colors duration-200">
+                      {formData.title || "Not specified"}
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* First Name */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-200">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 pb-4 border-b border-gray-200 dark:border-gray-700">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors duration-200 flex-shrink-0 sm:w-1/3 sm:pt-2">
                   First Name *
                 </label>
-                {isEditing ? (
-                  <input
-                    type="text"
-                    value={formData.first_name}
-                    onChange={(e) =>
-                      handleInputChange("first_name", e.target.value)
-                    }
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent transition-colors duration-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
-                      errors.first_name
-                        ? "border-red-300 dark:border-red-600"
-                        : "border-gray-300 dark:border-gray-600"
-                    }`}
-                    placeholder="Enter your first name"
-                  />
-                ) : (
-                  <p className="py-2 text-gray-900 dark:text-white transition-colors duration-200">
-                    {formData.first_name}
-                  </p>
-                )}
-                {errors.first_name && (
-                  <p className="mt-1 text-sm text-red-600 dark:text-red-400 transition-colors duration-200">
-                    {errors.first_name}
-                  </p>
-                )}
+                <div className="flex-1">
+                  {isEditing ? (
+                    <>
+                      <input
+                        type="text"
+                        value={formData.first_name}
+                        onChange={(e) => handleInputChange("first_name", e.target.value)}
+                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent transition-colors duration-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
+                          errors.first_name
+                            ? "border-red-300 dark:border-red-600"
+                            : "border-gray-300 dark:border-gray-600"
+                        }`}
+                        placeholder="Enter your first name"
+                      />
+                      {errors.first_name && (
+                        <p className="mt-1 text-sm text-red-600 dark:text-red-400 transition-colors duration-200">
+                          {errors.first_name}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="py-2 text-gray-900 dark:text-white transition-colors duration-200">
+                      {formData.first_name}
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* Middle Name */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-200">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-gray-200 dark:border-gray-700">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors duration-200 flex-shrink-0 sm:w-1/3">
                   Middle Name
                 </label>
-                {isEditing ? (
-                  <input
-                    type="text"
-                    value={formData.middle_name}
-                    onChange={(e) =>
-                      handleInputChange("middle_name", e.target.value)
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent transition-colors duration-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                    placeholder="Enter your middle name (optional)"
-                  />
-                ) : (
-                  <p className="py-2 text-gray-900 dark:text-white transition-colors duration-200">
-                    {formData.middle_name || "Not specified"}
-                  </p>
-                )}
+                <div className="flex-1">
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={formData.middle_name}
+                      onChange={(e) => handleInputChange("middle_name", e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent transition-colors duration-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                      placeholder="Enter your middle name (optional)"
+                    />
+                  ) : (
+                    <p className="py-2 text-gray-900 dark:text-white transition-colors duration-200">
+                      {formData.middle_name || "Not specified"}
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* Surname */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-200">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 pb-4 border-b border-gray-200 dark:border-gray-700">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors duration-200 flex-shrink-0 sm:w-1/3 sm:pt-2">
                   Surname *
                 </label>
-                {isEditing ? (
-                  <input
-                    type="text"
-                    value={formData.surname}
-                    onChange={(e) =>
-                      handleInputChange("surname", e.target.value)
-                    }
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent transition-colors duration-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
-                      errors.surname
-                        ? "border-red-300 dark:border-red-600"
-                        : "border-gray-300 dark:border-gray-600"
-                    }`}
-                    placeholder="Enter your surname"
-                  />
-                ) : (
-                  <p className="py-2 text-gray-900 dark:text-white transition-colors duration-200">
-                    {formData.surname}
-                  </p>
-                )}
-                {errors.surname && (
-                  <p className="mt-1 text-sm text-red-600 dark:text-red-400 transition-colors duration-200">
-                    {errors.surname}
-                  </p>
-                )}
+                <div className="flex-1">
+                  {isEditing ? (
+                    <>
+                      <input
+                        type="text"
+                        value={formData.surname}
+                        onChange={(e) => handleInputChange("surname", e.target.value)}
+                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent transition-colors duration-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
+                          errors.surname
+                            ? "border-red-300 dark:border-red-600"
+                            : "border-gray-300 dark:border-gray-600"
+                        }`}
+                        placeholder="Enter your surname"
+                      />
+                      {errors.surname && (
+                        <p className="mt-1 text-sm text-red-600 dark:text-red-400 transition-colors duration-200">
+                          {errors.surname}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="py-2 text-gray-900 dark:text-white transition-colors duration-200">
+                      {formData.surname}
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* Date of Birth */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-200">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 pb-4 border-b border-gray-200 dark:border-gray-700">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors duration-200 flex-shrink-0 sm:w-1/3 sm:pt-2">
                   Date of Birth *
                 </label>
-                {isEditing ? (
-                  <input
-                    type="date"
-                    value={formData.date_of_birth}
-                    onChange={(e) =>
-                      handleInputChange("date_of_birth", e.target.value)
-                    }
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent transition-colors duration-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
-                      errors.date_of_birth
-                        ? "border-red-300 dark:border-red-600"
-                        : "border-gray-300 dark:border-gray-600"
-                    }`}
-                  />
-                ) : (
-                  <p className="py-2 text-gray-900 dark:text-white transition-colors duration-200">
-                    {formData.date_of_birth
-                      ? new Date(formData.date_of_birth).toLocaleDateString()
-                      : "Not specified"}
-                  </p>
-                )}
-                {errors.date_of_birth && (
-                  <p className="mt-1 text-sm text-red-600 dark:text-red-400 transition-colors duration-200">
-                    {errors.date_of_birth}
-                  </p>
-                )}
+                <div className="flex-1">
+                  {isEditing ? (
+                    <>
+                      <input
+                        type="date"
+                        value={formData.date_of_birth}
+                        onChange={(e) => handleInputChange("date_of_birth", e.target.value)}
+                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent transition-colors duration-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
+                          errors.date_of_birth
+                            ? "border-red-300 dark:border-red-600"
+                            : "border-gray-300 dark:border-gray-600"
+                        }`}
+                      />
+                      {errors.date_of_birth && (
+                        <p className="mt-1 text-sm text-red-600 dark:text-red-400 transition-colors duration-200">
+                          {errors.date_of_birth}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="py-2 text-gray-900 dark:text-white transition-colors duration-200">
+                      {formData.date_of_birth
+                        ? new Date(formData.date_of_birth).toLocaleDateString()
+                        : "Not specified"}
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* National ID */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-200">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 pb-4 border-b border-gray-200 dark:border-gray-700">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors duration-200 flex-shrink-0 sm:w-1/3 sm:pt-2">
                   National ID *
                 </label>
-                {isEditing ? (
-                  <input
-                    type="text"
-                    value={formData.national_id}
-                    onChange={(e) =>
-                      handleInputChange("national_id", e.target.value)
-                    }
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent transition-colors duration-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
-                      errors.national_id
-                        ? "border-red-300 dark:border-red-600"
-                        : "border-gray-300 dark:border-gray-600"
-                    }`}
-                    placeholder="Enter your national ID"
-                  />
-                ) : (
-                  <p className="py-2 text-gray-900 dark:text-white transition-colors duration-200">
-                    {formData.national_id}
-                  </p>
-                )}
-                {errors.national_id && (
-                  <p className="mt-1 text-sm text-red-600 dark:text-red-400 transition-colors duration-200">
-                    {errors.national_id}
-                  </p>
-                )}
+                <div className="flex-1">
+                  {isEditing ? (
+                    <>
+                      <input
+                        type="text"
+                        value={formData.national_id}
+                        onChange={(e) => handleInputChange("national_id", e.target.value)}
+                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent transition-colors duration-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
+                          errors.national_id
+                            ? "border-red-300 dark:border-red-600"
+                            : "border-gray-300 dark:border-gray-600"
+                        }`}
+                        placeholder="Enter your national ID"
+                      />
+                      {errors.national_id && (
+                        <p className="mt-1 text-sm text-red-600 dark:text-red-400 transition-colors duration-200">
+                          {errors.national_id}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="py-2 text-gray-900 dark:text-white transition-colors duration-200">
+                      {formData.national_id}
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* Passport Number */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-200">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors duration-200 flex-shrink-0 sm:w-1/3">
                   Passport Number
                 </label>
-                {isEditing ? (
-                  <input
-                    type="text"
-                    value={formData.passport}
-                    onChange={(e) =>
-                      handleInputChange("passport", e.target.value)
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent transition-colors duration-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                    placeholder="Enter your passport number (optional)"
-                  />
-                ) : (
-                  <p className="py-2 text-gray-900 dark:text-white transition-colors duration-200">
-                    {formData.passport || "Not specified"}
-                  </p>
-                )}
+                <div className="flex-1">
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={formData.passport}
+                      onChange={(e) => handleInputChange("passport", e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent transition-colors duration-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                      placeholder="Enter your passport number (optional)"
+                    />
+                  ) : (
+                    <p className="py-2 text-gray-900 dark:text-white transition-colors duration-200">
+                      {formData.passport || "Not specified"}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -973,158 +914,170 @@ export default function ProfilePage() {
             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-6 transition-colors duration-200">
               Contact Information
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-6">
               {/* Primary Email */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-200">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 pb-4 border-b border-gray-200 dark:border-gray-700">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors duration-200 flex-shrink-0 sm:w-1/3 sm:pt-2">
                   Primary Email *
                 </label>
-                {isEditing ? (
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => handleInputChange("email", e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent transition-colors duration-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
-                      errors.email
-                        ? "border-red-300 dark:border-red-600"
-                        : "border-gray-300 dark:border-gray-600"
-                    }`}
-                    placeholder="Enter your email address"
-                  />
-                ) : (
-                  <p className="py-2 text-gray-900 dark:text-white transition-colors duration-200">
-                    {formData.email}
-                  </p>
-                )}
-                {errors.email && (
-                  <p className="mt-1 text-sm text-red-600 dark:text-red-400 transition-colors duration-200">
-                    {errors.email}
-                  </p>
-                )}
+                <div className="flex-1">
+                  {isEditing ? (
+                    <>
+                      <input
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => handleInputChange("email", e.target.value)}
+                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent transition-colors duration-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
+                          errors.email
+                            ? "border-red-300 dark:border-red-600"
+                            : "border-gray-300 dark:border-gray-600"
+                        }`}
+                        placeholder="Enter your email address"
+                      />
+                      {errors.email && (
+                        <p className="mt-1 text-sm text-red-600 dark:text-red-400 transition-colors duration-200">
+                          {errors.email}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="py-2 text-gray-900 dark:text-white transition-colors duration-200">
+                      {formData.email}
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* Secondary Email */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-200">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 pb-4 border-b border-gray-200 dark:border-gray-700">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors duration-200 flex-shrink-0 sm:w-1/3 sm:pt-2">
                   Secondary Email
                 </label>
-                {isEditing ? (
-                  <input
-                    type="email"
-                    value={formData.secondary_email}
-                    onChange={(e) =>
-                      handleInputChange("secondary_email", e.target.value)
-                    }
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent transition-colors duration-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
-                      errors.secondary_email
-                        ? "border-red-300 dark:border-red-600"
-                        : "border-gray-300 dark:border-gray-600"
-                    }`}
-                    placeholder="Enter secondary email (optional)"
-                  />
-                ) : (
-                  <p className="py-2 text-gray-900 dark:text-white transition-colors duration-200">
-                    {formData.secondary_email || "Not specified"}
-                  </p>
-                )}
-                {errors.secondary_email && (
-                  <p className="mt-1 text-sm text-red-600 dark:text-red-400 transition-colors duration-200">
-                    {errors.secondary_email}
-                  </p>
-                )}
+                <div className="flex-1">
+                  {isEditing ? (
+                    <>
+                      <input
+                        type="email"
+                        value={formData.secondary_email}
+                        onChange={(e) => handleInputChange("secondary_email", e.target.value)}
+                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent transition-colors duration-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
+                          errors.secondary_email
+                            ? "border-red-300 dark:border-red-600"
+                            : "border-gray-300 dark:border-gray-600"
+                        }`}
+                        placeholder="Enter secondary email (optional)"
+                      />
+                      {errors.secondary_email && (
+                        <p className="mt-1 text-sm text-red-600 dark:text-red-400 transition-colors duration-200">
+                          {errors.secondary_email}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="py-2 text-gray-900 dark:text-white transition-colors duration-200">
+                      {formData.secondary_email || "Not specified"}
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* Primary Phone */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-200">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 pb-4 border-b border-gray-200 dark:border-gray-700">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors duration-200 flex-shrink-0 sm:w-1/3 sm:pt-2">
                   Primary Phone *
                 </label>
-                {isEditing ? (
-                  <input
-                    type="tel"
-                    value={formData.phone_number}
-                    onChange={(e) =>
-                      handleInputChange("phone_number", e.target.value)
-                    }
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent transition-colors duration-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
-                      errors.phone_number
-                        ? "border-red-300 dark:border-red-600"
-                        : "border-gray-300 dark:border-gray-600"
-                    }`}
-                    placeholder="Enter your phone number"
-                  />
-                ) : (
-                  <p className="py-2 text-gray-900 dark:text-white transition-colors duration-200">
-                    {formData.phone_number}
-                  </p>
-                )}
-                {errors.phone_number && (
-                  <p className="mt-1 text-sm text-red-600 dark:text-red-400 transition-colors duration-200">
-                    {errors.phone_number}
-                  </p>
-                )}
+                <div className="flex-1">
+                  {isEditing ? (
+                    <>
+                      <input
+                        type="tel"
+                        value={formData.phone_number}
+                        onChange={(e) => handleInputChange("phone_number", e.target.value)}
+                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent transition-colors duration-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
+                          errors.phone_number
+                            ? "border-red-300 dark:border-red-600"
+                            : "border-gray-300 dark:border-gray-600"
+                        }`}
+                        placeholder="Enter your phone number"
+                      />
+                      {errors.phone_number && (
+                        <p className="mt-1 text-sm text-red-600 dark:text-red-400 transition-colors duration-200">
+                          {errors.phone_number}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="py-2 text-gray-900 dark:text-white transition-colors duration-200">
+                      {formData.phone_number}
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* Alternative Phone */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-200">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 pb-4 border-b border-gray-200 dark:border-gray-700">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors duration-200 flex-shrink-0 sm:w-1/3 sm:pt-2">
                   Alternative Phone
                 </label>
-                {isEditing ? (
-                  <input
-                    type="tel"
-                    value={formData.alternative_phone}
-                    onChange={(e) =>
-                      handleInputChange("alternative_phone", e.target.value)
-                    }
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent transition-colors duration-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
-                      errors.alternative_phone
-                        ? "border-red-300 dark:border-red-600"
-                        : "border-gray-300 dark:border-gray-600"
-                    }`}
-                    placeholder="Enter alternative phone (optional)"
-                  />
-                ) : (
-                  <p className="py-2 text-gray-900 dark:text-white transition-colors duration-200">
-                    {formData.alternative_phone || "Not specified"}
-                  </p>
-                )}
-                {errors.alternative_phone && (
-                  <p className="mt-1 text-sm text-red-600 dark:text-red-400 transition-colors duration-200">
-                    {errors.alternative_phone}
-                  </p>
-                )}
+                <div className="flex-1">
+                  {isEditing ? (
+                    <>
+                      <input
+                        type="tel"
+                        value={formData.alternative_phone}
+                        onChange={(e) => handleInputChange("alternative_phone", e.target.value)}
+                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent transition-colors duration-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
+                          errors.alternative_phone
+                            ? "border-red-300 dark:border-red-600"
+                            : "border-gray-300 dark:border-gray-600"
+                        }`}
+                        placeholder="Enter alternative phone (optional)"
+                      />
+                      {errors.alternative_phone && (
+                        <p className="mt-1 text-sm text-red-600 dark:text-red-400 transition-colors duration-200">
+                          {errors.alternative_phone}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="py-2 text-gray-900 dark:text-white transition-colors duration-200">
+                      {formData.alternative_phone || "Not specified"}
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* WhatsApp Number */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-200">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors duration-200 flex-shrink-0 sm:w-1/3 sm:pt-2">
                   WhatsApp Number
                 </label>
-                {isEditing ? (
-                  <input
-                    type="tel"
-                    value={formData.whatsapp_number}
-                    onChange={(e) =>
-                      handleInputChange("whatsapp_number", e.target.value)
-                    }
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent transition-colors duration-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
-                      errors.whatsapp_number
-                        ? "border-red-300 dark:border-red-600"
-                        : "border-gray-300 dark:border-gray-600"
-                    }`}
-                    placeholder="Enter WhatsApp number (optional)"
-                  />
-                ) : (
-                  <p className="py-2 text-gray-900 dark:text-white transition-colors duration-200">
-                    {formData.whatsapp_number || "Not specified"}
-                  </p>
-                )}
-                {errors.whatsapp_number && (
-                  <p className="mt-1 text-sm text-red-600 dark:text-red-400 transition-colors duration-200">
-                    {errors.whatsapp_number}
-                  </p>
-                )}
+                <div className="flex-1">
+                  {isEditing ? (
+                    <>
+                      <input
+                        type="tel"
+                        value={formData.whatsapp_number}
+                        onChange={(e) => handleInputChange("whatsapp_number", e.target.value)}
+                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent transition-colors duration-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
+                          errors.whatsapp_number
+                            ? "border-red-300 dark:border-red-600"
+                            : "border-gray-300 dark:border-gray-600"
+                        }`}
+                        placeholder="Enter WhatsApp number (optional)"
+                      />
+                      {errors.whatsapp_number && (
+                        <p className="mt-1 text-sm text-red-600 dark:text-red-400 transition-colors duration-200">
+                          {errors.whatsapp_number}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="py-2 text-gray-900 dark:text-white transition-colors duration-200">
+                      {formData.whatsapp_number || "Not specified"}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -1140,47 +1093,53 @@ export default function ProfilePage() {
                 <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-3 transition-colors duration-200">
                   Account Status
                 </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="flex justify-between sm:flex-col sm:justify-start">
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center pb-3 border-b border-gray-200 dark:border-gray-600">
                     <span className="text-sm text-gray-600 dark:text-gray-400 transition-colors duration-200">
                       Account Active
                     </span>
-                    <span
-                      className={`text-sm font-medium transition-colors duration-200 ${
-                        userData.active
-                          ? "text-green-600 dark:text-green-400"
-                          : "text-red-600 dark:text-red-400"
-                      }`}
-                    >
-                      {userData.active ? "Yes" : "No"}
+                    <span className={`flex items-center ${userData.active ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                      {userData.active ? (
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                        </svg>
+                      )}
                     </span>
                   </div>
-                  <div className="flex justify-between sm:flex-col sm:justify-start">
+                  <div className="flex justify-between items-center pb-3 border-b border-gray-200 dark:border-gray-600">
                     <span className="text-sm text-gray-600 dark:text-gray-400 transition-colors duration-200">
                       Email Verified
                     </span>
-                    <span
-                      className={`text-sm font-medium transition-colors duration-200 ${
-                        userData.verified
-                          ? "text-green-600 dark:text-green-400"
-                          : "text-yellow-600 dark:text-yellow-400"
-                      }`}
-                    >
-                      {userData.verified ? "Yes" : "No"}
+                    <span className={`flex items-center ${userData.verified ? "text-green-600 dark:text-green-400" : "text-yellow-600 dark:text-yellow-400"}`}>
+                      {userData.verified ? (
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                        </svg>
+                      )}
                     </span>
                   </div>
-                  <div className="flex justify-between sm:flex-col sm:justify-start">
+                  <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600 dark:text-gray-400 transition-colors duration-200">
                       Password Status
                     </span>
-                    <span
-                      className={`text-sm font-medium transition-colors duration-200 ${
-                        userData.has_changed_password
-                          ? "text-green-600 dark:text-green-400"
-                          : "text-yellow-600 dark:text-yellow-400"
-                      }`}
-                    >
-                      {userData.has_changed_password ? "Custom" : "Default"}
+                    <span className={`flex items-center ${userData.has_changed_password ? "text-green-600 dark:text-green-400" : "text-yellow-600 dark:text-yellow-400"}`}>
+                      {userData.has_changed_password ? (
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                      )}
                     </span>
                   </div>
                 </div>
