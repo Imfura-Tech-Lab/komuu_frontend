@@ -1,5 +1,5 @@
 import React from "react";
-import { useRoleAccess } from "../../hooks/useRoleAccess";
+import { useRoleAccess } from "../lib/hooks/useRoleAccess";
 
 interface RoleGuardProps {
   children: React.ReactNode;
