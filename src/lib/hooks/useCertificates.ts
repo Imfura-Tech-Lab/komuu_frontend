@@ -17,7 +17,7 @@ interface PaymentInfo {
   payment_date: string;
 }
 
-interface Certificate {
+export interface Certificate {
   id: number;
   name: string;
   member_number: string;
