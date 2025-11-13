@@ -19,18 +19,18 @@ interface PaymentInfo {
 
 interface Certificate {
   id: number;
-  name?: string;
-  member_number?: string;
-  certificate?: string;
+  name: string;
+  member_number: string;
+  certificate: string | null;
   status: string;
-  valid_from?: string;
-  valid_until?: string;
-  membership_term?: string;
-  signed_date?: string;
-  created_at?: string;
-  token?: string;
-  next_payment_date?: string;
-  payment?: PaymentInfo;
+  valid_from: string;
+  valid_until: string;
+  membership_term: string;
+  signed_date: string;
+  created_at: string;
+  token: string;
+  next_payment_date: string;
+  payment: PaymentInfo;
 }
 
 interface CertificateInfo {
@@ -63,9 +63,37 @@ export interface CertificateData {
   institution: InstitutionInfo;
 }
 
+interface PaginationLinks {
+  url: string | null;
+  label: string;
+  page: number | null;
+  active: boolean;
+}
+
+interface CertificatesPagination {
+  current_page: number;
+  data: Certificate[];
+  first_page_url: string;
+  from: number;
+  last_page: number;
+  last_page_url: string;
+  links: PaginationLinks[];
+  next_page_url: string | null;
+  path: string;
+  per_page: number;
+  prev_page_url: string | null;
+  to: number;
+  total: number;
+}
+
+interface CertificatesResponse {
+  certificates: CertificatesPagination;
+  institution: InstitutionInfo;
+}
+
 // Helper function to clean malformed URLs
-function cleanCertificateUrl(url: string | undefined): string | undefined {
-  if (!url) return undefined;
+function cleanCertificateUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
   
   if (url.includes('/storage/https://') || url.includes('/storage/http://')) {
     const match = url.match(/\/storage\/(https?:\/\/.+)/);
@@ -77,12 +105,14 @@ function cleanCertificateUrl(url: string | undefined): string | undefined {
 
 export function useCertificates() {
   const [certificates, setCertificates] = useState<Certificate[]>([]);
+  const [institution, setInstitution] = useState<InstitutionInfo | null>(null);
+  const [pagination, setPagination] = useState<Omit<CertificatesPagination, 'data'> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [fetchingCertificate, setFetchingCertificate] = useState(false);
   const router = useRouter();
 
-  const fetchCertificates = useCallback(async (role: string | null) => {
+  const fetchCertificates = useCallback(async (role: string | null, page: number = 1) => {
     try {
       setLoading(true);
       setError(null);
@@ -104,8 +134,8 @@ export function useCertificates() {
 
       const endpoint =
         role === "Member"
-          ? `${apiUrl}membership/certificates`
-          : `${apiUrl}certificates`;
+          ? `${apiUrl}membership/certificates?page=${page}`
+          : `${apiUrl}certificates?page=${page}`;
 
       const response = await fetch(endpoint, {
         method: "GET",
@@ -128,8 +158,13 @@ export function useCertificates() {
 
       const data = await response.json();
 
-      if (data.status === "success") {
-        const certificatesData = data.data?.data || data.data || [];
+      if (data.status === "success" && data.data) {
+        // Extract from nested structure: data.data.certificates.data
+        const certificatesData = data.data.certificates?.data || [];
+        const institutionData = data.data.institution;
+        const paginationData = data.data.certificates;
+
+        // Set certificates
         setCertificates(
           Array.isArray(certificatesData)
             ? certificatesData.map((cert: any) => ({
@@ -145,22 +180,31 @@ export function useCertificates() {
                 next_payment_date: cert.next_payment_date,
                 created_at: cert.created_at,
                 token: cert.token,
-                payment: cert.payment
-                  ? {
-                      id: cert.payment.id,
-                      member: cert.payment.member,
-                      amount_paid: cert.payment.amount_paid,
-                      payment_method: cert.payment.payment_method,
-                      transaction_number: cert.payment.transaction_number,
-                      gateway: cert.payment.gateway,
-                      status: cert.payment.status,
-                      is_certificate_generated: cert.payment.is_certificate_generated,
-                      payment_date: cert.payment.payment_date,
-                    }
-                  : undefined,
+                payment: {
+                  id: cert.payment.id,
+                  member: cert.payment.member,
+                  amount_paid: cert.payment.amount_paid,
+                  payment_method: cert.payment.payment_method,
+                  transaction_number: cert.payment.transaction_number,
+                  gateway: cert.payment.gateway,
+                  status: cert.payment.status,
+                  is_certificate_generated: cert.payment.is_certificate_generated,
+                  payment_date: cert.payment.payment_date,
+                },
               }))
             : []
         );
+
+        // Set institution data
+        if (institutionData) {
+          setInstitution(institutionData);
+        }
+
+        // Set pagination metadata (excluding data array)
+        if (paginationData) {
+          const { data: _, ...paginationMeta } = paginationData;
+          setPagination(paginationMeta);
+        }
       } else {
         throw new Error(data.message || "Failed to fetch certificates");
       }
@@ -242,6 +286,8 @@ export function useCertificates() {
 
   return {
     certificates,
+    institution,
+    pagination,
     loading,
     error,
     fetchingCertificate,
