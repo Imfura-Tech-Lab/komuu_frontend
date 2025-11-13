@@ -236,8 +236,7 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent dark:bg-gray-700 dark:text-white"
                       >
                         <option value="Public">Public</option>
-                        <option value="Private">Private</option>
-                        <option value="Members">Members Only</option>
+                        <option value="Members only">Members Only</option>
                       </select>
                     </div>
                   </div>

@@ -12,36 +12,10 @@ import {
 } from "lucide-react";
 import { BaseTable, BaseTableColumn } from "@/components/ui/BaseTable";
 import { FileViewer } from "@/components/ui/FileViwer";
-import { useCertificates } from "@/lib/hooks/useCertificates";
+import { useCertificates, Certificate  } from "@/lib/hooks/useCertificates";
 import { useAuth } from "@/lib/hooks/Use-auth";
 import { useFileViewer } from "@/lib/hooks/useFileViewer";
 import { generateCertificatePDF } from "@/lib/utils/certificateGenerator";
-
-interface Certificate {
-  id: number;
-  name?: string;
-  member_number?: string;
-  certificate?: string;
-  status: string;
-  valid_from?: string;
-  valid_until?: string;
-  membership_term?: string;
-  signed_date?: string;
-  created_at?: string;
-  token?: string;
-  next_payment_date?: string;
-  payment?: {
-    id: number;
-    member: string;
-    amount_paid: string;
-    payment_method: string;
-    transaction_number: string;
-    gateway: string;
-    status: string;
-    is_certificate_generated: boolean;
-    payment_date: string;
-  };
-}
 
 // Skeleton Loader Component
 function CertificatesTableSkeleton() {
