@@ -143,8 +143,9 @@ export function EventModal({
       newErrors.description = "Description is required";
     }
 
-    if (!formData.location.trim()) {
-      newErrors.location = "Location is required";
+    // Location is only required for In-Person and Hybrid events
+    if (formData.event_mode !== "Online" && !formData.location.trim()) {
+      newErrors.location = "Location is required for in-person and hybrid events";
     }
 
     if (!formData.start_time) {
@@ -224,6 +225,8 @@ export function EventModal({
 
     const submissionData = {
       ...formData,
+      // Clear location for online events
+      location: formData.event_mode === "Online" ? "" : formData.location,
       start_time: formatForAPI(formData.start_time),
       end_time: formatForAPI(formData.end_time),
       registration_deadline: formatForAPI(formData.registration_deadline),
@@ -283,6 +286,11 @@ export function EventModal({
   // Helper to check if field has error
   const hasError = (fieldName: string): boolean => {
     return !!(clientErrors[fieldName] || (errors[fieldName] && errors[fieldName].length > 0));
+  };
+
+  // Helper to determine if location field should be shown
+  const shouldShowLocation = () => {
+    return formData.event_mode === "In-Person" || formData.event_mode === "Hybrid";
   };
 
   return (
@@ -529,40 +537,42 @@ export function EventModal({
                     </div>
                   </div>
 
-                  {/* Location */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Location <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.location}
-                      onChange={(e) =>
-                        setFormData({ ...formData, location: e.target.value })
-                      }
-                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent dark:bg-gray-700 dark:text-white transition-colors ${
-                        hasError('location')
-                          ? "border-red-500 dark:border-red-500"
-                          : "border-gray-300 dark:border-gray-600"
-                      }`}
-                      placeholder="Enter event location or venue"
-                      disabled={loading}
-                    />
-                    {getFieldError('location') && (
-                      <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center">
-                        <ExclamationCircleIcon className="h-4 w-4 mr-1" />
-                        {getFieldError('location')}
-                      </p>
-                    )}
-                  </div>
+                  {/* Location - Only show for In-Person and Hybrid */}
+                  {shouldShowLocation() && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Location <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required={shouldShowLocation()}
+                        value={formData.location}
+                        onChange={(e) =>
+                          setFormData({ ...formData, location: e.target.value })
+                        }
+                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent dark:bg-gray-700 dark:text-white transition-colors ${
+                          hasError('location')
+                            ? "border-red-500 dark:border-red-500"
+                            : "border-gray-300 dark:border-gray-600"
+                        }`}
+                        placeholder="Enter event location or venue"
+                        disabled={loading}
+                      />
+                      {getFieldError('location') && (
+                        <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center">
+                          <ExclamationCircleIcon className="h-4 w-4 mr-1" />
+                          {getFieldError('location')}
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   {/* Virtual Links */}
                   {(formData.event_mode === "Online" ||
                     formData.event_mode === "Hybrid") && (
                     <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
                       <p className="text-sm font-medium text-blue-900 dark:text-blue-300 mb-4">
-                        Online Event Links
+                        Online Event Links {formData.event_mode === "Online" && <span className="text-red-500">*</span>}
                       </p>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
@@ -634,7 +644,7 @@ export function EventModal({
                         disabled={loading}
                       />
                       {getFieldError('start_time') && (
-                        <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center">
+                        <p className="mt-2 text-sm text-sm text-red-600 dark:text-red-400 flex items-center">
                           <ExclamationCircleIcon className="h-4 w-4 mr-1" />
                           {getFieldError('start_time')}
                         </p>
