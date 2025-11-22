@@ -2,6 +2,12 @@
   "name": "membership-afsa",
   "version": "0.1.0",
   "private": true,
+  "overrides": {
+    "react-simple-maps": {
+      "react": "^19.0.0",
+      "react-dom": "^19.0.0"
+    }
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -23,7 +29,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-hot-toast": "^2.5.2",
-    "react-simple-maps": "^4.0.0-beta.6",
+    "react-simple-maps": "^3.0.0",
     "recharts": "^3.2.1",
     "tailwind-merge": "^3.3.1",
     "xlsx": "^0.18.5"
