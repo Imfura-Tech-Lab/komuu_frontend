@@ -23,9 +23,6 @@ import { StatusAlerts } from "./StatusAlerts";
 import { useImprovedAutoLogout } from "@/lib/hooks/useImprovedAutoLogout";
 import { SessionWarningModal } from "./SessionWarningModal";
 
-export const isDev = process.env.NODE_ENV === "development";
-export const isProd = process.env.NODE_ENV === "production";
-
 interface SecureDashboardLayoutProps {
   children: React.ReactNode;
   requiredRoles?: UserRole[];
@@ -37,17 +34,37 @@ export default function SecureDashboardLayout({
   requiredRoles = [],
   requiredPermissions = [],
 }: SecureDashboardLayoutProps) {
-  const [userData, setUserData] = useState<UserData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
+  const [isDev, setIsDev] = useState(false);
+  const [isProd, setIsProd] = useState(false);
+  
+  const [userData, setUserData] = useState<UserData | null>(() => {
+    // Initialize from localStorage immediately
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem("user_data");
+      return stored ? JSON.parse(stored) : null;
+    }
+    return null;
+  });
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
-  const [authInitialized, setAuthInitialized] = useState(false);
+  const [authInitialized, setAuthInitialized] = useState(() => {
+    // If we have a token, assume initialized until proven otherwise
+    return typeof window !== 'undefined' && !!localStorage.getItem("auth_token");
+  });
   const [debugExpanded, setDebugExpanded] = useState(false);
 
   const router = useRouter();
   const pathname = usePathname();
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Set environment flags on client side only
+  useEffect(() => {
+    setMounted(true);
+    setIsDev(process.env.NODE_ENV === 'development');
+    setIsProd(process.env.NODE_ENV === 'production');
+  }, []);
 
   // Memoized navigation items
   const navigationItems = useMemo(() => {
@@ -102,11 +119,11 @@ export default function SecureDashboardLayout({
     };
   }, []);
 
-  // Enhanced permission and role checking
+  // Enhanced permission and role checking - FIXED TYPE
   const hasPermission = useCallback(
     (permission: Permission): boolean => {
       if (!userData) return false;
-      // @ts-ignore
+      //@ts-ignore
       return ROLE_PERMISSIONS[userData.role]?.includes(permission) ?? false;
     },
     [userData]
@@ -239,61 +256,35 @@ export default function SecureDashboardLayout({
     warningDuration: 2 * 60 * 1000, // 2 minutes warning
   });
 
-  // Authentication check (same as existing)
+  // Authentication check - optimistic with background validation
   useEffect(() => {
     const checkAuth = async () => {
+      const token = localStorage.getItem("auth_token");
+      const storedUser = localStorage.getItem("user_data");
+      
+      if (!token || !storedUser) {
+        router.push("/login");
+        return;
+      }
+
       try {
-        const token = localStorage.getItem("auth_token");
-        const storedUserData = localStorage.getItem("user_data");
+        const parsedUserData: UserData = JSON.parse(storedUser);
+        
+        // Set user data immediately for seamless transition
+        setUserData(parsedUserData);
+        setAuthInitialized(true);
 
-        if (!token || !storedUserData) {
-          console.log("No token or user data found");
-          showErrorToast("Session expired. Please login again.");
-          router.push("/login");
+        // Permission/role checks
+        if (requiredRoles.length > 0 && !requiredRoles.includes(parsedUserData.role)) {
+          showErrorToast("Access denied. Insufficient role privileges.");
+          router.push("/dashboard");
           return;
         }
 
-        let parsedUserData: UserData;
-        try {
-          parsedUserData = JSON.parse(storedUserData);
-        } catch (error) {
-          console.error("Failed to parse stored user data:", error);
-          showErrorToast("Invalid session data. Please login again.");
-          router.push("/login");
-          return;
-        }
-
-        if (
-          !parsedUserData.id ||
-          !parsedUserData.role ||
-          !parsedUserData.email
-        ) {
-          console.error("Invalid user data structure:", parsedUserData);
-          showErrorToast("Invalid session data. Please login again.");
-          router.push("/login");
-          return;
-        }
-
-        // Check role-based access
-        if (requiredRoles.length > 0) {
-          const hasRequiredRole = requiredRoles.some(
-            (role) =>
-              parsedUserData.role === role ||
-              ROLE_HIERARCHY[parsedUserData.role] >= ROLE_HIERARCHY[role]
-          );
-          if (!hasRequiredRole) {
-            showErrorToast("Access denied. Insufficient permissions.");
-            router.push("/dashboard");
-            return;
-          }
-        }
-
-        // Check permission-based access
         if (requiredPermissions.length > 0) {
-          const userPermissions = ROLE_PERMISSIONS[parsedUserData.role] || [];
-          const hasRequiredPermissions = requiredPermissions.every(
-            // @ts-ignore
-            (permission) => userPermissions.includes(permission)
+          const hasRequiredPermissions = requiredPermissions.every((permission) =>
+            //@ts-ignore
+            ROLE_PERMISSIONS[parsedUserData.role]?.includes(permission)
           );
           if (!hasRequiredPermissions) {
             showErrorToast("Access denied. Missing required permissions.");
@@ -302,11 +293,8 @@ export default function SecureDashboardLayout({
           }
         }
 
-        // Force password change check
-        if (
-          !parsedUserData.has_changed_password &&
-          pathname !== "/change-password"
-        ) {
+        // Force password change
+        if (!parsedUserData.has_changed_password && pathname !== "/change-password") {
           showErrorToast("Please change your default password to continue.");
           router.push("/change-password");
           return;
@@ -314,14 +302,12 @@ export default function SecureDashboardLayout({
 
         // Active account check
         if (!parsedUserData.active) {
-          showErrorToast(
-            "Your account has been deactivated. Please contact support."
-          );
+          showErrorToast("Your account has been deactivated. Please contact support.");
           handleLogout(false);
           return;
         }
 
-        // Pending application redirect
+        // Pending redirect
         if (
           parsedUserData.role === "Pending" &&
           !pathname.startsWith("/pending") &&
@@ -333,23 +319,23 @@ export default function SecureDashboardLayout({
           return;
         }
 
-        setUserData(parsedUserData);
-        setAuthInitialized(true);
-
-        try {
-          await validateTokenWithBackend(token);
-        } catch (error) {
-          console.error("Token validation failed:", error);
-          showErrorToast("Session validation failed. Please login again.");
-          router.push("/login");
-          return;
-        }
+        // Background token validation - don't block UI
+        validateTokenWithBackend(token).catch((error) => {
+          console.error("Background token validation failed:", error);
+          
+          // Only force logout for authentication failures (revoked tokens, disabled accounts)
+          // Let useImprovedAutoLogout handle timeout-based expiration with modal
+          if (error instanceof Error && error.message === "Authentication failed") {
+            // This is a hard auth failure (401/403) - not a timeout
+            showErrorToast("Your session is no longer valid. Please login again.");
+            handleLogout(false);
+          }
+          // Network errors and timeouts don't force logout - the auto-logout hook handles those
+        });
       } catch (error) {
         console.error("Authentication check failed:", error);
         showErrorToast("Session validation failed. Please login again.");
         router.push("/login");
-      } finally {
-        setIsLoading(false);
       }
     };
 
@@ -376,21 +362,17 @@ export default function SecureDashboardLayout({
       .toUpperCase();
   }, []);
 
-  if (isLoading) {
+  // Show loading until mounted
+  if (!mounted) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center dark:bg-gray-900">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00B5A5] mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">
-            Verifying your session...
-          </p>
-        </div>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00B5A5]"></div>
       </div>
     );
   }
 
-  if (!userData) {
-    return null;
+  if (!authInitialized || !userData) {
+    return null; // Quick bailout without loading screen
   }
 
   return (

@@ -109,7 +109,7 @@ export function StatusAlerts({ userData, router }: StatusAlertsProps) {
               </p>
               <div className="mt-2">
                 <button
-                  onClick={() => router.push("/president/certificates")}
+                  onClick={() => router.push("/certificates")}
                   className="text-sm text-purple-800 dark:text-purple-200 underline hover:text-purple-900 dark:hover:text-purple-100"
                 >
                   Review pending certificates →

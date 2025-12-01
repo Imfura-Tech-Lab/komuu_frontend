@@ -7,6 +7,18 @@ import {
   showSuccessToast,
 } from "@/components/layouts/auth-layer-out";
 import { BaseTable, BaseTableColumn } from "../ui/BaseTable";
+import { 
+  RefreshCw, 
+  AlertCircle, 
+  Users, 
+  CheckCircle, 
+  Shield, 
+  UserCheck,
+  UserPlus,
+  Clock,
+  Download,
+  Mail
+} from "lucide-react";
 
 interface Member {
   id: string;
@@ -15,11 +27,15 @@ interface Member {
   first_name: string;
   middle_name?: string;
   incompliance: boolean;
-  membership_type: string;
+  membership_type: string | null;
   membership_number: string;
   certificate_status: string;
   country_of_residency: string;
   application_status: string;
+  signed_date?: string;
+  valid_from?: string;
+  valid_until?: string;
+  valid_next_payment?: string;
   email?: string;
   phone_number?: string;
   role?: string;
@@ -88,7 +104,9 @@ export default function MembersClient() {
     }
   };
 
-  const getRoleColor = (membershipType: string) => {
+  const getRoleColor = (membershipType: string | null) => {
+    if (!membershipType) return "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300";
+    
     switch (membershipType.toLowerCase()) {
       case "full member":
         return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
@@ -105,7 +123,8 @@ export default function MembersClient() {
     }
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "-";
     return new Date(dateString).toLocaleDateString("en-US", {
       year: "numeric",
       month: "short",
@@ -142,9 +161,7 @@ export default function MembersClient() {
   }, [members]);
 
   // Table columns configuration
-  const columns: BaseTableColumn<
-    Member & { fullName: string; initials: string }
-  >[] = [
+  const columns: BaseTableColumn<Member & { fullName: string; initials: string }>[] = [
     {
       key: "fullName",
       label: "Member",
@@ -180,7 +197,7 @@ export default function MembersClient() {
       filterable: true,
       width: 150,
       render: (member, value) => (
-        <span className="font-mono text-sm">{value}</span>
+        <span className="font-mono text-sm">{value || "-"}</span>
       ),
     },
     {
@@ -205,10 +222,10 @@ export default function MembersClient() {
             value
           )}`}
         >
-          {value}
+          {value || "Not Assigned"}
         </span>
       ),
-      exportRender: (member, value) => value,
+      exportRender: (member, value) => value || "Not Assigned",
     },
     {
       key: "certificate_status",
@@ -231,6 +248,47 @@ export default function MembersClient() {
               return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
             case "Pending":
               return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300";
+            case "Rejected":
+              return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
+            default:
+              return "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300";
+          }
+        };
+        return (
+          <span
+            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+              value
+            )}`}
+          >
+            {value}
+          </span>
+        );
+      },
+    },
+    {
+      key: "application_status",
+      label: "Application",
+      sortable: true,
+      filterable: true,
+      filterComponent: {
+        type: "select",
+        options: [
+          { label: "Approved", value: "Approved" },
+          { label: "Pending", value: "Pending" },
+          { label: "Under Review", value: "Under Review" },
+          { label: "Rejected", value: "Rejected" },
+        ],
+      },
+      width: 120,
+      render: (member, value) => {
+        const getStatusColor = (status: string) => {
+          switch (status) {
+            case "Approved":
+              return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
+            case "Pending":
+              return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300";
+            case "Under Review":
+              return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300";
             case "Rejected":
               return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
             default:
@@ -282,54 +340,32 @@ export default function MembersClient() {
       width: 150,
     },
     {
-      key: "verified",
-      label: "Verified",
-      sortable: true,
-      filterable: true,
-      filterComponent: {
-        type: "select",
-        options: [
-          { label: "Verified", value: "true" },
-          { label: "Unverified", value: "false" },
-        ],
-      },
-      width: 100,
-      render: (member, value) => (
-        <span
-          className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium ${
-            value
-              ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
-              : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300"
-          }`}
-        >
-          {value ? "✓" : "✗"}
-        </span>
-      ),
-      exportRender: (member, value) => (value ? "Yes" : "No"),
-    },
-    {
-      key: "phone_number",
-      label: "Phone",
-      sortable: true,
-      filterable: true,
-      width: 150,
-      render: (member, value) => (
-        <span className="text-sm">{value || "-"}</span>
-      ),
-    },
-    {
-      key: "created_at",
-      label: "Joined",
+      key: "valid_until",
+      label: "Valid Until",
       sortable: true,
       filterable: true,
       filterComponent: { type: "date" },
       width: 120,
       render: (member, value) => (
         <span className="text-sm text-gray-600 dark:text-gray-400">
-          {value ? formatDate(value) : "-"}
+          {formatDate(value)}
         </span>
       ),
-      exportRender: (member, value) => (value ? formatDate(value) : ""),
+      exportRender: (member, value) => formatDate(value),
+    },
+    {
+      key: "signed_date",
+      label: "Signed Date",
+      sortable: true,
+      filterable: true,
+      filterComponent: { type: "date" },
+      width: 120,
+      render: (member, value) => (
+        <span className="text-sm text-gray-600 dark:text-gray-400">
+          {formatDate(value)}
+        </span>
+      ),
+      exportRender: (member, value) => formatDate(value),
     },
   ];
 
@@ -337,13 +373,14 @@ export default function MembersClient() {
   const stats = useMemo(() => {
     return members.reduce(
       (acc, member) => {
-        const type = member.membership_type.toLowerCase();
+        const type = member.membership_type?.toLowerCase() || "unknown";
         acc[type] = (acc[type] || 0) + 1;
         acc.total++;
         acc.approved += member.certificate_status === "Approved" ? 1 : 0;
         acc.compliant += member.incompliance ? 1 : 0;
         acc.pending += member.application_status === "Pending" ? 1 : 0;
-        acc.verified += member.verified ? 1 : 0;
+        // Since API doesn't return verified field, calculate it differently
+        acc.verified += member.certificate_status === "Approved" ? 1 : 0;
         return acc;
       },
       {
@@ -357,11 +394,12 @@ export default function MembersClient() {
         "student member": 0,
         "honorary member": 0,
         "corporate member": 0,
+        unknown: 0,
       } as Record<string, number>
     );
   }, [members]);
 
-  // Bulk actions
+  // Bulk actions with Lucide icons
   const bulkActions = [
     {
       label: "Export Selected",
@@ -369,21 +407,7 @@ export default function MembersClient() {
         console.log("Exporting selected members:", selectedMembers);
         showSuccessToast(`Exporting ${selectedMembers.length} members`);
       },
-      icon: (
-        <svg
-          className="h-4 w-4"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-          />
-        </svg>
-      ),
+      icon: <Download className="h-4 w-4" />,
     },
     {
       label: "Send Email",
@@ -391,55 +415,131 @@ export default function MembersClient() {
         console.log("Sending email to:", selectedMembers);
         showSuccessToast(`Email sent to ${selectedMembers.length} members`);
       },
-      icon: (
-        <svg
-          className="h-4 w-4"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-          />
-        </svg>
-      ),
+      icon: <Mail className="h-4 w-4" />,
     },
   ];
 
+  // ============================================================================
+  // SKELETON LOADER
+  // ============================================================================
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00B5A5] mx-auto"></div>
-            <p className="mt-4 text-gray-600 dark:text-gray-400">
-              Loading members...
-            </p>
+          {/* Header Skeleton */}
+          <div className="mb-8">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div className="flex-1">
+                <div className="h-9 bg-gray-200 dark:bg-gray-700 rounded-lg w-48 mb-2 animate-pulse"></div>
+                <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded-lg w-96 animate-pulse"></div>
+              </div>
+              <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-32 animate-pulse"></div>
+            </div>
+          </div>
+
+          {/* Stats Cards Skeleton */}
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-8">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div
+                key={i}
+                className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 animate-pulse"
+              >
+                <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-12 mb-2"></div>
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
+              </div>
+            ))}
+          </div>
+
+          {/* Table Skeleton */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+            {/* Table Header */}
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between mb-4">
+                <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-48 animate-pulse"></div>
+                <div className="flex gap-2">
+                  <div className="h-10 w-10 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                  <div className="h-10 w-10 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                  <div className="h-10 w-10 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                </div>
+              </div>
+              <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+            </div>
+
+            {/* Table Body Skeleton */}
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-900">
+                  <tr>
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                      <th key={i} className="px-6 py-3 text-left">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20 animate-pulse"></div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                    <tr key={i} className="animate-pulse">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center space-x-3">
+                          <div className="h-10 w-10 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+                          <div className="space-y-2 flex-1">
+                            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+                            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
+                          </div>
+                        </div>
+                      </td>
+                      {[1, 2, 3, 4, 5, 6, 7].map((j) => (
+                        <td key={j} className="px-6 py-4">
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Skeleton */}
+            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32 animate-pulse"></div>
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div
+                      key={i}
+                      className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"
+                    ></div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     );
   }
 
+  // ============================================================================
+  // ERROR STATE
+  // ============================================================================
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-6 text-center">
-            <div className="text-red-600 dark:text-red-400 text-2xl mb-2">
-              ⚠️
+            <div className="mx-auto w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-4">
+              <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
             </div>
             <h3 className="text-red-800 dark:text-red-200 font-medium mb-2">
               Error Loading Members
             </h3>
-            <p className="text-red-600 dark:text-red-300 text-sm">{error}</p>
+            <p className="text-red-600 dark:text-red-300 text-sm mb-4">{error}</p>
             <button
               onClick={fetchMembers}
-              className="mt-4 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors"
+              className="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors"
             >
+              <RefreshCw className="w-4 h-4 mr-2" />
               Try Again
             </button>
           </div>
@@ -448,6 +548,9 @@ export default function MembersClient() {
     );
   }
 
+  // ============================================================================
+  // MAIN CONTENT
+  // ============================================================================
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -468,65 +571,71 @@ export default function MembersClient() {
               disabled={loading}
               className="inline-flex items-center px-4 py-2 bg-[#00B5A5] hover:bg-[#009985] text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <svg
-                className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                />
-              </svg>
+              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
               Refresh
             </button>
           </div>
         </div>
 
-        {/* Statistics Cards */}
+        {/* Statistics Cards with Icons */}
         <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-            <div className="text-2xl font-bold text-gray-900 dark:text-white">
-              {stats.total}
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                {stats.total}
+              </div>
+              <Users className="w-5 h-5 text-gray-400" />
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Total Members
             </p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-            <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-              {stats.approved}
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                {stats.approved}
+              </div>
+              <CheckCircle className="w-5 h-5 text-green-400" />
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400">Approved</p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-              {stats.compliant}
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                {stats.compliant}
+              </div>
+              <Shield className="w-5 h-5 text-blue-400" />
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Compliant
             </p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-            <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-              {stats.verified}
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                {stats.verified}
+              </div>
+              <UserCheck className="w-5 h-5 text-purple-400" />
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400">Verified</p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-            <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-              {stats["full member"] || 0}
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+                {stats["full member"] || 0}
+              </div>
+              <UserPlus className="w-5 h-5 text-indigo-400" />
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Full Members
             </p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-            <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-              {stats.pending || 0}
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                {stats.pending || 0}
+              </div>
+              <Clock className="w-5 h-5 text-orange-400" />
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400">Pending</p>
           </div>
@@ -560,5 +669,5 @@ export default function MembersClient() {
         />
       </div>
     </div>
-  );
+  ); 
 }

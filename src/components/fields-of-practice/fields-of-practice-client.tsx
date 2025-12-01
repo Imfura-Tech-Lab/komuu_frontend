@@ -223,21 +223,129 @@ export default function FieldsOfPracticeClient() {
     },
   ];
 
+  // ============================================================================
+  // SKELETON LOADER
+  // ============================================================================
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00B5A5] mx-auto"></div>
-            <p className="mt-4 text-gray-600 dark:text-gray-400">
-              Loading fields of practice...
-            </p>
+          {/* Header Skeleton */}
+          <div className="mb-8">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div className="flex-1">
+                <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded-md w-64 mb-2 animate-pulse"></div>
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded-md w-96 animate-pulse"></div>
+              </div>
+              <div className="flex gap-3">
+                <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded-md w-24 animate-pulse"></div>
+                <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded-md w-32 animate-pulse"></div>
+              </div>
+            </div>
+          </div>
+
+          {/* Stats Skeleton */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 animate-pulse"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
+                  <div className="h-10 w-10 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                </div>
+                <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-16 mb-2"></div>
+                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+              </div>
+            ))}
+          </div>
+
+          {/* Table Skeleton */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+            {/* Table Header Skeleton */}
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between mb-4">
+                <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-48 animate-pulse"></div>
+                <div className="flex gap-2">
+                  <div className="h-10 w-10 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                  <div className="h-10 w-10 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                  <div className="h-10 w-10 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                </div>
+              </div>
+              <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded-lg w-full animate-pulse"></div>
+            </div>
+
+            {/* Table Body Skeleton */}
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-900">
+                  <tr>
+                    <th className="px-6 py-3 text-left">
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16 animate-pulse"></div>
+                    </th>
+                    <th className="px-6 py-3 text-left">
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32 animate-pulse"></div>
+                    </th>
+                    <th className="px-6 py-3 text-left">
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24 animate-pulse"></div>
+                    </th>
+                    <th className="px-6 py-3 text-left">
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20 animate-pulse"></div>
+                    </th>
+                    <th className="px-6 py-3 text-left">
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20 animate-pulse"></div>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                    <tr key={i} className="animate-pulse">
+                      <td className="px-6 py-4">
+                        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-48"></div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-64"></div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-20"></div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex space-x-2">
+                          <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                          <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                          <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Skeleton */}
+            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32 animate-pulse"></div>
+                <div className="flex gap-2">
+                  <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                  <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                  <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     );
   }
 
+  // ============================================================================
+  // ERROR STATE
+  // ============================================================================
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
@@ -262,6 +370,9 @@ export default function FieldsOfPracticeClient() {
     );
   }
 
+  // ============================================================================
+  // MAIN CONTENT
+  // ============================================================================
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

@@ -1,12 +1,12 @@
 import { Suspense } from "react";
+import TeamManagementPage from "@/components/admin/TeamManagementPage";
 import SecureDashboardLayout from "@/components/dashboard/secure-dashboard-layout";
-import CommunitiesClient from "@/components/communities/CommunitiesClient";
 
-export default function CommunitiesPage() {
+export default function AdminTeamManagementPage() {
   return (
     <SecureDashboardLayout requiredRoles={["Administrator", "Board", "President"]}>
-      <Suspense fallback={<div>Loading communities...</div>}>
-        <CommunitiesClient />
+      <Suspense>
+        <TeamManagementPage />
       </Suspense>
     </SecureDashboardLayout>
   );

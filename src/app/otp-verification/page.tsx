@@ -17,7 +17,7 @@ export default function OTPVerification() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [isResending, setIsResending] = useState(false);
 
-  const { loading } = useAuth();
+  const { refreshUser } = useAuth(); // Add refreshUser
   const router = useRouter();
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -117,9 +117,20 @@ export default function OTPVerification() {
         showSuccessToast("OTP verified successfully!");
 
         if (data.token && data.data) {
+          // Store authentication token
           localStorage.setItem("auth_token", data.token);
 
+          // Store user data
           localStorage.setItem("user_data", JSON.stringify(data.data));
+
+          // Store company_id from the first institution
+          if (data.data.institutions && data.data.institutions.length > 0) {
+            const companyId = data.data.institutions[0].id;
+            localStorage.setItem("company_id", companyId);
+          }
+
+          // Refresh user state in useAuth hook
+          refreshUser();
 
           const hasChangedPassword = data.data.has_changed_password;
 

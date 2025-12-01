@@ -23,7 +23,7 @@ import {
   Line,
   //@ts-ignore
 } from "react-simple-maps";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 
 // World map topology URL
 const geoUrl = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
@@ -135,19 +135,20 @@ function InteractiveMap({
     [countriesWithMembers]
   );
 
-  const handleMoveEnd = (position: any) => {
-    setPosition(position);
-  };
+  // Memoized handlers to prevent infinite loops
+  const handleMoveEnd = useCallback((newPosition: any) => {
+    setPosition(newPosition);
+  }, []);
 
-  const handleCountryClick = (geo: any) => {
+  const handleCountryClick = useCallback((geo: any) => {
     const countryName = geo.properties.name;
     const memberCount = countryDataMap.get(countryName.toLowerCase()) || 0;
 
     setSelectedCountry(countryName);
     onCountryClick?.(countryName, memberCount);
-  };
+  }, [countryDataMap, onCountryClick]);
 
-  const handleCountryHover = (geo: any, event: any) => {
+  const handleCountryHover = useCallback((geo: any, event: any) => {
     const countryName = geo.properties.name;
     const memberCount = countryDataMap.get(countryName.toLowerCase()) || 0;
 
@@ -158,14 +159,36 @@ function InteractiveMap({
       x: event.clientX,
       y: event.clientY - 10,
     });
-  };
+  }, [countryDataMap]);
 
-  const calculateMarkerSize = (count: number) => {
+  const clearTooltip = useCallback(() => {
+    setTooltip(null);
+  }, []);
+
+  const resetView = useCallback(() => {
+    setPosition({ coordinates: [0, 20], zoom: 1 });
+  }, []);
+
+  const zoomIn = useCallback(() => {
+    setPosition((prev) => ({
+      ...prev,
+      zoom: Math.min(prev.zoom * 1.5, 8),
+    }));
+  }, []);
+
+  const zoomOut = useCallback(() => {
+    setPosition((prev) => ({
+      ...prev,
+      zoom: Math.max(prev.zoom / 1.5, 1),
+    }));
+  }, []);
+
+  const calculateMarkerSize = useCallback((count: number) => {
     const maxCount = Math.max(...countriesWithMembers.map((c) => c.count));
     return Math.max(3, (count / maxCount) * 15);
-  };
+  }, [countriesWithMembers]);
 
-  const getCountryColor = (countryName: string, memberCount: number) => {
+  const getCountryColor = useCallback((countryName: string, memberCount: number) => {
     if (selectedCountry === countryName) return "#FF6B6B";
     if (
       topCountries.some(
@@ -175,14 +198,14 @@ function InteractiveMap({
       return "#00D4C7";
     if (memberCount > 0) return "#00B5A5";
     return "#E6E6E6";
-  };
+  }, [selectedCountry, topCountries]);
 
   return (
     <div className="relative">
       {/* Map Controls */}
       <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
         <button
-          onClick={() => setPosition({ coordinates: [0, 20], zoom: 1 })}
+          onClick={resetView}
           className="bg-white dark:bg-gray-800 p-2 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           title="Reset View"
         >
@@ -206,23 +229,13 @@ function InteractiveMap({
           </div>
           <div className="flex gap-1">
             <button
-              onClick={() =>
-                setPosition((prev) => ({
-                  ...prev,
-                  zoom: Math.min(prev.zoom * 1.5, 8),
-                }))
-              }
+              onClick={zoomIn}
               className="flex-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-xs hover:bg-gray-200 dark:hover:bg-gray-600"
             >
               +
             </button>
             <button
-              onClick={() =>
-                setPosition((prev) => ({
-                  ...prev,
-                  zoom: Math.max(prev.zoom / 1.5, 1),
-                }))
-              }
+              onClick={zoomOut}
               className="flex-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-xs hover:bg-gray-200 dark:hover:bg-gray-600"
             >
               -
@@ -233,8 +246,8 @@ function InteractiveMap({
 
       {/* Interactive Map */}
       <div
-        className="h-96 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900"
-        onMouseLeave={() => setTooltip(null)}
+        className="h-full rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex items-center justify-center"
+        onMouseLeave={clearTooltip}
       >
         <ComposableMap
           projection="geoMercator"
@@ -242,6 +255,14 @@ function InteractiveMap({
             scale: 120,
             center: [0, 20],
           }}
+          width={800}
+          height={384}
+          style={{
+            width: "100%",
+            height: "100%",
+            maxHeight: "384px",
+          }}
+          preserveAspectRatio="xMidYMid meet"
         >
           <ZoomableGroup
             zoom={position.zoom}
@@ -249,52 +270,53 @@ function InteractiveMap({
             onMoveEnd={handleMoveEnd}
           >
             <Geographies geography={geoUrl}>
-              {({ 
+              {({
                 // @ts-ignore
-                geographies 
+                geographies,
               }) =>
                 geographies.map(
                   // @ts-ignore
                   (geo) => {
-                  const countryName = geo.properties.name;
-                  const memberCount =
-                    countryDataMap.get(countryName.toLowerCase()) || 0;
-                  const fillColor = getCountryColor(countryName, memberCount);
+                    const countryName = geo.properties.name;
+                    const memberCount =
+                      countryDataMap.get(countryName.toLowerCase()) || 0;
+                    const fillColor = getCountryColor(countryName, memberCount);
 
-                  return (
-                    <Geography
-                      key={geo.rsmKey}
-                      geography={geo}
-                      fill={fillColor}
-                      stroke="#FFF"
-                      strokeWidth={0.5}
-                      style={{
-                        default: { outline: "none", cursor: "pointer" },
-                        hover: {
-                          fill:
-                            selectedCountry === countryName
-                              ? "#FF6B6B"
-                              : "#00D4C7",
-                          outline: "none",
-                          cursor: "pointer",
-                        },
-                        pressed: {
-                          fill: "#008080",
-                          outline: "none",
-                        },
-                      }}
-                      onClick={() => handleCountryClick(geo)}
-                      onMouseEnter={
-                        // @ts-ignore
-                        (event) => handleCountryHover(geo, event)
-                      }
-                      onMouseMove={
-                        // @ts-ignore
-                        (event) => handleCountryHover(geo, event)
-                      }
-                    />
-                  );
-                })
+                    return (
+                      <Geography
+                        key={geo.rsmKey}
+                        geography={geo}
+                        fill={fillColor}
+                        stroke="#FFF"
+                        strokeWidth={0.5}
+                        style={{
+                          default: { outline: "none", cursor: "pointer" },
+                          hover: {
+                            fill:
+                              selectedCountry === countryName
+                                ? "#FF6B6B"
+                                : "#00D4C7",
+                            outline: "none",
+                            cursor: "pointer",
+                          },
+                          pressed: {
+                            fill: "#008080",
+                            outline: "none",
+                          },
+                        }}
+                        onClick={() => handleCountryClick(geo)}
+                        onMouseEnter={
+                          // @ts-ignore
+                          (event) => handleCountryHover(geo, event)
+                        }
+                        onMouseMove={
+                          // @ts-ignore
+                          (event) => handleCountryHover(geo, event)
+                        }
+                      />
+                    );
+                  }
+                )
               }
             </Geographies>
 
@@ -383,30 +405,6 @@ function InteractiveMap({
           </p>
         </div>
       )}
-
-      {/* Enhanced Legend */}
-      <div className="mt-4 flex flex-wrap gap-4 text-sm">
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded-full bg-[#00B5A5]"></div>
-          <span>With Members</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded-full bg-[#00D4C7]"></div>
-          <span>Top 10 Country</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded-full bg-[#FF6B6B]"></div>
-          <span>Selected</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded-full bg-[#E6E6E6] border border-gray-300"></div>
-          <span>No Members</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-[#FF6B6B]"></div>
-          <span>Member Count</span>
-        </div>
-      </div>
     </div>
   );
 }
@@ -431,15 +429,19 @@ export default function BoardDashboard({
   } = data;
 
   // Prepare map data
-  const countryDataMap = new Map(
-    countries_of_operations.map((country) => [
-      country.country.toLowerCase(),
-      country.count,
-    ])
+  const countryDataMap = useMemo(() => 
+    new Map(
+      countries_of_operations.map((country) => [
+        country.country.toLowerCase(),
+        country.count,
+      ])
+    ),
+    [countries_of_operations]
   );
 
-  const countriesWithMembers = countries_of_operations.filter(
-    (country) => country.count >= 1
+  const countriesWithMembers = useMemo(() =>
+    countries_of_operations.filter((country) => country.count >= 1),
+    [countries_of_operations]
   );
 
   const tabs: { id: DashboardTab; label: string; count?: number }[] = [
@@ -550,6 +552,10 @@ function OverviewTab({
     membership_types,
   } = data;
 
+  // Memoize chart data to prevent Recharts animation loops
+  const statsApplicationsData = useMemo(() => stats_applications, [stats_applications]);
+  const membershipTypesData = useMemo(() => membership_types, [membership_types]);
+
   return (
     <div className="space-y-6">
       {/* Summary Stats */}
@@ -585,11 +591,41 @@ function OverviewTab({
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
           Global Overview
         </h3>
-        <div className="h-64">
+        <div className="h-96 relative overflow-hidden">
           <InteractiveMap
             countriesWithMembers={countriesWithMembers}
             countryDataMap={countryDataMap}
           />
+        </div>
+
+        {/* Map Legend */}
+        <div className="mt-4 flex flex-wrap gap-4 text-sm">
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded-full bg-[#00B5A5]"></div>
+            <span className="text-gray-700 dark:text-gray-300">
+              With Members
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded-full bg-[#00D4C7]"></div>
+            <span className="text-gray-700 dark:text-gray-300">
+              Top 10 Country
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded-full bg-[#FF6B6B]"></div>
+            <span className="text-gray-700 dark:text-gray-300">Selected</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded-full bg-[#E6E6E6] border border-gray-300 dark:border-gray-600"></div>
+            <span className="text-gray-700 dark:text-gray-300">No Members</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-[#FF6B6B]"></div>
+            <span className="text-gray-700 dark:text-gray-300">
+              Member Count
+            </span>
+          </div>
         </div>
       </div>
 
@@ -599,15 +635,16 @@ function OverviewTab({
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
-                data={stats_applications}
+                data={statsApplicationsData}
                 dataKey="count"
                 nameKey="status"
                 cx="50%"
                 cy="50%"
                 outerRadius={80}
                 label
+                isAnimationActive={false}
               >
-                {stats_applications.map((_, index) => (
+                {statsApplicationsData.map((_, index) => (
                   <Cell
                     key={`cell-${index}`}
                     fill={COLORS[index % COLORS.length]}
@@ -622,7 +659,7 @@ function OverviewTab({
 
         <ChartCard title="Membership Types">
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={membership_types}>
+            <BarChart data={membershipTypesData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis
                 dataKey="category"
@@ -632,7 +669,7 @@ function OverviewTab({
               />
               <YAxis />
               <Tooltip />
-              <Bar dataKey="count" fill="#00B5A5" />
+              <Bar dataKey="count" fill="#00B5A5" isAnimationActive={false} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -650,6 +687,15 @@ function MembersTab({ data }: { data: BoardDashboardData }) {
     inactive_members,
   } = data;
 
+  // Memoize chart data
+  const membershipDistribution = useMemo(() => [
+    { name: "Active Members", value: current_members },
+    { name: "Inactive Members", value: inactive_members },
+  ], [current_members, inactive_members]);
+
+  const membershipTypesData = useMemo(() => membership_types, [membership_types]);
+  const fieldsOfPracticeData = useMemo(() => fields_of_pratice, [fields_of_pratice]);
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -657,16 +703,14 @@ function MembersTab({ data }: { data: BoardDashboardData }) {
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
-                data={[
-                  { name: "Active Members", value: current_members },
-                  { name: "Inactive Members", value: inactive_members },
-                ]}
+                data={membershipDistribution}
                 dataKey="value"
                 nameKey="name"
                 cx="50%"
                 cy="50%"
                 outerRadius={100}
                 label
+                isAnimationActive={false}
               >
                 <Cell fill="#00B5A5" />
                 <Cell fill="#FF6B6B" />
@@ -679,7 +723,7 @@ function MembersTab({ data }: { data: BoardDashboardData }) {
 
         <ChartCard title="Membership Types">
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={membership_types}>
+            <BarChart data={membershipTypesData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis
                 dataKey="category"
@@ -689,7 +733,7 @@ function MembersTab({ data }: { data: BoardDashboardData }) {
               />
               <YAxis />
               <Tooltip />
-              <Bar dataKey="count" fill="#4ECDC4" />
+              <Bar dataKey="count" fill="#4ECDC4" isAnimationActive={false} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -697,12 +741,12 @@ function MembersTab({ data }: { data: BoardDashboardData }) {
 
       <ChartCard title="Fields of Practice">
         <ResponsiveContainer width="100%" height={400}>
-          <BarChart data={fields_of_pratice} layout="horizontal">
+          <BarChart data={fieldsOfPracticeData} layout="horizontal">
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis type="number" />
             <YAxis dataKey="field_of_practice" type="category" width={150} />
             <Tooltip />
-            <Bar dataKey="count" fill="#00B5A5" />
+            <Bar dataKey="count" fill="#00B5A5" isAnimationActive={false} />
           </BarChart>
         </ResponsiveContainer>
       </ChartCard>
@@ -721,6 +765,10 @@ function ApplicationsTab({ data }: { data: BoardDashboardData }) {
     stats_applications.find((a) => a.status === "Pending")?.count || 0;
   const rejectionCount =
     stats_applications.find((a) => a.status === "Rejected")?.count || 0;
+
+  // Memoize chart data
+  const statsApplicationsData = useMemo(() => stats_applications, [stats_applications]);
+  const applicationPerRegionData = useMemo(() => application_per_region, [application_per_region]);
 
   return (
     <div className="space-y-6">
@@ -764,15 +812,16 @@ function ApplicationsTab({ data }: { data: BoardDashboardData }) {
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
-                data={stats_applications}
+                data={statsApplicationsData}
                 dataKey="count"
                 nameKey="status"
                 cx="50%"
                 cy="50%"
                 outerRadius={100}
                 label
+                isAnimationActive={false}
               >
-                {stats_applications.map((_, index) => (
+                {statsApplicationsData.map((_, index) => (
                   <Cell
                     key={`cell-${index}`}
                     fill={COLORS[index % COLORS.length]}
@@ -787,7 +836,7 @@ function ApplicationsTab({ data }: { data: BoardDashboardData }) {
 
         <ChartCard title="Applications by Region">
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={application_per_region}>
+            <BarChart data={applicationPerRegionData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis
                 dataKey="region"
@@ -797,7 +846,7 @@ function ApplicationsTab({ data }: { data: BoardDashboardData }) {
               />
               <YAxis />
               <Tooltip />
-              <Bar dataKey="count" fill="#FFE66D" />
+              <Bar dataKey="count" fill="#FFE66D" isAnimationActive={false} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -819,9 +868,9 @@ function GeographyTab({
   const { countries_of_operations } = data;
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
 
-  const handleCountryClick = (country: string, count: number) => {
+  const handleCountryClick = useCallback((country: string, count: number) => {
     setSelectedCountry(country);
-  };
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -928,14 +977,21 @@ function AnalyticsTab({ data }: { data: BoardDashboardData }) {
     stats_applications,
   } = data;
 
-  const totalMembers = membership_types.reduce(
-    (sum, type) => sum + type.count,
-    0
+  const totalMembers = useMemo(() => 
+    membership_types.reduce((sum, type) => sum + type.count, 0),
+    [membership_types]
   );
-  const approvalRate =
+
+  const approvalRate = useMemo(() =>
     ((stats_applications.find((a) => a.status === "Approved")?.count || 0) /
       (stats_applications.reduce((sum, app) => sum + app.count, 0) || 1)) *
-    100;
+    100,
+    [stats_applications]
+  );
+
+  // Memoize chart data
+  const fieldsOfPracticeData = useMemo(() => fields_of_pratice, [fields_of_pratice]);
+  const applicationPerRegionData = useMemo(() => application_per_region, [application_per_region]);
 
   return (
     <div className="space-y-6">
@@ -979,12 +1035,12 @@ function AnalyticsTab({ data }: { data: BoardDashboardData }) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <ChartCard title="Fields of Practice Distribution">
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={fields_of_pratice} layout="horizontal">
+            <BarChart data={fieldsOfPracticeData} layout="horizontal">
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis type="number" />
               <YAxis dataKey="field_of_practice" type="category" width={150} />
               <Tooltip />
-              <Bar dataKey="count" fill="#00B5A5" />
+              <Bar dataKey="count" fill="#00B5A5" isAnimationActive={false} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -993,15 +1049,16 @@ function AnalyticsTab({ data }: { data: BoardDashboardData }) {
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
-                data={application_per_region}
+                data={applicationPerRegionData}
                 dataKey="count"
                 nameKey="region"
                 cx="50%"
                 cy="50%"
                 outerRadius={100}
                 label
+                isAnimationActive={false}
               >
-                {application_per_region.map((_, index) => (
+                {applicationPerRegionData.map((_, index) => (
                   <Cell
                     key={`cell-${index}`}
                     fill={COLORS[index % COLORS.length]}
