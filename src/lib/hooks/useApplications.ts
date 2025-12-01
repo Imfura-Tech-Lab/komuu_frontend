@@ -71,8 +71,18 @@ export const useApplications = () => {
           // For member: my-application returns single object
           setApplications(data.data ? [data.data] : []);
         } else {
-          // For admin: applications returns array
-          const applicationsData = Array.isArray(data.data) ? data.data : [];
+          // For admin: applications returns paginated response
+          // Handle both direct array and paginated response { data: [...], current_page, ... }
+          let applicationsData: Application[] = [];
+          
+          if (Array.isArray(data.data)) {
+            // Direct array response
+            applicationsData = data.data;
+          } else if (data.data && Array.isArray(data.data.data)) {
+            // Paginated response: { data: { data: [...], current_page, ... } }
+            applicationsData = data.data.data;
+          }
+          
           setApplications(applicationsData);
         }
       } else {
