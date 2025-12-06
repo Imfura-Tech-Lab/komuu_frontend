@@ -11,7 +11,7 @@ env:
   DROPLET_USER: ${{ secrets.DROPLET_USER }}
   CONTAINER_NAME: nextjs-production
   APP_PORT: 3001
-  BACKEND_URL: https://api.komuu.com/api/v1
+  BACKEND_URL: https://api.komuu.com/api/v1/
 
 jobs:
   build-and-deploy:
