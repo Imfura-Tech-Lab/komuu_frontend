@@ -12,6 +12,7 @@ env:
   CONTAINER_NAME: nextjs-staging
   APP_PORT: 3002
   BACKEND_URL: https://staging-api.komuu.com/api/v1/
+  SSH_PORT: 2222
 
 jobs:
   build-and-deploy:
@@ -21,6 +22,19 @@ jobs:
     steps:
       - name: 📦 Checkout code
         uses: actions/checkout@v4
+
+      - name: 🔍 Verify Next.js version (CVE-2025-55182 mitigation)
+        run: |
+          NEXT_VERSION=$(node -p "require('./package-lock.json').packages['node_modules/next'].version" 2>/dev/null || echo "unknown")
+          echo "Next.js version: $NEXT_VERSION"
+          
+          # Fail if vulnerable version detected
+          if [[ "$NEXT_VERSION" =~ ^15\.[0-4]\. ]] || [[ "$NEXT_VERSION" =~ ^15\.5\.[0-6]$ ]]; then
+            echo "❌ VULNERABLE Next.js version detected: $NEXT_VERSION"
+            echo "Required: >= 15.5.7 for CVE-2025-55182 fix"
+            exit 1
+          fi
+          echo "✅ Next.js version $NEXT_VERSION is patched"
 
       - name: 🔧 Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -51,35 +65,97 @@ jobs:
           host: ${{ env.DROPLET_HOST }}
           username: ${{ env.DROPLET_USER }}
           key: ${{ secrets.DROPLET_SSH_PRIVATE_KEY }}
+          port: ${{ env.SSH_PORT }}
+          script_stop: true
           script: |
-            set -e
+            set -euo pipefail
+            
+            IMAGE="${{ env.DOCKER_IMAGE }}:staging-latest"
+            CONTAINER="${{ env.CONTAINER_NAME }}"
+            PORT="${{ env.APP_PORT }}"
+            PREVIOUS_IMAGE=""
+            
             echo "🚀 Starting staging deployment..."
-
+            echo "Image: $IMAGE"
+            echo "Container: $CONTAINER"
+            
+            # Capture current image for rollback
+            if docker inspect "$CONTAINER" &>/dev/null; then
+              PREVIOUS_IMAGE=$(docker inspect --format='{{.Config.Image}}' "$CONTAINER" 2>/dev/null || true)
+              echo "📌 Previous image: $PREVIOUS_IMAGE"
+            fi
+            
+            # Login and pull new image
             echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
-            docker pull ${{ env.DOCKER_IMAGE }}:staging-latest
-
-            docker stop ${{ env.CONTAINER_NAME }} 2>/dev/null || true
-            docker rm ${{ env.CONTAINER_NAME }} 2>/dev/null || true
-
+            docker pull "$IMAGE"
+            
+            # Stop and remove old container
+            docker stop "$CONTAINER" 2>/dev/null || true
+            docker rm "$CONTAINER" 2>/dev/null || true
+            
+            # Start new container
             docker run -d \
-              --name ${{ env.CONTAINER_NAME }} \
-              -p ${{ env.APP_PORT }}:3000 \
+              --name "$CONTAINER" \
+              -p "${PORT}:3000" \
               -e NODE_ENV=production \
-              -e NEXT_PUBLIC_BACKEND_API_URL=${{ env.BACKEND_URL }} \
               --restart unless-stopped \
               --log-driver json-file \
               --log-opt max-size=10m \
               --log-opt max-file=3 \
-              ${{ env.DOCKER_IMAGE }}:staging-latest
-
-            sleep 10
-
-            if curl -f http://localhost:${{ env.APP_PORT }} > /dev/null 2>&1; then
-              echo "✅ Deployment successful"
-            else
-              echo "❌ Health check failed"
-              docker logs --tail 50 ${{ env.CONTAINER_NAME }}
-              exit 1
-            fi
-
+              --memory=512m \
+              --cpus=1 \
+              --security-opt=no-new-privileges:true \
+              --read-only \
+              --tmpfs /tmp:rw,noexec,nosuid,size=64m \
+              "$IMAGE"
+            
+            # Health check with retry loop
+            echo "⏳ Waiting for container to be healthy..."
+            MAX_RETRIES=12
+            RETRY_INTERVAL=5
+            
+            for i in $(seq 1 $MAX_RETRIES); do
+              if curl -sf --max-time 5 "http://localhost:${PORT}" > /dev/null 2>&1; then
+                echo "✅ Health check passed on attempt $i"
+                break
+              fi
+              
+              if [ $i -eq $MAX_RETRIES ]; then
+                echo "❌ Health check failed after $MAX_RETRIES attempts"
+                docker logs --tail 100 "$CONTAINER"
+                
+                # Rollback if previous image exists
+                if [ -n "$PREVIOUS_IMAGE" ] && [ "$PREVIOUS_IMAGE" != "$IMAGE" ]; then
+                  echo "🔄 Rolling back to $PREVIOUS_IMAGE"
+                  docker stop "$CONTAINER" 2>/dev/null || true
+                  docker rm "$CONTAINER" 2>/dev/null || true
+                  docker run -d \
+                    --name "$CONTAINER" \
+                    -p "${PORT}:3000" \
+                    -e NODE_ENV=production \
+                    --restart unless-stopped \
+                    --log-driver json-file \
+                    --log-opt max-size=10m \
+                    --log-opt max-file=3 \
+                    "$PREVIOUS_IMAGE"
+                  echo "⚠️ Rolled back to previous version"
+                fi
+                exit 1
+              fi
+              
+              echo "Attempt $i/$MAX_RETRIES failed, retrying in ${RETRY_INTERVAL}s..."
+              sleep $RETRY_INTERVAL
+            done
+            
+            # Cleanup old images (keep last 3)
             docker image prune -f
+            echo "🎉 Staging deployment completed successfully"
+
+      - name: 📊 Deployment Summary
+        if: always()
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment:** Staging" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image:** ${{ env.DOCKER_IMAGE }}:staging-${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
