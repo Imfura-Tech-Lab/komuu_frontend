@@ -100,13 +100,12 @@ jobs:
               --cpus=1 \
               "$IMAGE"
             
-            echo "⏳ Waiting for container to be healthy..."
-            MAX_RETRIES=12
+            echo "⏳ Waiting for Next.js to be ready..."
+            MAX_RETRIES=24
             RETRY_INTERVAL=5
             
             for i in $(seq 1 $MAX_RETRIES); do
-              if docker exec "$CONTAINER" wget -q --spider "http://localhost:${{ env.INTERNAL_PORT }}" 2>/dev/null || \
-                 docker exec "$CONTAINER" curl -sf "http://localhost:${{ env.INTERNAL_PORT }}" > /dev/null 2>&1; then
+              if docker logs "$CONTAINER" 2>&1 | grep -q "Ready in"; then
                 echo "✅ Health check passed on attempt $i"
                 break
               fi
@@ -130,7 +129,7 @@ jobs:
                 exit 1
               fi
               
-              echo "Attempt $i/$MAX_RETRIES failed, retrying in ${RETRY_INTERVAL}s..."
+              echo "Attempt $i/$MAX_RETRIES: Next.js not ready yet, retrying in ${RETRY_INTERVAL}s..."
               sleep $RETRY_INTERVAL
             done
             
@@ -143,5 +142,5 @@ jobs:
           echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "- **Environment:** Production" >> $GITHUB_STEP_SUMMARY
           echo "- **Network:** komuu (internal only)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Image:** ${{ env.DOCKER_IMAGE }}:production-${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image:** \`${{ env.DOCKER_IMAGE }}:production-latest\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
