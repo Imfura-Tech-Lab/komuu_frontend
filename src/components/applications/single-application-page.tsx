@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { showSuccessToast } from "@/components/layouts/auth-layer-out";
 import {
-  ChevronDown,
   ArrowLeft,
   FileText,
-  Download,
+  Eye,
   CreditCard,
   Briefcase,
   Building2,
@@ -20,23 +19,30 @@ import {
 } from "lucide-react";
 
 import { DeleteModal } from "../admin/modals/Deletemodal";
-import { ActionsDropdown } from "../admin/ActionsDropdown";
+import { ActionsButtons } from "../admin/ActionsDropdown";
 import { CollapsibleSection } from "../admin/CollapsibleSection";
 import { InfoRow } from "../admin/InfoRow";
 import { UserData } from "@/types/application.types";
 import { ApprovalHistorySection } from "../admin/ApprovalHistorySection";
 import { PersonalInformationSection } from "../admin/PersonalInformationSection";
-import { formatBoolean, formatDate, getStatusColor } from "@/lib/utils/formatters";
+import {
+  formatBoolean,
+  formatDate,
+  getStatusColor,
+} from "@/lib/utils/formatters";
 import { useApplicationManager } from "@/lib/hooks/useApplicationManager";
+import { useFileViewer } from "@/lib/hooks/useFileViewer";
+import { FileViewer } from "@/components/ui/FileViwer";
 
 interface SingleApplicationPageProps {
-  applicationId: string; // ✅ FIXED: Changed from UseApplicationManagerProps to string
+  applicationId: string;
 }
 
 export default function SingleApplicationPage({
   applicationId,
 }: SingleApplicationPageProps) {
-  // User data from localStorage
+  const router = useRouter();
+
   const [userData] = useState<UserData | null>(() => {
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("user_data");
@@ -45,7 +51,6 @@ export default function SingleApplicationPage({
     return null;
   });
 
-  // Custom hook for API operations
   const {
     application,
     loading,
@@ -56,53 +61,47 @@ export default function SingleApplicationPage({
     approveApplication,
     signCertificate,
     deleteApplication,
-  } = useApplicationManager({ applicationId }); // ✅ FIXED: Pass as object
+  } = useApplicationManager({ applicationId });
 
-  // UI state
+  const {
+    isOpen: fileViewerOpen,
+    fileUrl: currentFileUrl,
+    fileName: currentFileName,
+    fileType: currentFileType,
+    openFile,
+    closeFile,
+  } = useFileViewer();
+
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteType, setDeleteType] = useState<"soft" | "force">("soft");
-  const [showActionsDropdown, setShowActionsDropdown] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const router = useRouter();
+  const isApproved =
+    application?.application_status?.toLowerCase() === "approved";
+  const isPresident = userData?.role === "President";
 
-  // Effects
+  const hasUserApproved =
+    application?.approved_by?.some(
+      (approval) => approval.id === userData?.id
+    ) ?? false;
+
   useEffect(() => {
     fetchApplication();
   }, [fetchApplication]);
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        setShowActionsDropdown(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  // Handlers
   const handleRefresh = async () => {
     showSuccessToast("Refreshing application data...");
     await fetchApplication();
   };
 
   const handleApprove = async () => {
-    setShowActionsDropdown(false);
     await approveApplication();
   };
 
   const handleSign = async () => {
-    setShowActionsDropdown(false);
     await signCertificate();
   };
 
   const handleDeleteClick = () => {
-    setShowActionsDropdown(false);
     setShowDeleteModal(true);
   };
 
@@ -113,25 +112,34 @@ export default function SingleApplicationPage({
     }
   };
 
-  // ============================================================================
-  // SKELETON LOADER
-  // ============================================================================
+  const getFileType = (path: string): "pdf" | "image" | "document" => {
+    const ext = path.split(".").pop()?.toLowerCase();
+    if (ext === "pdf") return "pdf";
+    if (["jpg", "jpeg", "png", "gif", "webp"].includes(ext || ""))
+      return "image";
+    return "document";
+  };
+
+  const handleViewDocument = (doc: {
+    document_path: string;
+    document_type: string;
+  }) => {
+    const type = getFileType(doc.document_path);
+    openFile(doc.document_path, doc.document_type, type);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Header Skeleton */}
           <div className="mb-6">
             <div className="h-5 w-48 bg-gray-200 dark:bg-gray-700 rounded mb-4 animate-pulse"></div>
             <div className="flex items-center justify-between">
-              <div>
-                <div className="h-9 w-64 bg-gray-200 dark:bg-gray-700 rounded mb-2 animate-pulse"></div>
-              </div>
+              <div className="h-9 w-64 bg-gray-200 dark:bg-gray-700 rounded mb-2 animate-pulse"></div>
               <div className="h-10 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
             </div>
           </div>
 
-          {/* Status Card Skeleton */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {[1, 2, 3].map((i) => (
@@ -143,19 +151,15 @@ export default function SingleApplicationPage({
             </div>
           </div>
 
-          {/* Content Cards Skeleton */}
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <div
               key={i}
               className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6"
             >
-              {/* Section Header */}
               <div className="flex items-center mb-6">
                 <div className="w-6 h-6 bg-gray-200 dark:bg-gray-700 rounded mr-3 animate-pulse"></div>
                 <div className="h-6 w-48 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
               </div>
-
-              {/* Section Content */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {[1, 2, 3, 4, 5, 6].map((j) => (
                   <div key={j} className="space-y-2">
@@ -166,58 +170,11 @@ export default function SingleApplicationPage({
               </div>
             </div>
           ))}
-
-          {/* Documents Skeleton */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
-            <div className="flex items-center mb-6">
-              <div className="w-6 h-6 bg-gray-200 dark:bg-gray-700 rounded mr-3 animate-pulse"></div>
-              <div className="h-6 w-48 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {[1, 2].map((i) => (
-                <div
-                  key={i}
-                  className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600"
-                >
-                  <div className="flex items-center space-x-3 flex-1">
-                    <div className="w-10 h-10 bg-gray-200 dark:bg-gray-600 rounded-lg animate-pulse"></div>
-                    <div className="flex-1 space-y-2">
-                      <div className="h-4 w-32 bg-gray-200 dark:bg-gray-600 rounded animate-pulse"></div>
-                      <div className="h-3 w-24 bg-gray-200 dark:bg-gray-600 rounded animate-pulse"></div>
-                    </div>
-                  </div>
-                  <div className="h-9 w-20 bg-gray-200 dark:bg-gray-600 rounded animate-pulse"></div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Declaration Skeleton */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <div className="flex items-center mb-6">
-              <div className="w-6 h-6 bg-gray-200 dark:bg-gray-700 rounded mr-3 animate-pulse"></div>
-              <div className="h-6 w-48 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="flex items-start space-x-3">
-                  <div className="w-6 h-6 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse"></div>
-                  <div className="flex-1 space-y-2">
-                    <div className="h-4 w-40 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-                    <div className="h-3 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
     );
   }
 
-  // ============================================================================
-  // ERROR STATE
-  // ============================================================================
   if (error || !application) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
@@ -227,13 +184,14 @@ export default function SingleApplicationPage({
               <div className="mx-auto w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-4">
                 <AlertCircle className="w-8 h-8 text-red-600 dark:text-red-400" />
               </div>
-              
+
               <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
                 {error ? "Error Loading Application" : "Application Not Found"}
               </h3>
-              
+
               <p className="text-gray-600 dark:text-gray-400 mb-6">
-                {error || "This application could not be found or you don't have permission to view it."}
+                {error ||
+                  "This application could not be found or you don't have permission to view it."}
               </p>
 
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -244,41 +202,14 @@ export default function SingleApplicationPage({
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Back to Applications
                 </button>
-                
+
                 <button
                   onClick={fetchApplication}
                   disabled={loading}
                   className="inline-flex items-center justify-center px-4 py-2 bg-[#00B5A5] hover:bg-[#009985] disabled:bg-gray-400 text-white rounded-md transition-colors disabled:cursor-not-allowed"
                 >
-                  {loading ? (
-                    <>
-                      <svg
-                        className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        />
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        />
-                      </svg>
-                      Retrying...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="w-4 h-4 mr-2" />
-                      Try Again
-                    </>
-                  )}
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Try Again
                 </button>
               </div>
             </div>
@@ -288,16 +219,9 @@ export default function SingleApplicationPage({
     );
   }
 
-  const isApproved = application.application_status.toLowerCase() === "approved";
-  const isPresident = userData?.role === "President";
-
-  // ============================================================================
-  // MAIN CONTENT
-  // ============================================================================
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
         <div className="mb-6">
           <button
             onClick={() => router.push("/applications")}
@@ -306,42 +230,28 @@ export default function SingleApplicationPage({
             <ArrowLeft className="w-5 h-5 mr-2" />
             Back to Applications
           </button>
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                Application Details
-              </h1>
-            </div>
 
-            {/* Actions Dropdown */}
-            <div className="relative" ref={dropdownRef}>
-              <button
-                onClick={() => setShowActionsDropdown(!showActionsDropdown)}
-                className="flex items-center space-x-2 px-4 py-2 bg-[#00B5A5] hover:bg-[#009985] text-white rounded-md transition-colors"
-              >
-                <span>Actions</span>
-                <ChevronDown className="w-4 h-4" />
-              </button>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+              Application Details
+            </h1>
 
-              <ActionsDropdown
-                isOpen={showActionsDropdown}
-                onRefresh={handleRefresh}
-                onApprove={handleApprove}
-                onSign={handleSign}
-                onDelete={handleDeleteClick}
-                loading={loading}
-                isUpdating={isUpdating}
-                isDeleting={isDeleting}
-                isApproved={isApproved}
-                isPresident={isPresident}
-              />
-            </div>
+            <ActionsButtons
+              loading={loading}
+              isUpdating={isUpdating}
+              isDeleting={isDeleting}
+              isApproved={isApproved}
+              isPresident={isPresident}
+              hasUserApproved={hasUserApproved}
+              onRefresh={handleRefresh}
+              onApprove={handleApprove}
+              onSign={handleSign}
+              onDelete={handleDeleteClick}
+            />
           </div>
         </div>
 
-        {/* Application Content */}
         <div className="space-y-6">
-          {/* Status Card */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
@@ -375,12 +285,10 @@ export default function SingleApplicationPage({
             </div>
           </div>
 
-          {/* Personal Information */}
           <PersonalInformationSection
             memberDetails={application.member_details}
           />
 
-          {/* Organization Information */}
           <CollapsibleSection
             title="Organization Information"
             icon={<Building2 className="w-5 h-5 text-[#00B5A5]" />}
@@ -392,7 +300,10 @@ export default function SingleApplicationPage({
                 highlight
               />
               <InfoRow label="Abbreviation" value={application.Abbreviation} />
-              <InfoRow label="Company Email" value={application.company_email} />
+              <InfoRow
+                label="Company Email"
+                value={application.company_email}
+              />
               <InfoRow
                 label="Country of Residency"
                 value={application.country_of_residency}
@@ -404,7 +315,6 @@ export default function SingleApplicationPage({
             </div>
           </CollapsibleSection>
 
-          {/* Membership Information */}
           <CollapsibleSection
             title="Membership Information"
             icon={<Briefcase className="w-5 h-5 text-[#00B5A5]" />}
@@ -424,11 +334,13 @@ export default function SingleApplicationPage({
                 value={application.associate_category}
               />
               <InfoRow label="Employment" value={application.employement} />
-              <InfoRow label="Qualification" value={application.qualification} />
+              <InfoRow
+                label="Qualification"
+                value={application.qualification}
+              />
             </div>
           </CollapsibleSection>
 
-          {/* Education Information */}
           <CollapsibleSection
             title="Education Information"
             icon={<GraduationCap className="w-5 h-5 text-[#00B5A5]" />}
@@ -447,7 +359,6 @@ export default function SingleApplicationPage({
             </div>
           </CollapsibleSection>
 
-          {/* Documents */}
           {application.documents && application.documents.length > 0 && (
             <CollapsibleSection
               title="Uploaded Documents"
@@ -489,23 +400,20 @@ export default function SingleApplicationPage({
                         )}
                       </div>
                     </div>
-                    
-                    <a 
-                      href={doc.document_path}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center space-x-1 px-3 py-2 bg-[#00B5A5] hover:bg-[#009985] text-white text-sm rounded-md transition-colors ml-4"
+                    <button
+                      type="button"
+                      onClick={() => handleViewDocument(doc)}
+                      className="inline-flex items-center gap-1 px-3 py-2 bg-[#00B5A5] hover:bg-[#009985] text-white text-sm rounded-md transition-colors ml-4"
                     >
-                      <Download className="w-4 h-4" />
+                      <Eye className="w-4 h-4" />
                       <span>View</span>
-                    </a>
+                    </button>
                   </div>
                 ))}
               </div>
             </CollapsibleSection>
           )}
 
-          {/* Payment Information */}
           {application.payments && application.payments.length > 0 && (
             <CollapsibleSection
               title="Payment Information"
@@ -566,7 +474,6 @@ export default function SingleApplicationPage({
             </CollapsibleSection>
           )}
 
-          {/* Fields of Practice */}
           {application.fieldsOfPractices &&
             application.fieldsOfPractices.length > 0 && (
               <CollapsibleSection
@@ -574,9 +481,9 @@ export default function SingleApplicationPage({
                 icon={<Briefcase className="w-5 h-5 text-[#00B5A5]" />}
               >
                 <div className="flex flex-wrap gap-2">
-                  {application.fieldsOfPractices.map((field) => (
+                  {application.fieldsOfPractices.map((field, index) => (
                     <span
-                      key={field.id}
+                      key={`${field.id}-${index}`}
                       className={`px-4 py-2 rounded-lg text-sm font-medium border ${
                         field.is_primary
                           ? "bg-[#00B5A5] text-white border-[#00B5A5]"
@@ -591,7 +498,6 @@ export default function SingleApplicationPage({
               </CollapsibleSection>
             )}
 
-          {/* Countries of Practice */}
           {application.countriesOfPractice &&
             application.countriesOfPractice.length > 0 && (
               <CollapsibleSection
@@ -617,7 +523,6 @@ export default function SingleApplicationPage({
               </CollapsibleSection>
             )}
 
-          {/* Declaration */}
           <CollapsibleSection
             title="Declaration & Compliance"
             icon={<Shield className="w-5 h-5 text-[#00B5A5]" />}
@@ -666,7 +571,9 @@ export default function SingleApplicationPage({
                     Constitution Compliance
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {formatBoolean(application.comply_with_current_constitution)}
+                    {formatBoolean(
+                      application.comply_with_current_constitution
+                    )}
                   </p>
                 </div>
               </div>
@@ -721,11 +628,9 @@ export default function SingleApplicationPage({
             </div>
           </CollapsibleSection>
 
-          {/* Approval History */}
           <ApprovalHistorySection approvals={application.approved_by} />
         </div>
 
-        {/* Delete Modal */}
         <DeleteModal
           isOpen={showDeleteModal}
           onClose={() => setShowDeleteModal(false)}
@@ -733,6 +638,14 @@ export default function SingleApplicationPage({
           isDeleting={isDeleting}
           deleteType={deleteType}
           onDeleteTypeChange={setDeleteType}
+        />
+
+        <FileViewer
+          fileUrl={currentFileUrl}
+          fileName={currentFileName}
+          fileType={currentFileType}
+          isOpen={fileViewerOpen}
+          onClose={closeFile}
         />
       </div>
     </div>
