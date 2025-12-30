@@ -3,7 +3,7 @@ import SettingsDetailsClient from "@/components/settings/SettingsDetailsClient";
 
 export default function SettingsPage() {
   return (
-    <SecureDashboardLayout requiredRoles={["President"]}>
+    <SecureDashboardLayout requiredRoles={["President","Administrator", "Board"]}>
       <SettingsDetailsClient />
     </SecureDashboardLayout>
   );

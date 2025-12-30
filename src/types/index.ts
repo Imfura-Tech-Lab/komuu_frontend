@@ -143,15 +143,6 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
       description: "Overview and summary",
       order: 0,
     },
-    {
-      name: "Profile",
-      href: "/profile",
-      permission: "view_profile",
-      section: "overview",
-      icon: "profile",
-      description: "Personal information",
-      order: 1,
-    },
   ];
 
   const roleSpecificItems: { [key in UserRole]?: NavigationItemType[] } = {

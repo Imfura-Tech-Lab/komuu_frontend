@@ -136,9 +136,13 @@ function InteractiveMap({
   );
 
   // Memoized handlers to prevent infinite loops
-  const handleMoveEnd = useCallback((newPosition: any) => {
-    setPosition(newPosition);
-  }, []);
+ const handleMoveEnd = useCallback((newPosition: any) => {
+   setPosition((prev) => ({
+     ...prev,
+     ...newPosition,
+     zoom: newPosition.zoom ?? prev.zoom ?? 1,
+   }));
+ }, []);
 
   const handleCountryClick = useCallback((geo: any) => {
     const countryName = geo.properties.name;
