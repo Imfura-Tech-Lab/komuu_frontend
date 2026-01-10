@@ -33,15 +33,15 @@ import { DeleteConfirmModal } from "./modals/DeleteConfirmModal";
 // ============================================================================
 
 const StatsSkeleton = () => (
-  <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+  <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
     {[...Array(4)].map((_, i) => (
       <div
         key={i}
-        className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5"
+        className="p-5 bg-white shadow-sm dark:bg-gray-800 rounded-xl"
       >
         <div className="animate-pulse">
-          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-2"></div>
-          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3"></div>
+          <div className="w-1/2 h-4 mb-2 bg-gray-200 rounded dark:bg-gray-700"></div>
+          <div className="w-1/3 h-8 bg-gray-200 rounded dark:bg-gray-700"></div>
         </div>
       </div>
     ))}
@@ -49,22 +49,22 @@ const StatsSkeleton = () => (
 );
 
 const ResourceCardSkeleton = () => (
-  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden animate-pulse">
+  <div className="overflow-hidden bg-white shadow-sm dark:bg-gray-800 rounded-xl animate-pulse">
     <div className="aspect-[4/3] bg-gray-200 dark:bg-gray-700"></div>
     <div className="p-6 space-y-4">
-      <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
-      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
-      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-5/6"></div>
+      <div className="w-3/4 h-6 bg-gray-200 rounded dark:bg-gray-700"></div>
+      <div className="w-full h-4 bg-gray-200 rounded dark:bg-gray-700"></div>
+      <div className="w-5/6 h-4 bg-gray-200 rounded dark:bg-gray-700"></div>
       <div className="flex gap-2">
-        <div className="h-6 w-16 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
-        <div className="h-6 w-16 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+        <div className="w-16 h-6 bg-gray-200 rounded-full dark:bg-gray-700"></div>
+        <div className="w-16 h-6 bg-gray-200 rounded-full dark:bg-gray-700"></div>
       </div>
     </div>
   </div>
 );
 
 const ResourcesGridSkeleton = () => (
-  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+  <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
     {[...Array(6)].map((_, i) => (
       <ResourceCardSkeleton key={i} />
     ))}
@@ -123,7 +123,7 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
         <img
           src={resource.file_url}
           alt={resource.title}
-          className="w-full h-full object-cover"
+          className="object-cover w-full h-full"
         />
       );
     }
@@ -134,11 +134,11 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
         <div className="relative w-full h-full bg-black">
           <video
             src={resource.file_url}
-            className="w-full h-full object-contain"
+            className="object-contain w-full h-full"
             preload="metadata"
           />
           <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-t from-black/60 via-transparent to-transparent">
-            <div className="w-20 h-20 rounded-full bg-white/95 backdrop-blur-sm flex items-center justify-center shadow-2xl hover:scale-110 transition-transform cursor-pointer">
+            <div className="flex items-center justify-center w-20 h-20 transition-transform rounded-full shadow-2xl cursor-pointer bg-white/95 backdrop-blur-sm hover:scale-110">
               <div className="w-0 h-0 border-t-[12px] border-t-transparent border-l-[20px] border-l-gray-900 border-b-[12px] border-b-transparent ml-1"></div>
             </div>
           </div>
@@ -149,9 +149,9 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
     // Link preview
     if (type === "link") {
       return (
-        <div className="w-full h-full bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex flex-col items-center justify-center p-8">
-          <LinkIcon className="h-24 w-24 text-white/90 mb-4" />
-          <p className="text-white/80 text-sm font-medium text-center">
+        <div className="flex flex-col items-center justify-center w-full h-full p-8 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500">
+          <LinkIcon className="w-24 h-24 mb-4 text-white/90" />
+          <p className="text-sm font-medium text-center text-white/80">
             External Link
           </p>
         </div>
@@ -161,9 +161,9 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
     // PDF preview
     if (type === "pdf") {
       return (
-        <div className="w-full h-full bg-gradient-to-br from-red-500 via-red-600 to-orange-600 flex flex-col items-center justify-center p-8">
-          <DocumentTextIcon className="h-24 w-24 text-white/90 mb-4" />
-          <p className="text-white/80 text-sm font-medium">PDF Document</p>
+        <div className="flex flex-col items-center justify-center w-full h-full p-8 bg-gradient-to-br from-red-500 via-red-600 to-orange-600">
+          <DocumentTextIcon className="w-24 h-24 mb-4 text-white/90" />
+          <p className="text-sm font-medium text-white/80">PDF Document</p>
         </div>
       );
     }
@@ -171,18 +171,18 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
     // Document preview
     if (["document", "docx", "doc"].includes(type)) {
       return (
-        <div className="w-full h-full bg-gradient-to-br from-blue-500 via-blue-600 to-cyan-600 flex flex-col items-center justify-center p-8">
-          <DocumentIcon className="h-24 w-24 text-white/90 mb-4" />
-          <p className="text-white/80 text-sm font-medium">Document</p>
+        <div className="flex flex-col items-center justify-center w-full h-full p-8 bg-gradient-to-br from-blue-500 via-blue-600 to-cyan-600">
+          <DocumentIcon className="w-24 h-24 mb-4 text-white/90" />
+          <p className="text-sm font-medium text-white/80">Document</p>
         </div>
       );
     }
 
     // Default fallback
     return (
-      <div className="w-full h-full bg-gradient-to-br from-gray-400 via-gray-500 to-gray-600 flex flex-col items-center justify-center p-8">
-        <FolderIcon className="h-24 w-24 text-white/90 mb-4" />
-        <p className="text-white/80 text-sm font-medium">Resource</p>
+      <div className="flex flex-col items-center justify-center w-full h-full p-8 bg-gradient-to-br from-gray-400 via-gray-500 to-gray-600">
+        <FolderIcon className="w-24 h-24 mb-4 text-white/90" />
+        <p className="text-sm font-medium text-white/80">Resource</p>
       </div>
     );
   };
@@ -234,25 +234,25 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
         {getPreviewContent()}
 
         {/* Gradient overlay on hover */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0 opacity-0 group-hover:opacity-100 transition-all duration-300" />
+        <div className="absolute inset-0 transition-all duration-300 opacity-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0 group-hover:opacity-100" />
 
         {/* Overlay with quick actions on hover */}
-        <div className="absolute inset-0 flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300">
+        <div className="absolute inset-0 flex items-center justify-center gap-3 transition-all duration-300 opacity-0 group-hover:opacity-100">
           {resource.file_url && (
             <>
               <button
                 onClick={() => onView(resource.file_url!, resource.title)}
-                className="p-4 bg-white dark:bg-gray-800 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-all shadow-lg transform hover:scale-110 active:scale-95"
+                className="p-4 transition-all transform bg-white rounded-full shadow-lg dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 hover:scale-110 active:scale-95"
                 title="View"
               >
-                <EyeIcon className="h-6 w-6 text-gray-700 dark:text-gray-300" />
+                <EyeIcon className="w-6 h-6 text-gray-700 dark:text-gray-300" />
               </button>
               <button
                 onClick={() => onDownload(resource.file_url!, resource.title)}
                 className="p-4 bg-[#00B5A5] rounded-full hover:bg-[#008F82] transition-all shadow-lg transform hover:scale-110 active:scale-95"
                 title="Download"
               >
-                <ArrowDownTrayIcon className="h-6 w-6 text-white" />
+                <ArrowDownTrayIcon className="w-6 h-6 text-white" />
               </button>
             </>
           )}
@@ -261,16 +261,16 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
               href={resource.link}
               target="_blank"
               rel="noopener noreferrer"
-              className="p-4 bg-blue-500 rounded-full hover:bg-blue-600 transition-all shadow-lg transform hover:scale-110 active:scale-95"
+              className="p-4 transition-all transform bg-blue-500 rounded-full shadow-lg hover:bg-blue-600 hover:scale-110 active:scale-95"
               title="Open Link"
             >
-              <ArrowTopRightOnSquareIcon className="h-6 w-6 text-white" />
+              <ArrowTopRightOnSquareIcon className="w-6 h-6 text-white" />
             </a>
           )}
         </div>
 
         {/* Type badge */}
-        <div className="absolute top-4 left-4 z-10">
+        <div className="absolute z-10 top-4 left-4">
           <span className="px-3 py-1.5 text-xs font-bold rounded-full bg-white/95 dark:bg-gray-800/95 text-gray-700 dark:text-gray-300 backdrop-blur-sm shadow-lg uppercase tracking-wide">
             {resource.type}
           </span>
@@ -278,17 +278,17 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
       </div>
 
       {/* Actions dropdown button - positioned relative to card */}
-      <div className="absolute top-4 right-4 z-20" ref={dropdownRef}>
+      <div className="absolute z-20 top-4 right-4" ref={dropdownRef}>
         <button
           onClick={() => setShowActions(!showActions)}
           className="p-2.5 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm rounded-full hover:bg-white dark:hover:bg-gray-800 transition-all shadow-lg hover:shadow-xl"
         >
-          <EllipsisVerticalIcon className="h-5 w-5 text-gray-700 dark:text-gray-300" />
+          <EllipsisVerticalIcon className="w-5 h-5 text-gray-700 dark:text-gray-300" />
         </button>
 
         {/* Dropdown menu */}
         {showActions && (
-          <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="absolute right-0 z-50 w-56 py-2 mt-2 duration-200 bg-white border border-gray-200 shadow-2xl dark:bg-gray-800 rounded-xl dark:border-gray-700 animate-in fade-in slide-in-from-top-2">
             {resource.file_url && (
               <>
                 <button
@@ -296,9 +296,9 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
                     onView(resource.file_url!, resource.title);
                     setShowActions(false);
                   }}
-                  className="w-full flex items-center px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                  className="flex items-center w-full px-4 py-3 text-sm font-medium text-gray-700 transition-colors dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50"
                 >
-                  <EyeIcon className="h-5 w-5 mr-3 text-gray-500 dark:text-gray-400" />
+                  <EyeIcon className="w-5 h-5 mr-3 text-gray-500 dark:text-gray-400" />
                   View File
                 </button>
                 <button
@@ -306,9 +306,9 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
                     onDownload(resource.file_url!, resource.title);
                     setShowActions(false);
                   }}
-                  className="w-full flex items-center px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                  className="flex items-center w-full px-4 py-3 text-sm font-medium text-gray-700 transition-colors dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50"
                 >
-                  <ArrowDownTrayIcon className="h-5 w-5 mr-3 text-gray-500 dark:text-gray-400" />
+                  <ArrowDownTrayIcon className="w-5 h-5 mr-3 text-gray-500 dark:text-gray-400" />
                   Download
                 </button>
               </>
@@ -319,9 +319,9 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => setShowActions(false)}
-                className="w-full flex items-center px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                className="flex items-center w-full px-4 py-3 text-sm font-medium text-gray-700 transition-colors dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50"
               >
-                <ArrowTopRightOnSquareIcon className="h-5 w-5 mr-3 text-gray-500 dark:text-gray-400" />
+                <ArrowTopRightOnSquareIcon className="w-5 h-5 mr-3 text-gray-500 dark:text-gray-400" />
                 Open Link
               </a>
             )}
@@ -330,20 +330,20 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
                 onEdit(resource);
                 setShowActions(false);
               }}
-              className="w-full flex items-center px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+              className="flex items-center w-full px-4 py-3 text-sm font-medium text-gray-700 transition-colors dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50"
             >
-              <PencilIcon className="h-5 w-5 mr-3 text-gray-500 dark:text-gray-400" />
+              <PencilIcon className="w-5 h-5 mr-3 text-gray-500 dark:text-gray-400" />
               Edit Resource
             </button>
-            <div className="border-t border-gray-200 dark:border-gray-700 my-2"></div>
+            <div className="my-2 border-t border-gray-200 dark:border-gray-700"></div>
             <button
               onClick={() => {
                 onDelete(resource);
                 setShowActions(false);
               }}
-              className="w-full flex items-center px-4 py-3 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+              className="flex items-center w-full px-4 py-3 text-sm font-medium text-red-600 transition-colors dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
             >
-              <TrashIcon className="h-5 w-5 mr-3" />
+              <TrashIcon className="w-5 h-5 mr-3" />
               Delete Resource
             </button>
           </div>
@@ -351,15 +351,15 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
       </div>
 
       {/* Content Section */}
-      <div className="flex-1 flex flex-col p-6">
+      <div className="flex flex-col flex-1 p-6">
         {/* Title */}
-        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2 line-clamp-2 leading-tight">
+        <h3 className="mb-2 text-xl font-bold leading-tight text-gray-900 dark:text-white line-clamp-2">
           {resource.title}
         </h3>
 
         {/* Description */}
         {resource.description && (
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 line-clamp-3 leading-relaxed">
+          <p className="mb-4 text-sm leading-relaxed text-gray-600 dark:text-gray-400 line-clamp-3">
             {resource.description}
           </p>
         )}
@@ -370,13 +370,13 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
             {resource.tags.slice(0, 4).map((tag) => (
               <span
                 key={tag}
-                className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
+                className="inline-flex items-center px-3 py-1 text-xs font-semibold text-blue-700 border border-blue-200 rounded-full bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800"
               >
                 {tag}
               </span>
             ))}
             {resource.tags.length > 4 && (
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600">
+              <span className="inline-flex items-center px-3 py-1 text-xs font-semibold text-gray-700 bg-gray-100 border border-gray-300 rounded-full dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600">
                 +{resource.tags.length - 4} more
               </span>
             )}
@@ -387,26 +387,26 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
         <div className="flex-1"></div>
 
         {/* Engagement Stats */}
-        <div className="flex items-center gap-4 mb-4 pb-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center gap-4 pb-4 mb-4 border-b border-gray-200 dark:border-gray-700">
           <button
             onClick={() => setIsLiked(!isLiked)}
             className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-[#00B5A5] dark:hover:text-[#00B5A5] transition-colors"
           >
             {isLiked ? (
-              <HeartIconSolid className="h-5 w-5 text-red-500" />
+              <HeartIconSolid className="w-5 h-5 text-red-500" />
             ) : (
-              <HeartIcon className="h-5 w-5" />
+              <HeartIcon className="w-5 h-5" />
             )}
             <span className="font-medium">
               {(resource.likes_count || 0) + (isLiked ? 1 : 0)}
             </span>
           </button>
           <div className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400">
-            <ChatBubbleLeftIcon className="h-5 w-5" />
+            <ChatBubbleLeftIcon className="w-5 h-5" />
             <span className="font-medium">{resource.comments_count || 0}</span>
           </div>
           <div className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400 ml-auto">
-            <ArrowDownTrayIcon className="h-5 w-5" />
+            <ArrowDownTrayIcon className="w-5 h-5" />
             <span className="font-medium">{resource.downloads || 0}</span>
           </div>
         </div>
@@ -416,7 +416,7 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
           {/* Uploader */}
           {resource.uploaded_by && (
             <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-              <UserCircleIcon className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+              <UserCircleIcon className="w-5 h-5 text-gray-400 dark:text-gray-500" />
               <span className="font-medium">{resource.uploaded_by}</span>
             </div>
           )}
@@ -424,7 +424,7 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
           {/* Date and Size */}
           <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
             <div className="flex items-center gap-1.5">
-              <CalendarIcon className="h-4 w-4" />
+              <CalendarIcon className="w-4 h-4" />
               <span title={formatDate(resource.created_at)}>
                 {formatDateRelative(resource.created_at)}
               </span>
@@ -510,7 +510,7 @@ export default function ResourcesPage() {
       link: formData.link,
       type: formData.type,
       visibility: formData.visibility,
-      group: formData.group,
+      ...(formData.group != null && { group: formData.group }),
       tags: formData.tags,
       file: formData.file,
     });
@@ -532,7 +532,7 @@ export default function ResourcesPage() {
       link: formData.link,
       type: formData.type,
       visibility: formData.visibility,
-      group: formData.group,
+      ...(formData.group != null && { group: formData.group }),
       tags: formData.tags,
       file: formData.file,
     });
@@ -677,11 +677,11 @@ export default function ResourcesPage() {
   // ============================================================================
 
   return (
-    <div className="space-y-8 p-6 sm:p-8 bg-gray-50 dark:bg-gray-900 min-h-screen">
+    <div className="min-h-screen p-6 space-y-8 sm:p-8 bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white leading-tight">
+          <h1 className="text-4xl font-extrabold leading-tight text-gray-900 dark:text-white">
             Resource Library
           </h1>
           <p className="mt-2 text-lg text-gray-600 dark:text-gray-400">
@@ -692,7 +692,7 @@ export default function ResourcesPage() {
           <button
             onClick={handleRefresh}
             disabled={loading || isRefreshing}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors shadow-sm"
+            className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 transition-colors bg-white border border-gray-300 rounded-lg shadow-sm dark:border-gray-600 dark:text-gray-300 dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
           >
             <ArrowPathIcon
               className={`h-5 w-5 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
@@ -703,7 +703,7 @@ export default function ResourcesPage() {
             onClick={() => setShowCreateModal(true)}
             className="flex items-center px-5 py-2.5 bg-[#00B5A5] text-white rounded-lg hover:bg-[#008F82] transition-colors shadow-md text-sm font-medium"
           >
-            <PlusIcon className="h-5 w-5 mr-2" />
+            <PlusIcon className="w-5 h-5 mr-2" />
             Upload New Resource
           </button>
         </div>
@@ -713,64 +713,61 @@ export default function ResourcesPage() {
       {loading && !isRefreshing ? (
         <StatsSkeleton />
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 flex items-center justify-between">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="flex items-center justify-between p-5 bg-white shadow-sm dark:bg-gray-800 rounded-xl">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 Total Resources
               </p>
-              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-1">
+              <p className="mt-1 text-3xl font-bold text-gray-900 dark:text-white">
                 {resources.length}
               </p>
             </div>
             <FolderIcon className="h-10 w-10 text-[#00B5A5]/60 dark:text-[#00B5A5]/40" />
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 flex items-center justify-between">
+          <div className="flex items-center justify-between p-5 bg-white shadow-sm dark:bg-gray-800 rounded-xl">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 Total Downloads
               </p>
-              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-1">
+              <p className="mt-1 text-3xl font-bold text-gray-900 dark:text-white">
                 {resources
-                  .reduce(
-                    (sum, resource) => sum + (resource.downloads || 0),
-                    0
-                  )
+                  .reduce((sum, resource) => sum + (resource.downloads || 0), 0)
                   .toLocaleString()}
               </p>
             </div>
-            <ArrowDownTrayIcon className="h-10 w-10 text-blue-500/60 dark:text-blue-400/40" />
+            <ArrowDownTrayIcon className="w-10 h-10 text-blue-500/60 dark:text-blue-400/40" />
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 flex items-center justify-between">
+          <div className="flex items-center justify-between p-5 bg-white shadow-sm dark:bg-gray-800 rounded-xl">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 PDF Documents
               </p>
-              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-1">
+              <p className="mt-1 text-3xl font-bold text-gray-900 dark:text-white">
                 {typeCounts.pdf}
               </p>
             </div>
-            <DocumentTextIcon className="h-10 w-10 text-red-500/60 dark:text-red-400/40" />
+            <DocumentTextIcon className="w-10 h-10 text-red-500/60 dark:text-red-400/40" />
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 flex items-center justify-between">
+          <div className="flex items-center justify-between p-5 bg-white shadow-sm dark:bg-gray-800 rounded-xl">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 Video Tutorials
               </p>
-              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-1">
+              <p className="mt-1 text-3xl font-bold text-gray-900 dark:text-white">
                 {typeCounts.video}
               </p>
             </div>
-            <VideoCameraIcon className="h-10 w-10 text-purple-500/60 dark:text-purple-400/40" />
+            <VideoCameraIcon className="w-10 h-10 text-purple-500/60 dark:text-purple-400/40" />
           </div>
         </div>
       )}
 
       {/* Search and Filters */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-6">
-          <div className="flex-1 relative w-full md:w-auto">
-            <MagnifyingGlassIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+      <div className="p-6 bg-white shadow-sm dark:bg-gray-800 rounded-xl">
+        <div className="flex flex-col items-center justify-between gap-4 mb-6 md:flex-row">
+          <div className="relative flex-1 w-full md:w-auto">
+            <MagnifyingGlassIcon className="absolute w-5 h-5 text-gray-400 transform -translate-y-1/2 left-4 top-1/2" />
             <input
               type="text"
               placeholder="Search resources by title, description, or tags..."
@@ -794,7 +791,7 @@ export default function ResourcesPage() {
         </div>
 
         {/* Type Tabs */}
-        <div className="flex flex-wrap gap-2 sm:gap-4 border-t border-gray-200 dark:border-gray-700 pt-6">
+        <div className="flex flex-wrap gap-2 pt-6 border-t border-gray-200 sm:gap-4 dark:border-gray-700">
           {typeTabs.map((tab) => (
             <button
               key={tab.id}
@@ -831,7 +828,7 @@ export default function ResourcesPage() {
       {loading && !isRefreshing ? (
         <ResourcesGridSkeleton />
       ) : filteredResources.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {filteredResources.map((resource) => (
             <ResourceCard
               key={resource.id}
@@ -845,8 +842,8 @@ export default function ResourcesPage() {
         </div>
       ) : (
         /* Empty State */
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-12 text-center">
-          <FolderIcon className="mx-auto h-16 w-16 text-gray-400 mb-4" />
+        <div className="p-12 text-center bg-white shadow-sm dark:bg-gray-800 rounded-xl">
+          <FolderIcon className="w-16 h-16 mx-auto mb-4 text-gray-400" />
           <h3 className="mt-2 text-xl font-semibold text-gray-900 dark:text-white">
             No resources match your criteria
           </h3>
@@ -861,7 +858,7 @@ export default function ResourcesPage() {
                 onClick={() => setShowCreateModal(true)}
                 className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-[#00B5A5] hover:bg-[#008F82] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00B5A5]"
               >
-                <PlusIcon className="h-5 w-5 mr-2 -ml-1" />
+                <PlusIcon className="w-5 h-5 mr-2 -ml-1" />
                 Upload Resource
               </button>
             </div>

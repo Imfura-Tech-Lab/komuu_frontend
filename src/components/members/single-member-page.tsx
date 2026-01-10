@@ -1,12 +1,105 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { useRouter } from "next/navigation";
-import { showErrorToast } from "@/components/layouts/auth-layer-out";
+import { Dialog, Transition, Tab } from "@headlessui/react";
+import {
+  ArrowLeftIcon,
+  CheckCircleIcon,
+  ClockIcon,
+  XCircleIcon,
+  DocumentDuplicateIcon,
+  ArrowPathIcon,
+  CreditCardIcon,
+  UserIcon,
+  EnvelopeIcon,
+  PhoneIcon,
+  CalendarIcon,
+  MapPinIcon,
+  BuildingOfficeIcon,
+  ShieldCheckIcon,
+  DocumentTextIcon,
+  ArrowTopRightOnSquareIcon,
+  CheckBadgeIcon,
+  AcademicCapIcon,
+  BriefcaseIcon,
+  GlobeAltIcon,
+  DocumentArrowDownIcon,
+  EyeIcon,
+  XMarkIcon,
+  ChevronRightIcon,
+  BanknotesIcon,
+  IdentificationIcon,
+  ClipboardDocumentCheckIcon,
+} from "@heroicons/react/24/outline";
+import {
+  CheckCircleIcon as CheckCircleSolid,
+  XCircleIcon as XCircleSolid,
+} from "@heroicons/react/24/solid";
+import { showErrorToast, showSuccessToast } from "@/components/layouts/auth-layer-out";
+import { useFileViewer } from "@/lib/hooks/useFileViewer";
+import { FileViewer } from "@/components/ui/FileViwer";
 
+// Types matching API response
 interface Country {
   id: number;
   country: string;
+}
+
+interface FieldOfPractice {
+  id: number;
+  field: string;
+  code: string;
+  description: string | null;
+  total_applications: number | null;
+}
+
+interface MemberDetails {
+  id: number;
+  name: string;
+  email: string;
+  phone_number: string;
+  secondary_email: string | null;
+  alternative_phone: string | null;
+  whatsapp_number: string | null;
+  role: string;
+  verified: boolean;
+  active: boolean;
+  has_changed_password: boolean;
+  date_of_birth: string;
+  national_ID: string | null;
+  passport: string | null;
+  public_profile: string | null;
+}
+
+interface PaymentApplication {
+  id: string;
+  member: string;
+  application_status: string;
+  application_date: string;
+  membership_type: string;
+  membership_number: string;
+  employement: string | null;
+  qualification: string | null;
+  cv_resume: string | null;
+  associate_category: string | null;
+  university: string | null;
+  passport: string | null;
+  passport_national_id_from: string | null;
+  degree: string | null;
+  graduation_year: string | null;
+  proof_of_registration: string | null;
+  country_of_study: string | null;
+  name_of_organization: string | null;
+  Abbreviation: string | null;
+  country_of_residency: string;
+  country_of_operation: string | null;
+  company_email: string | null;
+  abide_with_code_of_conduct: boolean;
+  comply_with_current_constitution: boolean;
+  declaration: boolean;
+  incompliance: boolean;
+  member_details: MemberDetails;
 }
 
 interface Payment {
@@ -19,6 +112,7 @@ interface Payment {
   status: string;
   is_certificate_generated: boolean;
   payment_date: string;
+  application: PaymentApplication;
 }
 
 interface Certificate {
@@ -37,6 +131,15 @@ interface Certificate {
   payment: Payment;
 }
 
+interface Document {
+  id: number;
+  document_type: string;
+  document_path: string;
+  document_path_id: string;
+  current: boolean;
+  uploaded_at: string;
+}
+
 interface Member {
   id: string;
   title: string;
@@ -45,8 +148,8 @@ interface Member {
   middle_name: string | null;
   email: string;
   date_of_birth: string | null;
-  national_id: string | null;
   passport: string | null;
+  passport_national_id_from: string | null;
   phone_number: string | null;
   secondary_email: string | null;
   alternative_phone: string | null;
@@ -59,7 +162,7 @@ interface Member {
   certificate_status: string;
   application_status: string;
   employement: string | null;
-  forensic_field_of_practice: string;
+  forensic_field_of_practice: string | null;
   qualification: string;
   cv_resume: string;
   associate_category: string;
@@ -73,152 +176,496 @@ interface Member {
   application_date: string;
   country_of_residency: Country;
   country_of_practice: Country[];
-  field_of_practice: any[];
+  field_of_practice: FieldOfPractice[];
   sector_of_employment: any[];
-  latest_certificate: Certificate;
+  latest_certificate: Certificate | null;
   certificates: Certificate[];
   payments: Payment[];
+  documents: Document[];
 }
 
-interface CollapsibleSectionProps {
-  title: string;
-  children: React.ReactNode;
-  defaultOpen?: boolean;
+// Utility functions
+const formatDate = (dateString: string | null) => {
+  if (!dateString) return "Not provided";
+  try {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  } catch {
+    return dateString;
+  }
+};
+
+const formatDateTime = (dateString: string | null) => {
+  if (!dateString) return "Not provided";
+  try {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return dateString;
+  }
+};
+
+const getStatusConfig = (status: string) => {
+  const statusLower = status.toLowerCase();
+  if (statusLower.includes("approved") || statusLower.includes("completed") || statusLower.includes("generated") || statusLower.includes("active")) {
+    return {
+      color: "text-emerald-600 dark:text-emerald-400",
+      bgColor: "bg-emerald-100 dark:bg-emerald-900/30",
+      borderColor: "border-emerald-200 dark:border-emerald-800",
+      icon: CheckCircleIcon,
+    };
+  }
+  if (statusLower.includes("pending") || statusLower.includes("processing")) {
+    return {
+      color: "text-amber-600 dark:text-amber-400",
+      bgColor: "bg-amber-100 dark:bg-amber-900/30",
+      borderColor: "border-amber-200 dark:border-amber-800",
+      icon: ClockIcon,
+    };
+  }
+  if (statusLower.includes("rejected") || statusLower.includes("failed") || statusLower.includes("expired")) {
+    return {
+      color: "text-red-600 dark:text-red-400",
+      bgColor: "bg-red-100 dark:bg-red-900/30",
+      borderColor: "border-red-200 dark:border-red-800",
+      icon: XCircleIcon,
+    };
+  }
+  return {
+    color: "text-gray-600 dark:text-gray-400",
+    bgColor: "bg-gray-100 dark:bg-gray-900/30",
+    borderColor: "border-gray-200 dark:border-gray-800",
+    icon: ClockIcon,
+  };
+};
+
+// Loading Skeleton
+function MemberDetailsSkeleton() {
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="h-6 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mb-8" />
+        <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded-2xl animate-pulse mb-8" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            <div className="h-72 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse" />
+            <div className="h-48 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse" />
+          </div>
+          <div className="space-y-6">
+            <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse" />
+            <div className="h-48 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
-function CollapsibleSection({
+// Info Card Component
+function InfoCard({
   title,
   children,
-  defaultOpen = true,
-}: CollapsibleSectionProps) {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
+  icon: Icon,
+  action,
+  className = "",
+}: {
+  title: string;
+  children: React.ReactNode;
+  icon?: React.ElementType;
+  action?: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden ${className}`}>
+      <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700/50 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {Icon && <Icon className="w-5 h-5 text-gray-400" />}
+          <h3 className="font-semibold text-gray-900 dark:text-white">{title}</h3>
+        </div>
+        {action}
+      </div>
+      <div className="p-5">{children}</div>
+    </div>
+  );
+}
+
+// Detail Row Component
+function DetailRow({
+  label,
+  value,
+  copyable,
+  onCopy,
+  copying,
+  mono,
+}: {
+  label: string;
+  value: string | React.ReactNode;
+  copyable?: boolean;
+  onCopy?: () => void;
+  copying?: boolean;
+  mono?: boolean;
+}) {
+  const displayValue = typeof value === "string" && (value === "NA" || value === "") ? "Not provided" : value;
+  
+  return (
+    <div className="flex items-start justify-between py-3 border-b border-gray-100 dark:border-gray-700/50 last:border-0">
+      <span className="text-sm text-gray-500 dark:text-gray-400">{label}</span>
+      <div className="flex items-center gap-2">
+        <span className={`text-sm font-medium text-gray-900 dark:text-white text-right ${mono ? "font-mono" : ""}`}>
+          {displayValue}
+        </span>
+        {copyable && onCopy && typeof value === "string" && value !== "NA" && value !== "" && (
+          <button
+            onClick={onCopy}
+            className="p-1 text-gray-400 hover:text-[#00B5A5] hover:bg-[#00B5A5]/10 rounded transition-colors"
+          >
+            {copying ? (
+              <CheckCircleSolid className="w-4 h-4 text-emerald-500" />
+            ) : (
+              <DocumentDuplicateIcon className="w-4 h-4" />
+            )}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Profile Avatar Component
+function ProfileAvatar({ member, size = "large" }: { member: Member; size?: "small" | "large" | "xl" }) {
+  const [imageError, setImageError] = useState(false);
+  const [imageLoading, setImageLoading] = useState(true);
+
+  const initials = [member.first_name?.[0], member.surname?.[0]]
+    .filter(Boolean)
+    .join("")
+    .toUpperCase();
+
+  const sizeClasses = {
+    small: "w-12 h-12 text-lg",
+    large: "w-20 h-20 text-2xl",
+    xl: "w-28 h-28 text-3xl",
+  };
+
+  const isValidImageUrl = member.public_profile && member.public_profile !== "NA" && member.public_profile.trim() !== "";
+
+  if (!isValidImageUrl || imageError) {
+    return (
+      <div className={`${sizeClasses[size]} rounded-2xl bg-gradient-to-br from-[#00B5A5] to-[#008F82] flex items-center justify-center text-white font-bold shadow-lg`}>
+        {initials}
+      </div>
+    );
+  }
 
   return (
-    <div className="border border-gray-200 dark:border-gray-700 rounded-lg">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors rounded-lg"
-      >
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-          {title}
-        </h3>
-        <svg
-          className={`w-5 h-5 transform transition-transform ${
-            isOpen ? "rotate-180" : ""
-          }`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
+    <div className={`${sizeClasses[size]} relative rounded-2xl overflow-hidden shadow-lg`}>
+      {imageLoading && (
+        <div className="absolute inset-0 bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+          <div className="animate-spin w-6 h-6 border-2 border-[#00B5A5] border-t-transparent rounded-full" />
+        </div>
+      )}
+      <img
+        src={member.public_profile}
+        alt={`${member.first_name} ${member.surname}`}
+        className={`w-full h-full object-cover ${imageLoading ? "opacity-0" : "opacity-100"} transition-opacity`}
+        onLoad={() => setImageLoading(false)}
+        onError={() => {
+          setImageLoading(false);
+          setImageError(true);
+        }}
+      />
+    </div>
+  );
+}
+
+// Certificate Card Component
+function CertificateCard({ certificate, onViewPayment }: { certificate: Certificate; onViewPayment: (payment: Payment) => void }) {
+  const statusConfig = getStatusConfig(certificate.status);
+  const StatusIcon = statusConfig.icon;
+  const isExpired = new Date(certificate.valid_until) < new Date();
+
+  return (
+    <div className={`p-4 rounded-xl border ${isExpired ? "bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800" : "bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800"}`}>
+      <div className="flex items-start justify-between mb-3">
+        <div>
+          <p className="font-semibold text-gray-900 dark:text-white">{certificate.membership_term}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">#{certificate.member_number}</p>
+        </div>
+        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${statusConfig.bgColor} ${statusConfig.color}`}>
+          <StatusIcon className="w-3.5 h-3.5" />
+          {certificate.status}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 text-sm mb-3">
+        <div>
+          <p className="text-gray-500 dark:text-gray-400 text-xs">Valid From</p>
+          <p className="font-medium text-gray-900 dark:text-white">{formatDate(certificate.valid_from)}</p>
+        </div>
+        <div>
+          <p className="text-gray-500 dark:text-gray-400 text-xs">Valid Until</p>
+          <p className={`font-medium ${isExpired ? "text-red-600 dark:text-red-400" : "text-gray-900 dark:text-white"}`}>
+            {formatDate(certificate.valid_until)}
+          </p>
+        </div>
+        <div>
+          <p className="text-gray-500 dark:text-gray-400 text-xs">Signed Date</p>
+          <p className="font-medium text-gray-900 dark:text-white">{formatDate(certificate.signed_date)}</p>
+        </div>
+        <div>
+          <p className="text-gray-500 dark:text-gray-400 text-xs">Next Payment</p>
+          <p className="font-medium text-gray-900 dark:text-white">{formatDate(certificate.next_payment_date)}</p>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between pt-3 border-t border-gray-200 dark:border-gray-700">
+        <code className="text-xs bg-white dark:bg-gray-800 px-2 py-1 rounded text-gray-600 dark:text-gray-400">
+          {certificate.token.substring(0, 16)}...
+        </code>
+        <button
+          onClick={() => onViewPayment(certificate.payment)}
+          className="text-xs text-[#00B5A5] hover:underline flex items-center gap-1"
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M19 9l-7 7-7-7"
-          />
-        </svg>
-      </button>
-      {isOpen && (
-        <div className="p-4 bg-white dark:bg-gray-800 rounded-b-lg">
-          {children}
+          View Payment
+          <ChevronRightIcon className="w-3 h-3" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Payment Card Component
+function PaymentCard({ payment, onClick }: { payment: Payment; onClick: () => void }) {
+  const statusConfig = getStatusConfig(payment.status);
+  const StatusIcon = statusConfig.icon;
+
+  return (
+    <div
+      onClick={onClick}
+      className="p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:shadow-md hover:border-[#00B5A5]/50 transition-all cursor-pointer"
+    >
+      <div className="flex items-center justify-between mb-3">
+        <p className="font-bold text-lg text-gray-900 dark:text-white">{payment.amount_paid}</p>
+        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${statusConfig.bgColor} ${statusConfig.color}`}>
+          <StatusIcon className="w-3.5 h-3.5" />
+          {payment.status}
+        </span>
+      </div>
+      <div className="grid grid-cols-2 gap-2 text-sm">
+        <div>
+          <p className="text-gray-500 dark:text-gray-400 text-xs">Method</p>
+          <p className="font-medium text-gray-900 dark:text-white">{payment.payment_method}</p>
+        </div>
+        <div>
+          <p className="text-gray-500 dark:text-gray-400 text-xs">Gateway</p>
+          <p className="font-medium text-gray-900 dark:text-white">{payment.gateway}</p>
+        </div>
+        <div>
+          <p className="text-gray-500 dark:text-gray-400 text-xs">Transaction</p>
+          <p className="font-mono text-gray-900 dark:text-white">#{payment.transaction_number}</p>
+        </div>
+        <div>
+          <p className="text-gray-500 dark:text-gray-400 text-xs">Date</p>
+          <p className="font-medium text-gray-900 dark:text-white">{formatDate(payment.payment_date)}</p>
+        </div>
+      </div>
+      {payment.is_certificate_generated && (
+        <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700/50 flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+          <ShieldCheckIcon className="w-4 h-4" />
+          <span className="text-xs">Certificate Generated</span>
         </div>
       )}
     </div>
   );
 }
 
-interface ProfileImageProps {
-  imageUrl?: string;
-  member: Member;
-  size?: "small" | "large";
-}
-
-function ProfileImage({ imageUrl, member, size = "large" }: ProfileImageProps) {
-  const [imageError, setImageError] = useState(false);
-  const [imageLoading, setImageLoading] = useState(false);
-
-  const getUserInitials = (member: Member) => {
-    const initials = [];
-    if (member.first_name) {
-      initials.push(member.first_name[0]);
+// Document Card Component
+function DocumentCard({ 
+  document, 
+  onViewFile 
+}: { 
+  document: Document; 
+  onViewFile: (url: string, name: string, type: "pdf" | "image" | "document") => void;
+}) {
+  const getDocumentIcon = (type: string) => {
+    if (type.toLowerCase().includes("cv") || type.toLowerCase().includes("resume")) {
+      return DocumentTextIcon;
     }
-    if (member.surname) {
-      initials.push(member.surname[0]);
+    if (type.toLowerCase().includes("qualification")) {
+      return AcademicCapIcon;
     }
-    return initials.join("").substring(0, 2).toUpperCase();
+    return DocumentArrowDownIcon;
   };
 
-  const getDisplayName = (member: Member) => {
-    const parts = [
-      member.first_name,
-      member.middle_name,
-      member.surname,
-    ].filter(Boolean);
-    return parts.join(" ");
+  const getFileType = (path: string): "pdf" | "image" | "document" => {
+    const lowerPath = path.toLowerCase();
+    if (lowerPath.includes(".pdf")) return "pdf";
+    if (lowerPath.includes(".jpg") || lowerPath.includes(".jpeg") || lowerPath.includes(".png") || lowerPath.includes(".gif") || lowerPath.includes(".webp")) return "image";
+    return "document";
   };
 
-  const sizeClasses =
-    size === "large" ? "w-32 h-32 text-2xl" : "w-24 h-24 text-xl";
+  const Icon = getDocumentIcon(document.document_type);
+  const fileType = getFileType(document.document_path);
 
-  const isValidImageUrl =
-    imageUrl && imageUrl !== "NA" && imageUrl.trim() !== "";
-
-  // Reset states when imageUrl changes
-  useEffect(() => {
-    if (isValidImageUrl) {
-      setImageError(false);
-      setImageLoading(true);
-    }
-  }, [imageUrl]);
-
-  const handleImageLoad = () => {
-    setImageLoading(false);
-    setImageError(false);
-    console.log(
-      `Profile image loaded successfully for: ${getDisplayName(member)}`
-    );
+  const handleView = () => {
+    onViewFile(document.document_path, document.document_type, fileType);
   };
-
-  const handleImageError = () => {
-    setImageLoading(false);
-    setImageError(true);
-    console.log(`Profile image failed to load for: ${getDisplayName(member)}`, {
-      imageUrl,
-      memberId: member.id,
-      fallbackInitials: getUserInitials(member),
-    });
-  };
-
-  // Show abbreviation if no valid image URL or image failed to load
-  if (!isValidImageUrl || imageError) {
-    return (
-      <div
-        className={`${sizeClasses} bg-gradient-to-br from-[#00B5A5] to-[#009985] rounded-lg flex items-center justify-center flex-shrink-0 border-2 border-white dark:border-gray-700 shadow-md`}
-      >
-        <span className="text-white font-bold">{getUserInitials(member)}</span>
-      </div>
-    );
-  }
 
   return (
-    <div
-      className={`${sizeClasses} relative rounded-lg overflow-hidden border-2 border-white dark:border-gray-700 shadow-md flex-shrink-0`}
-    >
-      {imageLoading && (
-        <div className="absolute inset-0 bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-          <div className="animate-spin w-6 h-6 border-2 border-[#00B5A5] border-t-transparent rounded-full"></div>
+    <div className="flex items-center justify-between p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:shadow-md transition-all">
+      <div className="flex items-center gap-3">
+        <div className="p-2 rounded-lg bg-[#00B5A5]/10 text-[#00B5A5]">
+          <Icon className="w-5 h-5" />
         </div>
-      )}
-      <img
-        src={imageUrl}
-        alt={`${getDisplayName(member)}'s profile`}
-        className={`w-full h-full object-cover ${
-          imageLoading ? "opacity-0" : "opacity-100"
-        } transition-opacity`}
-        onLoad={handleImageLoad}
-        onError={handleImageError}
-      />
+        <div>
+          <p className="font-medium text-gray-900 dark:text-white">{document.document_type}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Uploaded {formatDate(document.uploaded_at)}
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        {document.current && (
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
+            Current
+          </span>
+        )}
+        <button
+          onClick={handleView}
+          className="p-2 text-gray-400 hover:text-[#00B5A5] hover:bg-[#00B5A5]/10 rounded-lg transition-colors"
+          title="View document"
+        >
+          <EyeIcon className="w-5 h-5" />
+        </button>
+        <a
+          href={document.document_path}
+          download
+          className="p-2 text-gray-400 hover:text-[#00B5A5] hover:bg-[#00B5A5]/10 rounded-lg transition-colors"
+          title="Download document"
+        >
+          <DocumentArrowDownIcon className="w-5 h-5" />
+        </a>
+      </div>
     </div>
+  );
+}
+
+// Payment Side Sheet
+function PaymentSideSheet({
+  payment,
+  isOpen,
+  onClose,
+}: {
+  payment: Payment | null;
+  isOpen: boolean;
+  onClose: () => void;
+}) {
+  if (!payment) return null;
+
+  const statusConfig = getStatusConfig(payment.status);
+  const StatusIcon = statusConfig.icon;
+
+  return (
+    <Transition appear show={isOpen} as={Fragment}>
+      <Dialog as="div" className="relative z-50" onClose={onClose}>
+        <Transition.Child
+          as={Fragment}
+          enter="ease-out duration-300"
+          enterFrom="opacity-0"
+          enterTo="opacity-100"
+          leave="ease-in duration-200"
+          leaveFrom="opacity-100"
+          leaveTo="opacity-0"
+        >
+          <div className="fixed inset-0 bg-black/50 dark:bg-black/70" />
+        </Transition.Child>
+
+        <div className="fixed inset-0 overflow-hidden">
+          <div className="absolute inset-0 overflow-hidden">
+            <div className="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10">
+              <Transition.Child
+                as={Fragment}
+                enter="transform transition ease-in-out duration-300"
+                enterFrom="translate-x-full"
+                enterTo="translate-x-0"
+                leave="transform transition ease-in-out duration-300"
+                leaveFrom="translate-x-0"
+                leaveTo="translate-x-full"
+              >
+                <Dialog.Panel className="pointer-events-auto w-screen max-w-md">
+                  <div className="flex h-full flex-col bg-white dark:bg-gray-900 shadow-2xl">
+                    <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center justify-between">
+                        <Dialog.Title className="text-lg font-semibold text-gray-900 dark:text-white">
+                          Payment Details
+                        </Dialog.Title>
+                        <button
+                          onClick={onClose}
+                          className="p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                        >
+                          <XMarkIcon className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-6">
+                      <div className="p-6 bg-gradient-to-br from-[#00B5A5] to-[#008F82] rounded-xl text-white text-center mb-6">
+                        <p className="text-white/80 text-sm mb-1">Amount Paid</p>
+                        <p className="text-3xl font-bold">{payment.amount_paid}</p>
+                        <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 bg-white/20 rounded-full">
+                          <StatusIcon className="w-4 h-4" />
+                          <span className="text-sm font-medium">{payment.status}</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <DetailRow label="Transaction Number" value={payment.transaction_number} mono />
+                        <DetailRow label="Payment Method" value={payment.payment_method} />
+                        <DetailRow label="Gateway" value={payment.gateway} />
+                        <DetailRow label="Payment Date" value={formatDateTime(payment.payment_date)} />
+                        <DetailRow
+                          label="Certificate"
+                          value={
+                            payment.is_certificate_generated ? (
+                              <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                                <CheckCircleSolid className="w-4 h-4" />
+                                Generated
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                                <ClockIcon className="w-4 h-4" />
+                                Pending
+                              </span>
+                            )
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                      <button
+                        onClick={onClose}
+                        className="w-full px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </div>
+      </Dialog>
+    </Transition>
   );
 }
 
@@ -230,8 +677,12 @@ export default function SingleMemberPage({ memberId }: SingleMemberPageProps) {
   const [member, setMember] = useState<Member | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [copying, setCopying] = useState<string | null>(null);
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+  const [paymentSheetOpen, setPaymentSheetOpen] = useState(false);
 
   const router = useRouter();
+  const fileViewer = useFileViewer();
 
   useEffect(() => {
     fetchMember();
@@ -240,17 +691,15 @@ export default function SingleMemberPage({ memberId }: SingleMemberPageProps) {
   const fetchMember = async () => {
     try {
       setLoading(true);
+      setError(null);
       const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
       const token = localStorage.getItem("auth_token");
 
       if (!token) {
         showErrorToast("Please login to view member");
+        router.push("/login");
         return;
       }
-
-      console.group(`Member API Request for ID: ${memberId}`);
-      console.log("API URL:", `${apiUrl}members/${memberId}`);
-      console.log("Request timestamp:", new Date().toISOString());
 
       const response = await fetch(`${apiUrl}members/${memberId}`, {
         method: "GET",
@@ -264,60 +713,22 @@ export default function SingleMemberPage({ memberId }: SingleMemberPageProps) {
         if (response.status === 404) {
           throw new Error("Member not found");
         }
+        if (response.status === 401 || response.status === 403) {
+          showErrorToast("Unauthorized. Please log in again.");
+          router.push("/login");
+          return;
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const responseData = await response.json();
-
-      // Clean and detailed logging of the response
-      console.log("Response Status:", response.status);
-      console.log(
-        "Response Headers:",
-        Object.fromEntries(response.headers.entries())
-      );
-      console.log("API Response Structure:", {
-        status: responseData.status,
-        message: responseData.message,
-        hasData: !!responseData.data,
-        dataKeys: responseData.data
-          ? Object.keys(responseData.data)
-          : "No data object",
-      });
-
-      if (responseData.data) {
-        console.log("Member Summary:", {
-          id: responseData.data.id,
-          name: `${responseData.data.first_name} ${responseData.data.surname}`,
-          email: responseData.data.email,
-          membershipType: responseData.data.membership_type,
-          membershipNumber: responseData.data.membership_number,
-          certificateStatus: responseData.data.certificate_status,
-          applicationStatus: responseData.data.application_status,
-          accountStatus: responseData.data.account_status,
-          incompliance: responseData.data.incompliance,
-          hasProfileImage:
-            responseData.data.public_profile &&
-            responseData.data.public_profile !== "NA",
-          profileImageValue: responseData.data.public_profile,
-          countriesOfPractice:
-            responseData.data.country_of_practice?.length || 0,
-          certificatesCount: responseData.data.certificates?.length || 0,
-          paymentsCount: responseData.data.payments?.length || 0,
-        });
-      }
-      console.groupEnd();
-
       if (responseData.status === "success") {
         setMember(responseData.data);
       } else {
         throw new Error(responseData.message || "Failed to fetch member");
       }
     } catch (err) {
-      console.error("Failed to fetch member:", {
-        memberId,
-        error: err instanceof Error ? err.message : "Unknown error",
-        timestamp: new Date().toISOString(),
-      });
+      console.error("Failed to fetch member:", err);
       setError(err instanceof Error ? err.message : "Failed to fetch member");
       showErrorToast("Failed to load member details");
     } finally {
@@ -325,92 +736,64 @@ export default function SingleMemberPage({ memberId }: SingleMemberPageProps) {
     }
   };
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return "Not provided";
+  const handleCopy = async (text: string, label: string) => {
+    setCopying(label);
     try {
-      return new Date(dateString).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      });
+      await navigator.clipboard.writeText(text);
+      showSuccessToast(`${label} copied!`);
     } catch {
-      return dateString;
+      showErrorToast("Failed to copy");
+    } finally {
+      setTimeout(() => setCopying(null), 1500);
     }
   };
 
-  const formatDateTime = (dateString: string | null) => {
-    if (!dateString) return "Not provided";
-    try {
-      return new Date(dateString).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    } catch {
-      return dateString;
-    }
+  const handleViewPayment = (payment: Payment) => {
+    setSelectedPayment(payment);
+    setPaymentSheetOpen(true);
   };
 
-  const getDisplayName = (member: Member) => {
-    const parts = [
-      member.title,
-      member.first_name,
-      member.middle_name,
-      member.surname,
-    ].filter(Boolean);
-    return parts.join(" ");
+  const getDisplayName = (m: Member) => {
+    return [m.title, m.first_name, m.middle_name, m.surname].filter(Boolean).join(" ");
   };
 
-  const getUserInitials = (member: Member) => {
-    const initials = [];
-    if (member.first_name) {
-      initials.push(member.first_name[0]);
-    }
-    if (member.surname) {
-      initials.push(member.surname[0]);
-    }
-    return initials.join("").substring(0, 2).toUpperCase();
+  const getUniqueFieldsOfPractice = (fields: FieldOfPractice[]) => {
+    const seen = new Set();
+    return fields.filter((field) => {
+      if (seen.has(field.id)) return false;
+      seen.add(field.id);
+      return true;
+    });
   };
 
+  // Loading State
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00B5A5] mx-auto"></div>
-            <p className="mt-4 text-gray-600 dark:text-gray-400">
-              Loading member details...
-            </p>
-          </div>
-        </div>
-      </div>
-    );
+    return <MemberDetailsSkeleton />;
   }
 
+  // Error State
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-6 text-center">
-            <div className="text-red-600 dark:text-red-400 text-2xl mb-2">
-              ⚠️
+        <div className="max-w-2xl mx-auto px-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-red-200 dark:border-red-900 p-8 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+              <XCircleIcon className="w-8 h-8 text-red-600 dark:text-red-400" />
             </div>
-            <h3 className="text-red-800 dark:text-red-200 font-medium mb-2">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
               Error Loading Member
             </h3>
-            <p className="text-red-600 dark:text-red-300 text-sm">{error}</p>
-            <div className="mt-4 space-x-4">
+            <p className="text-gray-600 dark:text-gray-400 mb-6">{error}</p>
+            <div className="flex justify-center gap-3">
               <button
                 onClick={fetchMember}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors"
+                className="px-4 py-2 bg-[#00B5A5] hover:bg-[#009985] text-white rounded-lg transition-colors"
               >
                 Try Again
               </button>
               <button
                 onClick={() => router.push("/members")}
-                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors"
+                className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
               >
                 Back to Members
               </button>
@@ -421,23 +804,24 @@ export default function SingleMemberPage({ memberId }: SingleMemberPageProps) {
     );
   }
 
+  // Not Found State
   if (!member) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8 text-center">
-            <div className="text-gray-400 dark:text-gray-500 text-4xl mb-4">
-              👤
+        <div className="max-w-2xl mx-auto px-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-8 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+              <UserIcon className="w-8 h-8 text-gray-400" />
             </div>
-            <h3 className="text-gray-900 dark:text-white font-medium mb-2">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
               Member Not Found
             </h3>
-            <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
               The requested member could not be found.
             </p>
             <button
               onClick={() => router.push("/members")}
-              className="px-4 py-2 bg-[#00B5A5] hover:bg-[#009985] text-white rounded-md transition-colors"
+              className="px-6 py-2 bg-[#00B5A5] hover:bg-[#009985] text-white rounded-lg transition-colors"
             >
               Back to Members
             </button>
@@ -447,617 +831,347 @@ export default function SingleMemberPage({ memberId }: SingleMemberPageProps) {
     );
   }
 
-  const validProfileImageUrl =
-    member.public_profile && member.public_profile !== "NA"
-      ? member.public_profile
-      : undefined;
+  const certificateStatusConfig = getStatusConfig(member.certificate_status);
+  const applicationStatusConfig = getStatusConfig(member.application_status);
+  const uniqueFields = getUniqueFieldsOfPractice(member.field_of_practice || []);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
+          <button
+            onClick={() => router.push("/members")}
+            className="inline-flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors mb-4"
+          >
+            <ArrowLeftIcon className="w-4 h-4" />
+            Back to Members
+          </button>
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Member Details</h1>
             <button
-              onClick={() => router.push("/members")}
-              className="flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+              onClick={fetchMember}
+              disabled={loading}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             >
-              <svg
-                className="w-4 h-4 mr-2"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 19l-7-7 7-7"
-                />
-              </svg>
-              Back to Members
+              <ArrowPathIcon className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+              Refresh
             </button>
           </div>
-
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Member Details
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Detailed information for {member.name_of_organization} member
-          </p>
         </div>
 
-        {/* Member Profile Card */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
-          <div className="flex items-start space-x-6">
-            <ProfileImage
-              imageUrl={validProfileImageUrl}
-              member={member}
-              size="small"
-            />
-
+        {/* Hero Card */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 sm:p-8 mb-8 shadow-sm">
+          <div className="flex flex-col sm:flex-row gap-6">
+            <ProfileAvatar member={member} size="xl" />
+            
             <div className="flex-1">
-              <div className="flex items-start justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
                     {getDisplayName(member)}
                   </h2>
-                  <p className="text-lg text-gray-600 dark:text-gray-400 mt-1">
-                    {member.email}
-                  </p>
-                  <div className="flex items-center space-x-4 mt-2">
-                    <p className="text-sm text-gray-500 dark:text-gray-500">
+                  <p className="text-gray-600 dark:text-gray-400 mt-1">{member.email}</p>
+                  <div className="flex flex-wrap items-center gap-2 mt-3">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-[#00B5A5]/10 text-[#00B5A5]">
                       {member.membership_number}
-                    </p>
-                    <span className="text-sm bg-[#00B5A5]/10 text-[#00B5A5] px-2 py-1 rounded">
+                    </span>
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400">
                       {member.membership_type}
                     </span>
                   </div>
                 </div>
 
-                <div className="flex flex-col items-end space-y-2">
-                  {member.incompliance && (
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
-                      Compliant
-                    </span>
-                  )}
+                <div className="flex flex-wrap gap-2">
+                  <span className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium ${member.account_status ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400" : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"}`}>
+                    {member.account_status ? <CheckCircleSolid className="w-4 h-4" /> : <XCircleSolid className="w-4 h-4" />}
+                    {member.account_status ? "Active" : "Inactive"}
+                  </span>
+                  <span className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium ${!member.incompliance ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400" : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"}`}>
+                    {!member.incompliance ? <ShieldCheckIcon className="w-4 h-4" /> : <XCircleIcon className="w-4 h-4" />}
+                    {!member.incompliance ? "Compliant" : "Non-compliant"}
+                  </span>
+                </div>
+              </div>
 
-                  {member.account_status ? (
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
-                      Active Account
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
-                      Inactive Account
-                    </span>
-                  )}
+              {/* Quick Stats */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                <div>
+                  <p className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider">Certificate</p>
+                  <p className={`font-semibold mt-1 ${certificateStatusConfig.color}`}>
+                    {member.certificate_status}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider">Application</p>
+                  <p className={`font-semibold mt-1 ${applicationStatusConfig.color}`}>
+                    {member.application_status}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider">Country</p>
+                  <p className="font-semibold mt-1 text-gray-900 dark:text-white">
+                    {member.country_of_residency?.country || "Not set"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider">Applied</p>
+                  <p className="font-semibold mt-1 text-gray-900 dark:text-white">
+                    {formatDate(member.application_date)}
+                  </p>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Member Details Sections */}
-        <div className="space-y-6">
-          {/* Personal Information */}
-          <CollapsibleSection title="Personal Information" defaultOpen={true}>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-3">
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Full Name
-                  </p>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {getDisplayName(member)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Email
-                  </p>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {member.email}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Phone Number
-                  </p>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {member.phone_number || "Not provided"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    WhatsApp
-                  </p>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {member.whatsapp_number || "Not provided"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Secondary Email
-                  </p>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {member.secondary_email || "Not provided"}
-                  </p>
-                </div>
-              </div>
+        {/* Tabs Content */}
+        <Tab.Group>
+          <Tab.List className="flex space-x-1 rounded-xl bg-white dark:bg-gray-800 p-1 border border-gray-200 dark:border-gray-700 mb-6">
+            {["Overview", "Certificates", "Payments", "Documents"].map((tab) => (
+              <Tab
+                key={tab}
+                className={({ selected }) =>
+                  `w-full rounded-lg py-2.5 text-sm font-medium leading-5 transition-colors ${
+                    selected
+                      ? "bg-[#00B5A5] text-white shadow"
+                      : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+                  }`
+                }
+              >
+                {tab}
+              </Tab>
+            ))}
+          </Tab.List>
 
-              <div className="space-y-3">
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Country of Residency
-                  </p>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {member.country_of_residency?.country || "Not provided"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Date of Birth
-                  </p>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {formatDate(member.date_of_birth)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    National ID
-                  </p>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {member.national_id || "Not provided"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Passport
-                  </p>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {member.passport || "Not provided"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Alternative Phone
-                  </p>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {member.alternative_phone || "Not provided"}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </CollapsibleSection>
+          <Tab.Panels>
+            {/* Overview Tab */}
+            <Tab.Panel className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Personal Information */}
+                <InfoCard title="Personal Information" icon={UserIcon}>
+                  <div className="space-y-1">
+                    <DetailRow label="Full Name" value={getDisplayName(member)} />
+                    <DetailRow
+                      label="Email"
+                      value={member.email}
+                      copyable
+                      onCopy={() => handleCopy(member.email, "Email")}
+                      copying={copying === "Email"}
+                    />
+                    <DetailRow
+                      label="Phone"
+                      value={member.phone_number || "Not provided"}
+                      copyable={!!member.phone_number}
+                      onCopy={() => member.phone_number && handleCopy(member.phone_number, "Phone")}
+                      copying={copying === "Phone"}
+                    />
+                    <DetailRow label="Secondary Email" value={member.secondary_email || "Not provided"} />
+                    <DetailRow label="Alternative Phone" value={member.alternative_phone || "Not provided"} />
+                    <DetailRow label="WhatsApp" value={member.whatsapp_number || "Not provided"} />
+                    <DetailRow label="Date of Birth" value={formatDate(member.date_of_birth)} />
+                    <DetailRow label="Passport" value={member.passport || "Not provided"} />
+                  </div>
+                </InfoCard>
 
-          {/* Professional Information */}
-          <CollapsibleSection
-            title="Professional Information"
-            defaultOpen={true}
-          >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-3">
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Forensic Field of Practice
-                  </p>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {member.forensic_field_of_practice}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Employment
-                  </p>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {member.employement || "Not provided"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Countries of Practice
-                  </p>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {member.country_of_practice &&
-                    member.country_of_practice.length > 0 ? (
-                      member.country_of_practice.map((country) => (
-                        <span
-                          key={country.id}
-                          className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
-                        >
-                          {country.country}
+                {/* Location Information */}
+                <InfoCard title="Location" icon={MapPinIcon}>
+                  <div className="space-y-1">
+                    <DetailRow label="Country of Residency" value={member.country_of_residency?.country || "Not set"} />
+                    <div className="py-3 border-b border-gray-100 dark:border-gray-700/50">
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Countries of Practice</p>
+                      <div className="flex flex-wrap gap-2">
+                        {member.country_of_practice && member.country_of_practice.length > 0 ? (
+                          member.country_of_practice.map((country) => (
+                            <span
+                              key={country.id}
+                              className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
+                            >
+                              <GlobeAltIcon className="w-3 h-3 mr-1" />
+                              {country.country}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-sm text-gray-500 dark:text-gray-400">Not specified</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </InfoCard>
+
+                {/* Professional Information */}
+                <InfoCard title="Professional Information" icon={BriefcaseIcon}>
+                  <div className="space-y-1">
+                    <DetailRow label="Employment" value={member.employement} />
+                    <div className="py-3 border-b border-gray-100 dark:border-gray-700/50">
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Fields of Practice</p>
+                      <div className="flex flex-wrap gap-2">
+                        {uniqueFields.length > 0 ? (
+                          uniqueFields.map((field) => (
+                            <span
+                              key={field.id}
+                              className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-[#00B5A5]/10 text-[#00B5A5]"
+                            >
+                              {field.field}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-sm text-gray-500 dark:text-gray-400">Not specified</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </InfoCard>
+
+                {/* Education */}
+                <InfoCard title="Education" icon={AcademicCapIcon}>
+                  <div className="space-y-1">
+                    <DetailRow label="University" value={member.university} />
+                    <DetailRow label="Degree" value={member.degree} />
+                    <DetailRow label="Graduation Year" value={member.degree_year} />
+                    <DetailRow label="Country of Study" value={member.country_of_study} />
+                    <DetailRow label="Qualification" value={member.qualification} />
+                  </div>
+                </InfoCard>
+
+                {/* Organization */}
+                {member.name_of_organization && member.name_of_organization !== "NA" && (
+                  <InfoCard title="Organization" icon={BuildingOfficeIcon}>
+                    <div className="space-y-1">
+                      <DetailRow label="Organization Name" value={member.name_of_organization} />
+                      <DetailRow label="Abbreviation" value={member.Abbreviation} />
+                    </div>
+                  </InfoCard>
+                )}
+
+                {/* Latest Certificate Quick View */}
+                {member.latest_certificate && (
+                  <InfoCard title="Current Certificate" icon={ShieldCheckIcon}>
+                    <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-200 dark:border-emerald-800">
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="font-semibold text-gray-900 dark:text-white">
+                          {member.latest_certificate.membership_term}
+                        </p>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
+                          <CheckCircleSolid className="w-3.5 h-3.5" />
+                          {member.latest_certificate.status}
                         </span>
-                      ))
-                    ) : (
-                      <span className="text-sm text-gray-500 dark:text-gray-400">
-                        Not specified
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-3">
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    University
-                  </p>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {member.university && member.university !== "NA"
-                      ? member.university
-                      : "Not provided"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Degree
-                  </p>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {member.degree && member.degree !== "NA"
-                      ? member.degree
-                      : "Not provided"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Graduation Year
-                  </p>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {member.degree_year && member.degree_year !== "NA"
-                      ? member.degree_year
-                      : "Not provided"}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </CollapsibleSection>
-
-          {/* Membership Status */}
-          <CollapsibleSection title="Membership Status" defaultOpen={true}>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-3">
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Membership Type
-                  </p>
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
-                    {member.membership_type}
-                  </span>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Certificate Status
-                  </p>
-                  <span
-                    className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                      member.certificate_status === "Approved"
-                        ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                        : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300"
-                    }`}
-                  >
-                    {member.certificate_status}
-                  </span>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Application Status
-                  </p>
-                  <span
-                    className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                      member.application_status === "Approved"
-                        ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                        : "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300"
-                    }`}
-                  >
-                    {member.application_status}
-                  </span>
-                </div>
-              </div>
-              <div className="space-y-3">
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Application Date
-                  </p>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {formatDateTime(member.application_date)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Compliance Status
-                  </p>
-                  <span
-                    className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                      member.incompliance
-                        ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                        : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
-                    }`}
-                  >
-                    {member.incompliance ? "Compliant" : "Non-compliant"}
-                  </span>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Organization
-                  </p>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {member.name_of_organization} ({member.Abbreviation})
-                  </p>
-                </div>
-              </div>
-            </div>
-          </CollapsibleSection>
-
-          {/* Certificate Information */}
-          {member.latest_certificate && (
-            <CollapsibleSection title="Current Certificate" defaultOpen={true}>
-              <div className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 p-4 rounded-lg border border-green-200 dark:border-green-700">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Certificate Status
-                      </p>
-                      <p className="text-sm font-medium text-green-700 dark:text-green-300">
-                        {member.latest_certificate.status}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Valid Period
-                      </p>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">
-                        {formatDate(member.latest_certificate.valid_from)} -{" "}
-                        {formatDate(member.latest_certificate.valid_until)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Membership Term
-                      </p>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">
-                        {member.latest_certificate.membership_term}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Next Payment Due
-                      </p>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">
-                        {formatDate(
-                          member.latest_certificate.next_payment_date
-                        )}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Signed Date
-                      </p>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">
-                        {formatDate(member.latest_certificate.signed_date)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Certificate Token
-                      </p>
-                      <code className="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
-                        {member.latest_certificate.token}
-                      </code>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CollapsibleSection>
-          )}
-
-          {/* Payment Information */}
-          {member.latest_certificate?.payment && (
-            <CollapsibleSection title="Latest Payment" defaultOpen={true}>
-              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-700">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Amount Paid
-                      </p>
-                      <p className="text-lg font-bold text-green-700 dark:text-green-300">
-                        {member.latest_certificate.payment.amount_paid}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Payment Method
-                      </p>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">
-                        {member.latest_certificate.payment.payment_method}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Gateway
-                      </p>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">
-                        {member.latest_certificate.payment.gateway}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Transaction Number
-                      </p>
-                      <code className="text-xs bg-white dark:bg-gray-700 px-2 py-1 rounded border">
-                        {member.latest_certificate.payment.transaction_number}
-                      </code>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Payment Date
-                      </p>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">
-                        {formatDateTime(
-                          member.latest_certificate.payment.payment_date
-                        )}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Status
-                      </p>
-                      <span
-                        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                          member.latest_certificate.payment.status ===
-                          "Completed"
-                            ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                            : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300"
-                        }`}
-                      >
-                        {member.latest_certificate.payment.status}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CollapsibleSection>
-          )}
-
-          {/* Documents */}
-          <CollapsibleSection title="Documents" defaultOpen={false}>
-            <div className="space-y-4">
-              {member.qualification && member.qualification !== "NA" && (
-                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      Qualification Document
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {member.qualification}
-                    </p>
-                  </div>
-                  <button className="px-3 py-1 bg-[#00B5A5] hover:bg-[#009985] text-white text-sm rounded-md transition-colors">
-                    Download
-                  </button>
-                </div>
-              )}
-
-              {member.cv_resume && member.cv_resume !== "NA" && (
-                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      CV/Resume
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {member.cv_resume}
-                    </p>
-                  </div>
-                  <button className="px-3 py-1 bg-[#00B5A5] hover:bg-[#009985] text-white text-sm rounded-md transition-colors">
-                    Download
-                  </button>
-                </div>
-              )}
-            </div>
-          </CollapsibleSection>
-
-          {/* Profile Picture Section */}
-          <CollapsibleSection title="Profile Picture" defaultOpen={false}>
-            <div className="flex items-start space-x-6">
-              <ProfileImage
-                imageUrl={validProfileImageUrl}
-                member={member}
-                size="large"
-              />
-              <div className="flex-1">
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Profile Picture Status
-                    </p>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      {validProfileImageUrl
-                        ? "Available"
-                        : "No image uploaded (showing initials)"}
-                    </p>
-                  </div>
-
-                  {validProfileImageUrl && (
-                    <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                        Image URL
-                      </p>
-                      <div className="flex items-center space-x-2">
-                        <code className="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded break-all flex-1">
-                          {member.public_profile}
-                        </code>
-                        <a
-                          href={member.public_profile}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-3 py-1 bg-[#00B5A5] hover:bg-[#009985] text-white text-sm rounded-md transition-colors flex-shrink-0"
-                        >
-                          View
-                        </a>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <p className="text-gray-500 dark:text-gray-400 text-xs">Valid Until</p>
+                          <p className="font-medium text-gray-900 dark:text-white">
+                            {formatDate(member.latest_certificate.valid_until)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500 dark:text-gray-400 text-xs">Next Payment</p>
+                          <p className="font-medium text-gray-900 dark:text-white">
+                            {formatDate(member.latest_certificate.next_payment_date)}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  )}
-
-                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
-                    <p className="text-sm text-blue-800 dark:text-blue-300">
-                      <strong>Fallback System:</strong> When profile images fail
-                      to load or are set to "NA", the system displays styled
-                      initials ({getUserInitials(member)}) with a gradient
-                      background. All image load attempts and failures are
-                      logged to the browser console.
-                    </p>
-                  </div>
-                </div>
+                  </InfoCard>
+                )}
               </div>
-            </div>
-          </CollapsibleSection>
+            </Tab.Panel>
 
-          {/* Payment History */}
-          {member.payments && member.payments.length > 0 && (
-            <CollapsibleSection title="Payment History" defaultOpen={false}>
-              <div className="space-y-3">
-                {member.payments.map((payment) => (
-                  <div
-                    key={payment.id}
-                    className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border"
-                  >
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          Amount
-                        </p>
-                        <p className="text-sm font-bold text-gray-900 dark:text-white">
-                          {payment.amount_paid}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          Date
-                        </p>
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">
-                          {formatDate(payment.payment_date)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          Transaction
-                        </p>
-                        <code className="text-xs bg-white dark:bg-gray-800 px-2 py-1 rounded">
-                          {payment.transaction_number}
-                        </code>
-                      </div>
-                    </div>
+            {/* Certificates Tab */}
+            <Tab.Panel>
+              <InfoCard
+                title={`Certificates (${member.certificates?.length || 0})`}
+                icon={ShieldCheckIcon}
+              >
+                {member.certificates && member.certificates.length > 0 ? (
+                  <div className="space-y-4">
+                    {member.certificates.map((certificate) => (
+                      <CertificateCard
+                        key={certificate.id}
+                        certificate={certificate}
+                        onViewPayment={handleViewPayment}
+                      />
+                    ))}
                   </div>
-                ))}
-              </div>
-            </CollapsibleSection>
-          )}
-        </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <ShieldCheckIcon className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                    <p className="text-gray-500 dark:text-gray-400">No certificates available</p>
+                  </div>
+                )}
+              </InfoCard>
+            </Tab.Panel>
+
+            {/* Payments Tab */}
+            <Tab.Panel>
+              <InfoCard
+                title={`Payment History (${member.payments?.length || 0})`}
+                icon={CreditCardIcon}
+              >
+                {member.payments && member.payments.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {member.payments.map((payment) => (
+                      <PaymentCard
+                        key={payment.id}
+                        payment={payment}
+                        onClick={() => handleViewPayment(payment)}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <CreditCardIcon className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                    <p className="text-gray-500 dark:text-gray-400">No payments available</p>
+                  </div>
+                )}
+              </InfoCard>
+            </Tab.Panel>
+
+            {/* Documents Tab */}
+            <Tab.Panel>
+              <InfoCard
+                title={`Documents (${member.documents?.length || 0})`}
+                icon={DocumentTextIcon}
+              >
+                {member.documents && member.documents.length > 0 ? (
+                  <div className="space-y-3">
+                    {member.documents.map((document) => (
+                      <DocumentCard 
+                        key={document.id} 
+                        document={document} 
+                        onViewFile={fileViewer.openFile}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <DocumentTextIcon className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                    <p className="text-gray-500 dark:text-gray-400">No documents uploaded</p>
+                  </div>
+                )}
+              </InfoCard>
+            </Tab.Panel>
+          </Tab.Panels>
+        </Tab.Group>
       </div>
+
+      {/* Payment Side Sheet */}
+      <PaymentSideSheet
+        payment={selectedPayment}
+        isOpen={paymentSheetOpen}
+        onClose={() => setPaymentSheetOpen(false)}
+      />
+
+      {/* File Viewer */}
+      {fileViewer.isOpen && (
+        <FileViewer
+          isOpen={fileViewer.isOpen}
+          onClose={fileViewer.closeFile}
+          fileUrl={fileViewer.fileUrl}
+          fileName={fileViewer.fileName}
+          fileType={fileViewer.fileType}
+        />
+      )}
     </div>
   );
 }

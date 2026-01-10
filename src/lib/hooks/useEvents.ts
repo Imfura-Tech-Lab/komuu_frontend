@@ -67,7 +67,7 @@ export function useEvents(): UseEventsReturn {
 
   const getHeaders = useCallback(() => {
     const token = localStorage.getItem("auth_token");
-    const institutionId = localStorage.getItem("institution_id");
+    const companyId = localStorage.getItem("company_id");
 
     return {
       Accept: "application/json",
