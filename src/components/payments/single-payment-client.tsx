@@ -3,13 +3,86 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
+  ArrowLeftIcon,
+  CheckCircleIcon,
+  ClockIcon,
+  XCircleIcon,
+  DocumentDuplicateIcon,
+  ArrowPathIcon,
+  CreditCardIcon,
+  BuildingLibraryIcon,
+  DevicePhoneMobileIcon,
+  BanknotesIcon,
+  UserIcon,
+  EnvelopeIcon,
+  PhoneIcon,
+  CalendarIcon,
+  MapPinIcon,
+  BuildingOfficeIcon,
+  ShieldCheckIcon,
+  DocumentTextIcon,
+  ArrowTopRightOnSquareIcon,
+  CheckBadgeIcon,
+  ExclamationTriangleIcon,
+} from "@heroicons/react/24/outline";
+import { CheckCircleIcon as CheckCircleSolid } from "@heroicons/react/24/solid";
+import {
   showErrorToast,
   showSuccessToast,
 } from "@/components/layouts/auth-layer-out";
 
+// Types matching API response
+interface MemberDetails {
+  id: number;
+  name: string;
+  email: string;
+  phone_number: string;
+  secondary_email: string | null;
+  alternative_phone: string | null;
+  whatsapp_number: string | null;
+  role: string;
+  verified: boolean;
+  active: boolean;
+  has_changed_password: boolean;
+  date_of_birth: string;
+  national_ID: string | null;
+  passport: string | null;
+  public_profile: string | null;
+}
+
+interface Application {
+  id: string;
+  member: string;
+  application_status: string;
+  application_date: string;
+  membership_type: string;
+  membership_number: string;
+  employement: string | null;
+  qualification: string | null;
+  cv_resume: string | null;
+  associate_category: string | null;
+  university: string | null;
+  passport: string | null;
+  passport_national_id_from: string | null;
+  degree: string | null;
+  graduation_year: string | null;
+  proof_of_registration: string | null;
+  country_of_study: string | null;
+  name_of_organization: string | null;
+  Abbreviation: string | null;
+  country_of_residency: string;
+  country_of_operation: string | null;
+  company_email: string | null;
+  abide_with_code_of_conduct: boolean;
+  comply_with_current_constitution: boolean;
+  declaration: boolean;
+  incompliance: boolean;
+  member_details: MemberDetails;
+}
+
 interface Payment {
   id: number;
-  member: string; // This is likely the member ID
+  member: string;
   amount_paid: string;
   payment_method: string;
   transaction_number: string;
@@ -17,21 +90,197 @@ interface Payment {
   status: string;
   is_certificate_generated: boolean;
   payment_date: string;
-  created_at?: string;
-  updated_at?: string;
-  description?: string;
-  currency?: string;
-  reference?: string;
-  receipt_url?: string;
-}
-
-interface UserData {
-  role: string;
-  // Add other user properties you might need here
+  application: Application;
 }
 
 interface SinglePaymentClientProps {
   paymentId: string;
+}
+
+// Utility functions
+const formatDate = (dateString: string) => {
+  if (!dateString) return "N/A";
+  try {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  } catch {
+    return dateString;
+  }
+};
+
+const formatDateTime = (dateString: string) => {
+  if (!dateString) return "N/A";
+  try {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return dateString;
+  }
+};
+
+const getStatusConfig = (status: string) => {
+  switch (status.toLowerCase()) {
+    case "completed":
+      return {
+        color: "text-emerald-600 dark:text-emerald-400",
+        bgColor: "bg-emerald-100 dark:bg-emerald-900/30",
+        borderColor: "border-emerald-200 dark:border-emerald-800",
+        gradientFrom: "from-emerald-500",
+        gradientTo: "to-teal-600",
+        icon: CheckCircleIcon,
+      };
+    case "pending":
+      return {
+        color: "text-amber-600 dark:text-amber-400",
+        bgColor: "bg-amber-100 dark:bg-amber-900/30",
+        borderColor: "border-amber-200 dark:border-amber-800",
+        gradientFrom: "from-amber-500",
+        gradientTo: "to-orange-600",
+        icon: ClockIcon,
+      };
+    case "failed":
+    case "cancelled":
+      return {
+        color: "text-red-600 dark:text-red-400",
+        bgColor: "bg-red-100 dark:bg-red-900/30",
+        borderColor: "border-red-200 dark:border-red-800",
+        gradientFrom: "from-red-500",
+        gradientTo: "to-rose-600",
+        icon: XCircleIcon,
+      };
+    default:
+      return {
+        color: "text-gray-600 dark:text-gray-400",
+        bgColor: "bg-gray-100 dark:bg-gray-900/30",
+        borderColor: "border-gray-200 dark:border-gray-800",
+        gradientFrom: "from-gray-500",
+        gradientTo: "to-gray-600",
+        icon: ClockIcon,
+      };
+  }
+};
+
+const getMethodIcon = (method: string) => {
+  switch (method.toLowerCase()) {
+    case "credit card":
+      return CreditCardIcon;
+    case "bank transfer":
+      return BuildingLibraryIcon;
+    case "mobile money":
+      return DevicePhoneMobileIcon;
+    default:
+      return BanknotesIcon;
+  }
+};
+
+// Loading Skeleton
+function PaymentDetailsSkeleton() {
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header Skeleton */}
+        <div className="mb-8">
+          <div className="h-6 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mb-4" />
+          <div className="h-10 w-64 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+        </div>
+
+        {/* Hero Card Skeleton */}
+        <div className="h-48 bg-gray-200 dark:bg-gray-700 rounded-2xl animate-pulse mb-8" />
+
+        {/* Content Grid Skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse" />
+            <div className="h-48 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse" />
+          </div>
+          <div className="space-y-6">
+            <div className="h-72 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse" />
+            <div className="h-48 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Info Card Component
+function InfoCard({
+  title,
+  children,
+  icon: Icon,
+  action,
+}: {
+  title: string;
+  children: React.ReactNode;
+  icon?: React.ElementType;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700/50 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {Icon && <Icon className="w-5 h-5 text-gray-400" />}
+          <h3 className="font-semibold text-gray-900 dark:text-white">
+            {title}
+          </h3>
+        </div>
+        {action}
+      </div>
+      <div className="p-5">{children}</div>
+    </div>
+  );
+}
+
+// Detail Row Component
+function DetailRow({
+  label,
+  value,
+  copyable,
+  onCopy,
+  copying,
+  mono,
+}: {
+  label: string;
+  value: string | React.ReactNode;
+  copyable?: boolean;
+  onCopy?: () => void;
+  copying?: boolean;
+  mono?: boolean;
+}) {
+  return (
+    <div className="flex items-start justify-between py-3 border-b border-gray-100 dark:border-gray-700/50 last:border-0">
+      <span className="text-sm text-gray-500 dark:text-gray-400">{label}</span>
+      <div className="flex items-center gap-2">
+        <span
+          className={`text-sm font-medium text-gray-900 dark:text-white text-right ${
+            mono ? "font-mono" : ""
+          }`}
+        >
+          {value}
+        </span>
+        {copyable && onCopy && (
+          <button
+            onClick={onCopy}
+            className="p-1 text-gray-400 hover:text-[#00B5A5] hover:bg-[#00B5A5]/10 rounded transition-colors"
+          >
+            {copying ? (
+              <CheckCircleSolid className="w-4 h-4 text-emerald-500" />
+            ) : (
+              <DocumentDuplicateIcon className="w-4 h-4" />
+            )}
+          </button>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export default function SinglePaymentClient({
@@ -41,46 +290,35 @@ export default function SinglePaymentClient({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copying, setCopying] = useState<string | null>(null);
-  const [userRole, setUserRole] = useState<string | null>(null); // Store user role
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   const router = useRouter();
 
-  // Effect to determine user role and fetch payment
   useEffect(() => {
     const userData = localStorage.getItem("user_data");
-    const parsedUserData: UserData | null = userData
-      ? JSON.parse(userData)
-      : null;
+    const parsedUserData = userData ? JSON.parse(userData) : null;
     const role = parsedUserData?.role || null;
     setUserRole(role);
 
-    // Only fetch payment if we have a paymentId and user role is determined
     if (paymentId && role !== null) {
       fetchPayment(role);
     }
-  }, [paymentId, userRole]); // Re-run when paymentId or userRole changes
+  }, [paymentId]);
 
   const fetchPayment = async (role: string | null) => {
     try {
       setLoading(true);
-      setError(null); // Clear previous errors
+      setError(null);
 
       const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
       const token = localStorage.getItem("auth_token");
 
       if (!token) {
         showErrorToast("Please login to view payment details");
-        router.push("/login"); // Redirect to login if no token
+        router.push("/login");
         return;
       }
 
-      if (!apiUrl) {
-        showErrorToast("Backend API URL is not configured.");
-        setError("Configuration error: Backend API URL missing.");
-        return;
-      }
-
-      // Dynamically construct the API endpoint based on the user's role
       const endpoint =
         role === "Member"
           ? `${apiUrl}membership/payments/${paymentId}`
@@ -100,8 +338,6 @@ export default function SinglePaymentClient({
         }
         if (response.status === 401 || response.status === 403) {
           showErrorToast("Unauthorized. Please log in again.");
-          localStorage.removeItem("auth_token");
-          localStorage.removeItem("user_data");
           router.push("/login");
           return;
         }
@@ -117,11 +353,7 @@ export default function SinglePaymentClient({
         );
       }
     } catch (err) {
-      console.error("Failed to fetch payment:", {
-        paymentId,
-        error: err instanceof Error ? err.message : "Unknown error",
-        timestamp: new Date().toISOString(),
-      });
+      console.error("Failed to fetch payment:", err);
       setError(err instanceof Error ? err.message : "Failed to fetch payment.");
       showErrorToast("Failed to load payment details.");
     } finally {
@@ -129,210 +361,51 @@ export default function SinglePaymentClient({
     }
   };
 
-  const formatDate = (dateString: string) => {
-    if (!dateString) return "N/A";
-    try {
-      return new Date(dateString).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      });
-    } catch {
-      return dateString; // Fallback to original string if invalid
-    }
-  };
-
-  const formatDateTime = (dateString: string) => {
-    if (!dateString) return "N/A";
-    try {
-      return new Date(dateString).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      });
-    } catch {
-      return dateString; // Fallback to original string if invalid
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "completed":
-        return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
-      case "pending":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300";
-      case "failed":
-        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
-      case "cancelled":
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300";
-      default:
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300";
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "completed":
-        return (
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-        );
-      case "pending":
-        return (
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-        );
-      case "failed":
-        return (
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-        );
-      default:
-        return (
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-        );
-    }
-  };
-
-  const handleCopy = async (text: string | number, label: string) => {
-    const textToCopy = String(text); // Ensure it's a string
+  const handleCopy = async (text: string, label: string) => {
     setCopying(label);
     try {
-      await navigator.clipboard.writeText(textToCopy);
-      showSuccessToast(`${label} copied to clipboard`);
-    } catch (err) {
-      console.error(`Failed to copy ${label.toLowerCase()}:`, err);
-      showErrorToast(`Failed to copy ${label.toLowerCase()}`);
+      await navigator.clipboard.writeText(text);
+      showSuccessToast(`${label} copied!`);
+    } catch {
+      showErrorToast("Failed to copy");
     } finally {
-      setTimeout(() => setCopying(null), 1000);
+      setTimeout(() => setCopying(null), 1500);
     }
   };
 
-  const handleCopyAllDetails = async () => {
-    if (!payment) return;
-
-    const paymentDetails = `
-PAYMENT DETAILS
-===============
-Payment ID: ${payment.id}
-Member Number: ${payment.member}
-Amount Paid: ${payment.currency ? `${payment.currency} ` : ""}${
-      payment.amount_paid
-    }
-Payment Method: ${payment.payment_method}
-Transaction Number: ${payment.transaction_number || "N/A"}
-Gateway: ${payment.gateway || "N/A"}
-Status: ${payment.status}
-Payment Date: ${formatDateTime(payment.payment_date)}
-Certificate Generated: ${payment.is_certificate_generated ? "Yes" : "No"}
-${payment.description ? `Description: ${payment.description}` : ""}
-${payment.reference ? `Reference: ${payment.reference}` : ""}
-${payment.receipt_url ? `Receipt URL: ${payment.receipt_url}` : ""}
-${payment.created_at ? `Created At: ${formatDateTime(payment.created_at)}` : ""}
-${
-  payment.updated_at
-    ? `Last Updated: ${formatDateTime(payment.updated_at)}`
-    : ""
-}
-    `.trim();
-
-    await handleCopy(paymentDetails, "Payment details");
-  };
-
-  // Determine the base path for payment lists
   const paymentsBasePath = userRole === "Member" ? "/my-payments" : "/payments";
-  // Determine the certificate base path
   const certificatesBasePath =
     userRole === "Member" ? "/my-certificates" : "/certificates";
+  const membersBasePath = "/members";
 
+  // Loading State
   if (loading || userRole === null) {
-    // Added userRole === null to wait for role to be determined
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00B5A5] mx-auto"></div>
-            <p className="mt-4 text-gray-600 dark:text-gray-400">
-              {userRole === null
-                ? "Determining user role..."
-                : "Loading payment details..."}
-            </p>
-          </div>
-        </div>
-      </div>
-    );
+    return <PaymentDetailsSkeleton />;
   }
 
+  // Error State
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-6 text-center">
-            <div className="text-red-600 dark:text-red-400 text-2xl mb-2">
-              ⚠️
+        <div className="max-w-2xl mx-auto px-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-red-200 dark:border-red-900 p-8 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+              <XCircleIcon className="w-8 h-8 text-red-600 dark:text-red-400" />
             </div>
-            <h3 className="text-red-800 dark:text-red-200 font-medium mb-2">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
               Error Loading Payment
             </h3>
-            <p className="text-red-600 dark:text-red-300 text-sm">{error}</p>
-            <div className="mt-4 space-x-4">
+            <p className="text-gray-600 dark:text-gray-400 mb-6">{error}</p>
+            <div className="flex justify-center gap-3">
               <button
-                onClick={() => fetchPayment(userRole)} // Pass the current userRole to refetch
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors"
+                onClick={() => fetchPayment(userRole)}
+                className="px-4 py-2 bg-[#00B5A5] hover:bg-[#009985] text-white rounded-lg transition-colors"
               >
                 Try Again
               </button>
               <button
                 onClick={() => router.push(paymentsBasePath)}
-                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors"
+                className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
               >
                 Back to Payments
               </button>
@@ -343,23 +416,24 @@ ${
     );
   }
 
+  // Not Found State
   if (!payment) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8 text-center">
-            <div className="text-gray-400 dark:text-gray-500 text-4xl mb-4">
-              💳
+        <div className="max-w-2xl mx-auto px-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-8 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+              <CreditCardIcon className="w-8 h-8 text-gray-400" />
             </div>
-            <h3 className="text-gray-900 dark:text-white font-medium mb-2">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
               Payment Not Found
             </h3>
-            <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
               The requested payment could not be found.
             </p>
             <button
               onClick={() => router.push(paymentsBasePath)}
-              className="px-4 py-2 bg-[#00B5A5] hover:bg-[#009985] text-white rounded-md transition-colors"
+              className="px-6 py-2 bg-[#00B5A5] hover:bg-[#009985] text-white rounded-lg transition-colors"
             >
               Back to Payments
             </button>
@@ -369,354 +443,446 @@ ${
     );
   }
 
+  const statusConfig = getStatusConfig(payment.status);
+  const StatusIcon = statusConfig.icon;
+  const MethodIcon = getMethodIcon(payment.payment_method);
+  const member = payment.application.member_details;
+  const application = payment.application;
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <button
-              onClick={() => router.push(paymentsBasePath)}
-              className="flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-            >
-              <svg
-                className="w-4 h-4 mr-2"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 19l-7-7 7-7"
-                />
-              </svg>
-              Back to Payments
-            </button>
-
-            <div className="flex items-center space-x-3">
-              <button
-                onClick={handleCopyAllDetails}
-                disabled={copying === "Payment details"}
-                className="px-4 py-2 text-sm border border-[#00B5A5] text-[#00B5A5] hover:bg-[#00B5A5] hover:text-white rounded-md transition-colors disabled:opacity-50"
-              >
-                {copying === "Payment details" ? "Copied!" : "Copy Details"}
-              </button>
-              <button
-                onClick={() => fetchPayment(userRole)} // Pass the current userRole to refetch
-                disabled={loading}
-                className="px-4 py-2 text-sm bg-[#00B5A5] hover:bg-[#009985] text-white rounded-md transition-colors disabled:opacity-50"
-              >
-                Refresh
-              </button>
-            </div>
-          </div>
-
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Payment Details
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Detailed information for payment #{paymentId}
-          </p>
-        </div>
-
-        {/* Payment Overview Card */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden mb-6">
-          <div
-            className={`p-6 ${
-              payment.status === "Completed"
-                ? "bg-gradient-to-r from-green-500 to-emerald-600"
-                : payment.status === "Pending"
-                ? "bg-gradient-to-r from-yellow-500 to-orange-500"
-                : "bg-gradient-to-r from-red-500 to-red-600"
-            }`}
+          <button
+            onClick={() => router.push(paymentsBasePath)}
+            className="inline-flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors mb-4"
           >
-            <div className="flex items-center justify-between text-white">
-              <div className="flex items-center space-x-4">
-                <div className="bg-white/20 p-3 rounded-full">
-                  {getStatusIcon(payment.status)}
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold">
-                    {payment.currency ? `${payment.currency} ` : ""}{" "}
-                    {payment.amount_paid}
-                  </h2>
-                  <p className="text-white/90">{payment.payment_method}</p>
-                  <p className="text-white/80 text-sm">via {payment.gateway}</p>
-                </div>
+            <ArrowLeftIcon className="w-4 h-4" />
+            Back to Payments
+          </button>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                Payment Details
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400 mt-1">
+                Transaction #{payment.transaction_number}
+              </p>
+            </div>
+            <button
+              onClick={() => fetchPayment(userRole)}
+              disabled={loading}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            >
+              <ArrowPathIcon
+                className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
+              />
+              Refresh
+            </button>
+          </div>
+        </div>
+
+        {/* Hero Card */}
+        <div
+          className={`bg-gradient-to-br ${statusConfig.gradientFrom} ${statusConfig.gradientTo} rounded-2xl p-6 sm:p-8 mb-8 text-white shadow-lg`}
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+            <div className="flex items-center gap-4">
+              <div className="p-4 bg-white/20 rounded-xl backdrop-blur-sm">
+                <MethodIcon className="w-8 h-8" />
               </div>
-              <div className="text-right">
-                <span
-                  className={`px-4 py-2 rounded-lg font-semibold ${getStatusColor(
-                    payment.status
-                  )}`}
-                >
-                  {payment.status}
-                </span>
-                <p className="text-white/80 text-sm mt-2">
-                  {formatDate(payment.payment_date)}
+              <div>
+                <p className="text-white/80 text-sm mb-1">Amount Paid</p>
+                <p className="text-3xl sm:text-4xl font-bold">
+                  {payment.amount_paid}
+                </p>
+                <p className="text-white/80 mt-1">
+                  {payment.payment_method} via {payment.gateway}
                 </p>
               </div>
+            </div>
+            <div className="flex flex-col items-start sm:items-end gap-3">
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 rounded-full backdrop-blur-sm">
+                <StatusIcon className="w-5 h-5" />
+                <span className="font-semibold">{payment.status}</span>
+              </div>
+              <div className="flex items-center gap-2 text-white/80">
+                <CalendarIcon className="w-4 h-4" />
+                <span className="text-sm">
+                  {formatDateTime(payment.payment_date)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Stats */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8 pt-6 border-t border-white/20">
+            <div>
+              <p className="text-white/60 text-xs uppercase tracking-wider">
+                Member ID
+              </p>
+              <p className="font-semibold mt-1">{payment.member}</p>
+            </div>
+            <div>
+              <p className="text-white/60 text-xs uppercase tracking-wider">
+                Membership
+              </p>
+              <p className="font-semibold mt-1">
+                {application.membership_type}
+              </p>
+            </div>
+            <div>
+              <p className="text-white/60 text-xs uppercase tracking-wider">
+                Certificate
+              </p>
+              <p className="font-semibold mt-1 flex items-center gap-1">
+                {payment.is_certificate_generated ? (
+                  <>
+                    <CheckCircleSolid className="w-4 h-4" />
+                    Generated
+                  </>
+                ) : (
+                  <>
+                    <ClockIcon className="w-4 h-4" />
+                    Pending
+                  </>
+                )}
+              </p>
+            </div>
+            <div>
+              <p className="text-white/60 text-xs uppercase tracking-wider">
+                App Status
+              </p>
+              <p className="font-semibold mt-1">
+                {application.application_status}
+              </p>
             </div>
           </div>
         </div>
 
-        {/* Payment Information */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {/* Transaction Details */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Transaction Details
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Payment ID
-                </p>
-                <p className="font-semibold text-gray-900 dark:text-white">
-                  {payment.id}
-                </p>
+        {/* Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column - Transaction & Application */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Transaction Details */}
+            <InfoCard title="Transaction Details" icon={CreditCardIcon}>
+              <div className="space-y-1">
+                <DetailRow label="Payment ID" value={`#${payment.id}`} />
+                <DetailRow
+                  label="Transaction Number"
+                  value={payment.transaction_number}
+                  copyable
+                  onCopy={() =>
+                    handleCopy(payment.transaction_number, "Transaction")
+                  }
+                  copying={copying === "Transaction"}
+                  mono
+                />
+                <DetailRow
+                  label="Payment Method"
+                  value={payment.payment_method}
+                />
+                <DetailRow label="Payment Gateway" value={payment.gateway} />
+                <DetailRow label="Amount" value={payment.amount_paid} />
+                <DetailRow
+                  label="Payment Date"
+                  value={formatDateTime(payment.payment_date)}
+                />
+                <DetailRow
+                  label="Status"
+                  value={
+                    <span
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusConfig.bgColor} ${statusConfig.color}`}
+                    >
+                      <StatusIcon className="w-3.5 h-3.5" />
+                      {payment.status}
+                    </span>
+                  }
+                />
+              </div>
+            </InfoCard>
+
+            {/* Application Details */}
+            <InfoCard title="Application Details" icon={DocumentTextIcon}>
+              <div className="space-y-1">
+                <DetailRow
+                  label="Application ID"
+                  value={application.id.substring(0, 18) + "..."}
+                  copyable
+                  onCopy={() => handleCopy(application.id, "Application ID")}
+                  copying={copying === "Application ID"}
+                  mono
+                />
+                <DetailRow
+                  label="Membership Type"
+                  value={application.membership_type}
+                />
+                <DetailRow
+                  label="Membership Number"
+                  value={application.membership_number}
+                />
+                <DetailRow
+                  label="Application Status"
+                  value={
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
+                      <CheckBadgeIcon className="w-3.5 h-3.5" />
+                      {application.application_status}
+                    </span>
+                  }
+                />
+                <DetailRow
+                  label="Application Date"
+                  value={formatDateTime(application.application_date)}
+                />
+                <DetailRow
+                  label="Country of Residency"
+                  value={application.country_of_residency}
+                />
               </div>
 
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Transaction Number
+              {/* Compliance Badges */}
+              <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700/50">
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
+                  Compliance Status
                 </p>
-                <div className="flex items-center space-x-2 mt-1">
-                  <code className="text-sm bg-gray-100 dark:bg-gray-700 px-3 py-2 rounded flex-1 truncate">
-                    {payment.transaction_number || "N/A"}
-                  </code>
-                  {payment.transaction_number && (
-                    <button
-                      onClick={() =>
-                        handleCopy(
-                          payment.transaction_number,
-                          "Transaction number"
-                        )
-                      }
-                      disabled={copying === "Transaction number"}
-                      className="px-3 py-2 text-xs bg-[#00B5A5] hover:bg-[#009985] text-white rounded transition-colors disabled:opacity-50"
-                    >
-                      {copying === "Transaction number" ? "Copied!" : "Copy"}
-                    </button>
+                <div className="flex flex-wrap gap-2">
+                  {application.abide_with_code_of_conduct && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                      <CheckCircleSolid className="w-3 h-3" />
+                      Code of Conduct
+                    </span>
+                  )}
+                  {application.comply_with_current_constitution && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                      <CheckCircleSolid className="w-3 h-3" />
+                      Constitution
+                    </span>
+                  )}
+                  {application.declaration && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                      <CheckCircleSolid className="w-3 h-3" />
+                      Declaration
+                    </span>
                   )}
                 </div>
               </div>
+            </InfoCard>
 
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Member Number
-                </p>
-                <div className="flex items-center space-x-2 mt-1">
-                  <p className="font-medium text-gray-900 dark:text-white">
-                    {payment.member}
-                  </p>
-                  <button
-                    onClick={() => handleCopy(payment.member, "Member number")}
-                    disabled={copying === "Member number"}
-                    className="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded transition-colors disabled:opacity-50"
-                  >
-                    {copying === "Member number" ? "✓" : "Copy"}
-                  </button>
+            {/* Organization Info (if available) */}
+            {application.name_of_organization && (
+              <InfoCard title="Organization" icon={BuildingOfficeIcon}>
+                <div className="space-y-1">
+                  <DetailRow
+                    label="Organization Name"
+                    value={application.name_of_organization}
+                  />
+                  {application.Abbreviation && (
+                    <DetailRow
+                      label="Abbreviation"
+                      value={application.Abbreviation}
+                    />
+                  )}
+                  {application.company_email && (
+                    <DetailRow
+                      label="Company Email"
+                      value={application.company_email}
+                      copyable
+                      onCopy={() =>
+                        handleCopy(application.company_email!, "Email")
+                      }
+                      copying={copying === "Email"}
+                    />
+                  )}
                 </div>
-              </div>
-
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Payment Gateway
-                </p>
-                <p className="font-medium text-gray-900 dark:text-white">
-                  {payment.gateway || "N/A"}
-                </p>
-              </div>
-
-              {payment.description && (
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Description
-                  </p>
-                  <p className="font-medium text-gray-900 dark:text-white">
-                    {payment.description}
-                  </p>
-                </div>
-              )}
-
-              {payment.reference && (
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Reference
-                  </p>
-                  <p className="font-medium text-gray-900 dark:text-white">
-                    {payment.reference}
-                  </p>
-                </div>
-              )}
-
-              {payment.receipt_url && (
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Receipt
-                  </p>
-                  <a
-                    href={payment.receipt_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[#00B5A5] hover:underline flex items-center mt-1"
-                  >
-                    View Receipt
-                    <svg
-                      className="w-4 h-4 ml-1"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                      />
-                    </svg>
-                  </a>
-                </div>
-              )}
-            </div>
+              </InfoCard>
+            )}
           </div>
 
-          {/* Payment Status & Certificate */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Status & Certificate
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Payment Status
-                </p>
-                <div className="flex items-center space-x-3 mt-2">
-                  <div
-                    className={`${getStatusColor(
-                      payment.status
-                    )} p-2 rounded-full`}
+          {/* Right Column - Member Info & Actions */}
+          <div className="space-y-6">
+            {/* Member Card */}
+            <InfoCard
+              title="Member Information"
+              icon={UserIcon}
+              action={
+                userRole !== "Member" && (
+                  <button
+                    onClick={() =>
+                      router.push(`${membersBasePath}?search=${payment.member}`)
+                    }
+                    className="text-xs text-[#00B5A5] hover:underline flex items-center gap-1"
                   >
-                    {getStatusIcon(payment.status)}
+                    View Profile
+                    <ArrowTopRightOnSquareIcon className="w-3 h-3" />
+                  </button>
+                )
+              }
+            >
+              {/* Avatar & Name */}
+              <div className="flex items-center gap-4 mb-4 pb-4 border-b border-gray-100 dark:border-gray-700/50">
+                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#00B5A5] to-[#008F82] flex items-center justify-center text-white font-bold text-lg">
+                  {member.name
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")
+                    .substring(0, 2)
+                    .toUpperCase()}
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-900 dark:text-white">
+                    {member.name}
+                  </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#00B5A5]/10 text-[#00B5A5]">
+                      {payment.member}
+                    </span>
+                    {member.verified && (
+                      <CheckBadgeIcon
+                        className="w-4 h-4 text-blue-500"
+                        title="Verified"
+                      />
+                    )}
                   </div>
-                  <span
-                    className={`px-4 py-2 rounded-lg text-sm font-semibold ${getStatusColor(
-                      payment.status
-                    )}`}
-                  >
-                    {payment.status}
+                </div>
+              </div>
+
+              {/* Contact Info */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 text-sm">
+                  <EnvelopeIcon className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-600 dark:text-gray-300 truncate">
+                    {member.email}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 text-sm">
+                  <PhoneIcon className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-600 dark:text-gray-300">
+                    {member.phone_number}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 text-sm">
+                  <CalendarIcon className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-600 dark:text-gray-300">
+                    Born {formatDate(member.date_of_birth)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 text-sm">
+                  <MapPinIcon className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-600 dark:text-gray-300">
+                    {application.country_of_residency}
                   </span>
                 </div>
               </div>
 
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Certificate Status
-                </p>
-                <div className="mt-2">
-                  {payment.is_certificate_generated ? (
-                    <div className="flex items-center space-x-2 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg">
-                      <svg
-                        className="w-5 h-5 text-green-600 dark:text-green-400"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                        />
-                      </svg>
-                      <span className="text-sm font-medium text-green-800 dark:text-green-200">
-                        Certificate Generated
-                      </span>
-                    </div>
+              {/* Status Badges */}
+              <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700/50 flex flex-wrap gap-2">
+                <span
+                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                    member.active
+                      ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400"
+                      : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
+                  }`}
+                >
+                  {member.active ? (
+                    <CheckCircleSolid className="w-3 h-3" />
                   ) : (
-                    <div className="flex items-center space-x-2 p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-lg">
-                      <svg
-                        className="w-5 h-5 text-orange-600 dark:text-orange-400"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                      <span className="text-sm font-medium text-orange-800 dark:text-orange-200">
-                        Certificate Not Generated
-                      </span>
-                    </div>
+                    <XCircleIcon className="w-3 h-3" />
                   )}
+                  {member.active ? "Active" : "Inactive"}
+                </span>
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400">
+                  {member.role}
+                </span>
+              </div>
+            </InfoCard>
+
+            {/* Certificate Status */}
+            <InfoCard title="Certificate Status" icon={ShieldCheckIcon}>
+              <div
+                className={`p-4 rounded-lg border ${
+                  payment.is_certificate_generated
+                    ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800"
+                    : "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  {payment.is_certificate_generated ? (
+                    <CheckCircleSolid className="w-8 h-8 text-emerald-500" />
+                  ) : (
+                    <ClockIcon className="w-8 h-8 text-amber-500" />
+                  )}
+                  <div>
+                    <p
+                      className={`font-semibold ${
+                        payment.is_certificate_generated
+                          ? "text-emerald-800 dark:text-emerald-300"
+                          : "text-amber-800 dark:text-amber-300"
+                      }`}
+                    >
+                      {payment.is_certificate_generated
+                        ? "Certificate Generated"
+                        : "Certificate Pending"}
+                    </p>
+                    <p
+                      className={`text-sm ${
+                        payment.is_certificate_generated
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-amber-600 dark:text-amber-400"
+                      }`}
+                    >
+                      {payment.is_certificate_generated
+                        ? "Ready for download"
+                        : "Will be available soon"}
+                    </p>
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Payment Date
-                </p>
-                <p className="font-medium text-gray-900 dark:text-white text-lg">
-                  {formatDateTime(payment.payment_date)}
-                </p>
+              {payment.is_certificate_generated && (
+                <button
+                  onClick={() => router.push(certificatesBasePath)}
+                  className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#00B5A5] hover:bg-[#009985] text-white rounded-lg transition-colors"
+                >
+                  <DocumentTextIcon className="w-4 h-4" />
+                  View Certificate
+                </button>
+              )}
+            </InfoCard>
+
+            {/* Quick Actions */}
+            <InfoCard title="Quick Actions">
+              <div className="space-y-3">
+                <button
+                  onClick={() =>
+                    handleCopy(
+                      `Payment #${payment.id}\nAmount: ${
+                        payment.amount_paid
+                      }\nTransaction: ${payment.transaction_number}\nStatus: ${
+                        payment.status
+                      }\nDate: ${formatDateTime(
+                        payment.payment_date
+                      )}\nMember: ${member.name} (${payment.member})`,
+                      "Payment Details"
+                    )
+                  }
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <DocumentDuplicateIcon className="w-4 h-4" />
+                  {copying === "Payment Details"
+                    ? "Copied!"
+                    : "Copy All Details"}
+                </button>
+                <button
+                  onClick={() => router.push(paymentsBasePath)}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                >
+                  <ArrowLeftIcon className="w-4 h-4" />
+                  Back to All Payments
+                </button>
               </div>
-            </div>
+            </InfoCard>
           </div>
-        </div>
-
-        {/* Timestamps */}
-        {(payment.created_at || payment.updated_at) && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Record Timestamps
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {payment.created_at && (
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Record Created
-                  </p>
-                  <p className="font-medium text-gray-900 dark:text-white">
-                    {formatDateTime(payment.created_at)}
-                  </p>
-                </div>
-              )}
-              {payment.updated_at && (
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Last Updated
-                  </p>
-                  <p className="font-medium text-gray-900 dark:text-white">
-                    {formatDateTime(payment.updated_at)}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row justify-center space-y-3 sm:space-y-0 sm:space-x-4">
-          <button
-            onClick={() => router.push(certificatesBasePath)} // Use role-based path for certificates
-            className="px-6 py-3 border-2 border-[#00B5A5] text-[#00B5A5] hover:bg-[#00B5A5] hover:text-white rounded-lg transition-colors font-medium"
-          >
-            View My Certificates
-          </button>
-
-          <button
-            onClick={() => router.push(paymentsBasePath)}
-            className="px-6 py-3 bg-[#00B5A5] hover:bg-[#009985] text-white rounded-lg transition-colors font-medium"
-          >
-            View All Payments
-          </button>
         </div>
       </div>
     </div>

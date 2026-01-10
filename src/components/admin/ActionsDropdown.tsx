@@ -27,7 +27,7 @@ export function ActionsButtons({
 }: ActionsButtonsProps) {
   const getApproveButtonState = () => {
     if (isApproved) return { disabled: true, label: "Approved" };
-    if (hasUserApproved) return { disabled: true, label: "Already Voted" };
+    if (hasUserApproved) return { disabled: true, label: "Already Approved" };
     return { disabled: isUpdating, label: "Approve" };
   };
 

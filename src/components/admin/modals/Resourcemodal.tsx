@@ -1,9 +1,15 @@
 "use client";
 
 import React, { useState, useEffect, Fragment } from "react";
-import { Dialog, Transition } from "@headlessui/react";
-import { XMarkIcon, DocumentIcon } from "@heroicons/react/24/outline";
+import { Dialog, Transition, Combobox } from "@headlessui/react";
+import {
+  XMarkIcon,
+  DocumentIcon,
+  ChevronUpDownIcon,
+  CheckIcon,
+} from "@heroicons/react/24/outline";
 import { Resource } from "@/lib/hooks/useResources";
+import { useGroups } from "@/lib/hooks/useGroups";
 
 export interface ResourceFormData {
   title: string;
@@ -11,7 +17,7 @@ export interface ResourceFormData {
   link: string;
   type: string;
   visibility: string;
-  group: string;
+  group: number | null;
   tags: string[];
   file?: File;
 }
@@ -37,12 +43,23 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
     link: "",
     type: "Document",
     visibility: "Public",
-    group: "",
+    group: null,
     tags: [],
     file: undefined,
   });
   const [tagInput, setTagInput] = useState("");
   const [fileName, setFileName] = useState("");
+  const [groupQuery, setGroupQuery] = useState("");
+
+  // Fetch groups from hook
+  const { groups, loading: groupsLoading, fetchGroups } = useGroups();
+
+  // Fetch groups when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      fetchGroups();
+    }
+  }, [isOpen, fetchGroups]);
 
   useEffect(() => {
     if (resource) {
@@ -52,7 +69,7 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
         link: resource.link || "",
         type: resource.type,
         visibility: resource.visibility,
-        group: resource.group || "",
+        group: resource.groupId || null,
         tags: resource.tags || [],
         file: undefined,
       });
@@ -64,13 +81,25 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
         link: "",
         type: "Document",
         visibility: "Public",
-        group: "",
+        group: null,
         tags: [],
         file: undefined,
       });
       setFileName("");
     }
+    setGroupQuery("");
   }, [resource, isOpen]);
+
+  // Filter groups based on search query
+  const filteredGroups =
+    groupQuery === ""
+      ? groups
+      : groups.filter((group) =>
+          group.name.toLowerCase().includes(groupQuery.toLowerCase())
+        );
+
+  // Get selected group object
+  const selectedGroup = groups.find((g) => g.id === formData.group) || null;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -99,7 +128,10 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await onSubmit(formData);
+    // Omit group field if null to avoid sending empty string
+    const { group, ...rest } = formData;
+    const submitData = group !== null ? { ...rest, group } : rest;
+    await onSubmit(submitData as ResourceFormData);
   };
 
   return (
@@ -338,24 +370,140 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Group */}
+                  {/* Group - Searchable Combobox */}
                   <div>
-                    <label
-                      htmlFor="group"
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                    >
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Group (optional)
                     </label>
-                    <input
-                      type="text"
-                      id="group"
-                      value={formData.group}
-                      onChange={(e) =>
-                        setFormData({ ...formData, group: e.target.value })
+                    <Combobox
+                      value={selectedGroup}
+                      onChange={(group) =>
+                        setFormData({ ...formData, group: group?.id || null })
                       }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent dark:bg-gray-700 dark:text-white"
-                      placeholder="Enter group name"
-                    />
+                      disabled={groupsLoading}
+                    >
+                      <div className="relative">
+                        <div className="relative w-full">
+                          <Combobox.Input
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent dark:bg-gray-700 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed pr-10"
+                            displayValue={(group: typeof selectedGroup) =>
+                              group?.name || ""
+                            }
+                            onChange={(e) => setGroupQuery(e.target.value)}
+                            placeholder={
+                              groupsLoading
+                                ? "Loading groups..."
+                                : "Search and select a group"
+                            }
+                          />
+                          <Combobox.Button className="absolute inset-y-0 right-0 flex items-center pr-2">
+                            <ChevronUpDownIcon
+                              className="h-5 w-5 text-gray-400"
+                              aria-hidden="true"
+                            />
+                          </Combobox.Button>
+                        </div>
+                        <Transition
+                          as={Fragment}
+                          leave="transition ease-in duration-100"
+                          leaveFrom="opacity-100"
+                          leaveTo="opacity-0"
+                          afterLeave={() => setGroupQuery("")}
+                        >
+                          <Combobox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white dark:bg-gray-700 py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+                            {/* Clear selection option */}
+                            <Combobox.Option
+                              value={null}
+                              className={({ active }) =>
+                                `relative cursor-pointer select-none py-2 pl-10 pr-4 ${
+                                  active
+                                    ? "bg-[#00B5A5] text-white"
+                                    : "text-gray-500 dark:text-gray-400"
+                                }`
+                              }
+                            >
+                              {({ selected, active }) => (
+                                <>
+                                  <span
+                                    className={`block truncate italic ${
+                                      selected ? "font-medium" : "font-normal"
+                                    }`}
+                                  >
+                                    No group
+                                  </span>
+                                  {selected && (
+                                    <span
+                                      className={`absolute inset-y-0 left-0 flex items-center pl-3 ${
+                                        active ? "text-white" : "text-[#00B5A5]"
+                                      }`}
+                                    >
+                                      <CheckIcon
+                                        className="h-5 w-5"
+                                        aria-hidden="true"
+                                      />
+                                    </span>
+                                  )}
+                                </>
+                              )}
+                            </Combobox.Option>
+
+                            {filteredGroups.length === 0 &&
+                            groupQuery !== "" ? (
+                              <div className="relative cursor-default select-none py-2 px-4 text-gray-500 dark:text-gray-400">
+                                No groups found.
+                              </div>
+                            ) : (
+                              filteredGroups.map((group) => (
+                                <Combobox.Option
+                                  key={group.id}
+                                  value={group}
+                                  className={({ active }) =>
+                                    `relative cursor-pointer select-none py-2 pl-10 pr-4 ${
+                                      active
+                                        ? "bg-[#00B5A5] text-white"
+                                        : "text-gray-900 dark:text-white"
+                                    }`
+                                  }
+                                >
+                                  {({ selected, active }) => (
+                                    <>
+                                      <span
+                                        className={`block truncate ${
+                                          selected
+                                            ? "font-medium"
+                                            : "font-normal"
+                                        }`}
+                                      >
+                                        {group.name}
+                                      </span>
+                                      {selected && (
+                                        <span
+                                          className={`absolute inset-y-0 left-0 flex items-center pl-3 ${
+                                            active
+                                              ? "text-white"
+                                              : "text-[#00B5A5]"
+                                          }`}
+                                        >
+                                          <CheckIcon
+                                            className="h-5 w-5"
+                                            aria-hidden="true"
+                                          />
+                                        </span>
+                                      )}
+                                    </>
+                                  )}
+                                </Combobox.Option>
+                              ))
+                            )}
+                          </Combobox.Options>
+                        </Transition>
+                      </div>
+                    </Combobox>
+                    {groups.length === 0 && !groupsLoading && (
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        No groups available
+                      </p>
+                    )}
                   </div>
 
                   {/* Actions */}

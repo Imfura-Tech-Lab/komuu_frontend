@@ -20,6 +20,7 @@ export interface Resource {
   comments_count?: number;
   tags?: string[];
   group?: string;
+  groupId?: number;
   uploaded_by?: string;
   created_at: string;
   updated_at?: string;
@@ -33,7 +34,7 @@ interface CreateResourceParams {
   link?: string;
   type: string;
   visibility: string;
-  group?: string;
+  group?: number;
   tags?: string[];
   file?: File;
 }
@@ -81,7 +82,8 @@ const normalizeResource = (resource: any): Resource => ({
       ? JSON.parse(resource.tags)
       : resource.tags
     : [],
-  group: resource.group,
+  group: resource.group?.name || resource.group,
+  groupId: resource.group?.id || resource.group_id,
   uploaded_by: resource.uploaded_by,
   created_at: resource.created_at,
   updated_at: resource.updated_at,
@@ -95,12 +97,12 @@ export function useResources(): UseResourcesReturn {
 
   const getHeaders = useCallback(() => {
     const token = localStorage.getItem("auth_token");
-    const institutionId = localStorage.getItem("institution_id");
+    const companyId = localStorage.getItem("company_id");
 
     return {
       Accept: "application/json",
       Authorization: `Bearer ${token}`,
-      "X-Company-ID": institutionId || "",
+      "X-Company-ID": companyId || "",
     };
   }, []);
 
@@ -250,7 +252,8 @@ export function useResources(): UseResourcesReturn {
         if (params.link) formData.append("link", params.link);
         formData.append("type", params.type);
         formData.append("visibility", params.visibility);
-        if (params.group) formData.append("group", params.group);
+        if (params.group != null)
+          formData.append("group", params.group.toString());
         if (params.tags && params.tags.length > 0)
           formData.append("tags", JSON.stringify(params.tags));
         if (params.file) formData.append("file", params.file);
@@ -271,7 +274,7 @@ export function useResources(): UseResourcesReturn {
         const data = await response.json();
 
         if (data.status === "success") {
-          showSuccessToast("Resource created successfully");
+          showSuccessToast(data.message || "Resource created successfully");
           await fetchResources();
           return true;
         }
@@ -311,7 +314,8 @@ export function useResources(): UseResourcesReturn {
         if (params.link) formData.append("link", params.link);
         formData.append("type", params.type);
         formData.append("visibility", params.visibility);
-        if (params.group) formData.append("group", params.group);
+        if (params.group != null)
+          formData.append("group", params.group.toString());
         if (params.tags && params.tags.length > 0)
           formData.append("tags", JSON.stringify(params.tags));
         if (params.file) formData.append("file", params.file);
@@ -336,7 +340,7 @@ export function useResources(): UseResourcesReturn {
         const data = await response.json();
 
         if (data.status === "success") {
-          showSuccessToast("Resource updated successfully");
+          showSuccessToast(data.message || "Resource updated successfully");
           await fetchResources();
           return true;
         }
@@ -381,7 +385,7 @@ export function useResources(): UseResourcesReturn {
         const data = await response.json();
 
         if (data.status === "success") {
-          showSuccessToast("Resource deleted successfully");
+          showSuccessToast(data.message || "Resource deleted successfully");
           await fetchResources();
           return true;
         }

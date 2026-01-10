@@ -1,7 +1,86 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { showErrorToast, showSuccessToast } from "@/components/layouts/auth-layer-out";
+import { useState, useEffect, Fragment } from "react";
+import { useRouter } from "next/navigation";
+import { Dialog, Transition } from "@headlessui/react";
+import {
+  XMarkIcon,
+  ArrowPathIcon,
+  DocumentDuplicateIcon,
+  CalendarIcon,
+  ShieldCheckIcon,
+  ClockIcon,
+  XCircleIcon,
+  CheckCircleIcon,
+  ArrowDownTrayIcon,
+  EyeIcon,
+  CreditCardIcon,
+  ExclamationTriangleIcon,
+  DocumentTextIcon,
+  BanknotesIcon,
+  CalendarDaysIcon,
+  IdentificationIcon,
+  SparklesIcon,
+} from "@heroicons/react/24/outline";
+import {
+  CheckCircleIcon as CheckCircleSolid,
+  ShieldCheckIcon as ShieldCheckSolid,
+  ExclamationTriangleIcon as ExclamationTriangleSolid,
+} from "@heroicons/react/24/solid";
+import {
+  showErrorToast,
+  showSuccessToast,
+} from "@/components/layouts/auth-layer-out";
+import { useCertificates } from "@/lib/hooks/useCertificates";
+
+// Types matching API response
+interface MemberDetails {
+  id: number;
+  name: string;
+  email: string;
+  phone_number: string;
+  secondary_email: string | null;
+  alternative_phone: string | null;
+  whatsapp_number: string | null;
+  role: string;
+  verified: boolean;
+  active: boolean;
+  has_changed_password: boolean;
+  date_of_birth: string;
+  national_ID: string | null;
+  passport: string | null;
+  public_profile: string | null;
+}
+
+interface Application {
+  id: string;
+  member: string;
+  application_status: string;
+  application_date: string;
+  membership_type: string;
+  membership_number: string;
+  employement: string | null;
+  qualification: string | null;
+  cv_resume: string | null;
+  associate_category: string | null;
+  university: string | null;
+  passport: string | null;
+  passport_national_id_from: string | null;
+  degree: string | null;
+  graduation_year: string | null;
+  proof_of_registration: string | null;
+  country_of_study: string | null;
+  name_of_organization: string | null;
+  Abbreviation: string | null;
+  country_of_residency: string;
+  country_of_operation: string | null;
+  company_email: string | null;
+  abide_with_code_of_conduct: boolean;
+  comply_with_current_constitution: boolean;
+  declaration: boolean;
+  incompliance: boolean;
+  member_details: MemberDetails;
+}
 
 interface Payment {
   id: number;
@@ -13,6 +92,7 @@ interface Payment {
   status: string;
   is_certificate_generated: boolean;
   payment_date: string;
+  application: Application;
 }
 
 interface Certificate {
@@ -34,6 +114,7 @@ interface Certificate {
 interface PaginationLink {
   url: string | null;
   label: string;
+  page: number | null;
   active: boolean;
 }
 
@@ -53,312 +134,676 @@ interface CertificatesResponse {
   total: number;
 }
 
-interface CertificateCardProps {
-  certificate: Certificate;
-  onDownload: (certificate: Certificate) => void;
-  onViewDetails: (certificate: Certificate) => void;
-}
+// Utility functions
+const formatDate = (dateString: string) => {
+  try {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  } catch {
+    return dateString;
+  }
+};
 
-function CertificateCard({ certificate, onDownload, onViewDetails }: CertificateCardProps) {
-  const formatDate = (dateString: string) => {
-    try {
-      return new Date(dateString).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      });
-    } catch {
-      return dateString;
-    }
+const formatDateTime = (dateString: string) => {
+  try {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return dateString;
+  }
+};
+
+const getDaysUntilExpiry = (validUntil: string) => {
+  const expiryDate = new Date(validUntil);
+  const today = new Date();
+  const diffTime = expiryDate.getTime() - today.getTime();
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+};
+
+const getExpiryStatus = (validUntil: string) => {
+  const daysLeft = getDaysUntilExpiry(validUntil);
+
+  if (daysLeft < 0) {
+    return {
+      status: "expired",
+      label: `Expired ${Math.abs(daysLeft)} days ago`,
+      color: "text-red-600 dark:text-red-400",
+      bgColor: "bg-red-100 dark:bg-red-900/30",
+      borderColor: "border-red-200 dark:border-red-800",
+      icon: XCircleIcon,
+      iconSolid: ExclamationTriangleSolid,
+    };
+  }
+
+  if (daysLeft <= 30) {
+    return {
+      status: "expiring",
+      label: `${daysLeft} days remaining`,
+      color: "text-amber-600 dark:text-amber-400",
+      bgColor: "bg-amber-100 dark:bg-amber-900/30",
+      borderColor: "border-amber-200 dark:border-amber-800",
+      icon: ExclamationTriangleIcon,
+      iconSolid: ExclamationTriangleSolid,
+    };
+  }
+
+  return {
+    status: "valid",
+    label: `${daysLeft} days remaining`,
+    color: "text-emerald-600 dark:text-emerald-400",
+    bgColor: "bg-emerald-100 dark:bg-emerald-900/30",
+    borderColor: "border-emerald-200 dark:border-emerald-800",
+    icon: CheckCircleIcon,
+    iconSolid: ShieldCheckSolid,
   };
+};
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "approved":
-        return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
-      case "pending":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300";
-      case "expired":
-        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
-      default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300";
-    }
-  };
-
-  const isExpired = () => {
-    const validUntil = new Date(certificate.valid_until);
-    const today = new Date();
-    return validUntil < today;
-  };
-
-  const daysUntilExpiry = () => {
-    const validUntil = new Date(certificate.valid_until);
-    const today = new Date();
-    const diffTime = validUntil.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
-  };
-
-  const daysLeft = daysUntilExpiry();
-
+// Stat Card Component
+function StatCard({
+  title,
+  value,
+  icon: Icon,
+  color,
+  bgColor,
+}: {
+  title: string;
+  value: number;
+  icon: React.ElementType;
+  color: string;
+  bgColor: string;
+}) {
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-      {/* Certificate Header */}
-      <div className="bg-gradient-to-r from-[#00B5A5] to-[#009985] p-4">
-        <div className="flex items-center justify-between">
-          <div className="text-white">
-            <h3 className="font-bold text-lg">{certificate.membership_term}</h3>
-            <p className="text-teal-100 text-sm">{certificate.member_number}</p>
-          </div>
-          <div className="text-right">
-            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(certificate.status)}`}>
-              {certificate.status}
-            </span>
-          </div>
+    <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+            {title}
+          </p>
+          <p className={`text-2xl font-bold mt-1 ${color}`}>{value}</p>
+        </div>
+        <div className={`p-3 rounded-xl ${bgColor}`}>
+          <Icon className={`w-6 h-6 ${color}`} />
         </div>
       </div>
+    </div>
+  );
+}
 
-      {/* Certificate Body */}
-      <div className="p-4">
-        <div className="space-y-3">
-          <div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Certificate Holder</p>
-            <p className="font-medium text-gray-900 dark:text-white">{certificate.name}</p>
+// Certificate Row Component (List View - like payments)
+function CertificateRow({
+  certificate,
+  onViewDetails,
+  onDownload,
+  downloading,
+}: {
+  certificate: Certificate;
+  onViewDetails: () => void;
+  onDownload: () => void;
+  downloading: boolean;
+}) {
+  const expiryStatus = getExpiryStatus(certificate.valid_until);
+  const StatusIcon = expiryStatus.icon;
+
+  return (
+    <div
+      onClick={onViewDetails}
+      className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md hover:border-[#00B5A5]/50 transition-all cursor-pointer"
+    >
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        {/* Left: Icon & Term */}
+        <div className="flex items-center gap-4">
+          <div className="p-3 rounded-xl bg-gradient-to-br from-[#00B5A5] to-[#008F82] text-white flex-shrink-0">
+            <ShieldCheckIcon className="w-6 h-6" />
           </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Valid From</p>
-              <p className="text-sm font-medium text-gray-900 dark:text-white">
-                {formatDate(certificate.valid_from)}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Valid Until</p>
-              <p className="text-sm font-medium text-gray-900 dark:text-white">
-                {formatDate(certificate.valid_until)}
-              </p>
-            </div>
+          <div className="min-w-0">
+            <p className="font-bold text-lg text-gray-900 dark:text-white">
+              {certificate.membership_term}
+            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {certificate.member_number} • {certificate.name}
+            </p>
           </div>
+        </div>
 
-          {/* Validity Warning */}
-          {isExpired() ? (
-            <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg">
-              <p className="text-sm text-red-800 dark:text-red-300 font-medium">
-                Certificate Expired
-              </p>
-              <p className="text-xs text-red-600 dark:text-red-400">
-                Expired {Math.abs(daysLeft)} days ago
-              </p>
-            </div>
-          ) : daysLeft <= 30 ? (
-            <div className="p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-lg">
-              <p className="text-sm text-orange-800 dark:text-orange-300 font-medium">
-                Expiring Soon
-              </p>
-              <p className="text-xs text-orange-600 dark:text-orange-400">
-                {daysLeft} days remaining
-              </p>
-            </div>
-          ) : (
-            <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg">
-              <p className="text-sm text-green-800 dark:text-green-300 font-medium">
-                Valid Certificate
-              </p>
-              <p className="text-xs text-green-600 dark:text-green-400">
-                {daysLeft} days remaining
-              </p>
-            </div>
-          )}
-
-          {/* Next Payment Due */}
+        {/* Center: Details */}
+        <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
           <div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Next Payment Due</p>
-            <p className="text-sm font-medium text-gray-900 dark:text-white">
+            <p className="text-gray-500 dark:text-gray-400 text-xs">
+              Valid Until
+            </p>
+            <p className="font-medium text-gray-900 dark:text-white">
+              {formatDate(certificate.valid_until)}
+            </p>
+          </div>
+          <div>
+            <p className="text-gray-500 dark:text-gray-400 text-xs">
+              Next Payment
+            </p>
+            <p className="font-medium text-gray-900 dark:text-white">
               {formatDate(certificate.next_payment_date)}
             </p>
           </div>
-
-          {/* Payment Info */}
-          {certificate.payment && (
-            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div>
-                  <span className="text-gray-600 dark:text-gray-400">Amount: </span>
-                  <span className="font-medium text-gray-900 dark:text-white">
-                    {certificate.payment.amount_paid}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-gray-600 dark:text-gray-400">Method: </span>
-                  <span className="font-medium text-gray-900 dark:text-white">
-                    {certificate.payment.payment_method}
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
+          <div className="hidden sm:block">
+            <p className="text-gray-500 dark:text-gray-400 text-xs">
+              Amount Paid
+            </p>
+            <p className="font-medium text-gray-900 dark:text-white">
+              {certificate.payment?.amount_paid || "N/A"}
+            </p>
+          </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex space-x-2 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-          <button
-            onClick={() => onViewDetails(certificate)}
-            className="flex-1 px-3 py-2 text-sm border border-[#00B5A5] text-[#00B5A5] hover:bg-[#00B5A5] hover:text-white rounded-md transition-colors"
+        {/* Right: Status & Actions */}
+        <div className="flex items-center gap-3">
+          {/* Expiry Status Badge */}
+          <span
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${expiryStatus.bgColor} ${expiryStatus.color}`}
           >
-            View Details
+            <StatusIcon className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">
+              {expiryStatus.status === "expired"
+                ? "Expired"
+                : expiryStatus.status === "expiring"
+                ? "Expiring"
+                : "Valid"}
+            </span>
+            <span className="sm:hidden">
+              {getDaysUntilExpiry(certificate.valid_until)}d
+            </span>
+          </span>
+
+          {/* Download Button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDownload();
+            }}
+            disabled={!certificate.certificate || downloading}
+            className={`p-2 rounded-lg transition-colors ${
+              certificate.certificate
+                ? "text-[#00B5A5] hover:bg-[#00B5A5]/10"
+                : "text-gray-300 dark:text-gray-600 cursor-not-allowed"
+            }`}
+            title={
+              certificate.certificate ? "Download Certificate" : "Not Available"
+            }
+          >
+            {downloading ? (
+              <ArrowPathIcon className="w-5 h-5 animate-spin" />
+            ) : (
+              <ArrowDownTrayIcon className="w-5 h-5" />
+            )}
           </button>
-          {certificate.certificate ? (
-            <button
-              onClick={() => onDownload(certificate)}
-              className="flex-1 px-3 py-2 text-sm bg-[#00B5A5] hover:bg-[#009985] text-white rounded-md transition-colors"
-            >
-              Download
-            </button>
-          ) : (
-            <button
-              disabled
-              className="flex-1 px-3 py-2 text-sm bg-gray-300 text-gray-500 rounded-md cursor-not-allowed"
-            >
-              Not Available
-            </button>
-          )}
         </div>
+      </div>
+
+      {/* Mobile: Extra Info Row */}
+      <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700/50 flex items-center justify-between sm:hidden">
+        <div className="flex items-center gap-2 text-sm">
+          <BanknotesIcon className="w-4 h-4 text-[#00B5A5]" />
+          <span className="font-medium text-gray-900 dark:text-white">
+            {certificate.payment?.amount_paid || "N/A"}
+          </span>
+        </div>
+        <span className={`text-xs ${expiryStatus.color}`}>
+          {expiryStatus.label}
+        </span>
       </div>
     </div>
   );
 }
 
-interface CertificateDetailsModalProps {
+// Certificate Details Side Sheet
+function CertificateDetailsSheet({
+  certificate,
+  isOpen,
+  onClose,
+  onDownload,
+  downloading,
+}: {
   certificate: Certificate | null;
+  isOpen: boolean;
   onClose: () => void;
-}
+  onDownload: () => void;
+  downloading: boolean;
+}) {
+  const [copyingField, setCopyingField] = useState<string | null>(null);
 
-function CertificateDetailsModal({ certificate, onClose }: CertificateDetailsModalProps) {
-  if (!certificate) return null;
-
-  const formatDateTime = (dateString: string) => {
+  const handleCopy = async (text: string, fieldName: string) => {
+    setCopyingField(fieldName);
     try {
-      return new Date(dateString).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
+      await navigator.clipboard.writeText(text);
+      showSuccessToast(`${fieldName} copied!`);
     } catch {
-      return dateString;
+      showErrorToast("Failed to copy");
+    } finally {
+      setTimeout(() => setCopyingField(null), 1500);
     }
   };
 
+  if (!certificate) return null;
+
+  const expiryStatus = getExpiryStatus(certificate.valid_until);
+  const StatusIconSolid = expiryStatus.iconSolid;
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Certificate Details
-          </h3>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+    <Transition appear show={isOpen} as={Fragment}>
+      <Dialog as="div" className="relative z-50" onClose={onClose}>
+        {/* Backdrop */}
+        <Transition.Child
+          as={Fragment}
+          enter="ease-out duration-300"
+          enterFrom="opacity-0"
+          enterTo="opacity-100"
+          leave="ease-in duration-200"
+          leaveFrom="opacity-100"
+          leaveTo="opacity-0"
+        >
+          <div className="fixed inset-0 bg-black/50 dark:bg-black/70" />
+        </Transition.Child>
 
-        <div className="p-6 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Certificate ID</p>
-              <p className="font-medium text-gray-900 dark:text-white">{certificate.id}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Member Number</p>
-              <p className="font-medium text-gray-900 dark:text-white">{certificate.member_number}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Membership Term</p>
-              <p className="font-medium text-gray-900 dark:text-white">{certificate.membership_term}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Status</p>
-              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                certificate.status === "Approved" 
-                  ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                  : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300"
-              }`}>
-                {certificate.status}
-              </span>
-            </div>
-          </div>
-
-          <div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Certificate Token</p>
-            <div className="flex items-center space-x-2 mt-1">
-              <code className="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded flex-1">
-                {certificate.token}
-              </code>
-              <button
-                onClick={() => navigator.clipboard.writeText(certificate.token)}
-                className="px-2 py-1 text-xs bg-[#00B5A5] hover:bg-[#009985] text-white rounded"
+        {/* Side Sheet */}
+        <div className="fixed inset-0 overflow-hidden">
+          <div className="absolute inset-0 overflow-hidden">
+            <div className="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10">
+              <Transition.Child
+                as={Fragment}
+                enter="transform transition ease-in-out duration-300"
+                enterFrom="translate-x-full"
+                enterTo="translate-x-0"
+                leave="transform transition ease-in-out duration-300"
+                leaveFrom="translate-x-0"
+                leaveTo="translate-x-full"
               >
-                Copy
-              </button>
+                <Dialog.Panel className="pointer-events-auto w-screen max-w-md">
+                  <div className="flex h-full flex-col bg-white dark:bg-gray-900 shadow-2xl">
+                    {/* Header */}
+                    <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center justify-between">
+                        <Dialog.Title className="text-lg font-semibold text-gray-900 dark:text-white">
+                          Certificate Details
+                        </Dialog.Title>
+                        <button
+                          onClick={onClose}
+                          className="p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                        >
+                          <XMarkIcon className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 overflow-y-auto">
+                      {/* Hero Section */}
+                      <div className="relative bg-gradient-to-br from-[#00B5A5] to-[#008F82] p-6">
+                        <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+
+                        <div className="relative text-center">
+                          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-white/20 flex items-center justify-center">
+                            <ShieldCheckIcon className="w-8 h-8 text-white" />
+                          </div>
+                          <h3 className="text-xl font-bold text-white">
+                            {certificate.membership_term}
+                          </h3>
+                          <p className="text-white/80 mt-1">
+                            {certificate.name}
+                          </p>
+                          <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 bg-white/20 rounded-full backdrop-blur-sm">
+                            <span className="text-sm font-medium text-white">
+                              {certificate.member_number}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Details Sections */}
+                      <div className="p-6 space-y-6">
+                        {/* Validity Status */}
+                        <div
+                          className={`p-4 rounded-xl ${expiryStatus.bgColor} border ${expiryStatus.borderColor}`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <StatusIconSolid
+                              className={`w-8 h-8 ${expiryStatus.color}`}
+                            />
+                            <div>
+                              <p
+                                className={`font-semibold ${expiryStatus.color}`}
+                              >
+                                {expiryStatus.status === "expired"
+                                  ? "Certificate Expired"
+                                  : expiryStatus.status === "expiring"
+                                  ? "Expiring Soon"
+                                  : "Valid Certificate"}
+                              </p>
+                              <p
+                                className={`text-sm ${expiryStatus.color} opacity-80`}
+                              >
+                                {expiryStatus.label}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Certificate Info */}
+                        <div>
+                          <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
+                            Certificate Information
+                          </h3>
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                              <div>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                  Certificate ID
+                                </p>
+                                <p className="font-medium text-gray-900 dark:text-white">
+                                  #{certificate.id}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                  Valid From
+                                </p>
+                                <p className="text-sm font-medium text-gray-900 dark:text-white mt-1">
+                                  {formatDate(certificate.valid_from)}
+                                </p>
+                              </div>
+                              <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                  Valid Until
+                                </p>
+                                <p className="text-sm font-medium text-gray-900 dark:text-white mt-1">
+                                  {formatDate(certificate.valid_until)}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                Signed Date
+                              </p>
+                              <p className="text-sm font-medium text-gray-900 dark:text-white mt-1">
+                                {formatDateTime(certificate.signed_date)}
+                              </p>
+                            </div>
+
+                            <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                Next Payment Due
+                              </p>
+                              <p className="text-sm font-medium text-gray-900 dark:text-white mt-1">
+                                {formatDate(certificate.next_payment_date)}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Token */}
+                        <div>
+                          <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
+                            Verification Token
+                          </h3>
+                          <div className="flex items-center gap-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                            <code className="flex-1 text-xs font-mono text-gray-600 dark:text-gray-300 break-all">
+                              {certificate.token}
+                            </code>
+                            <button
+                              onClick={() =>
+                                handleCopy(certificate.token, "Token")
+                              }
+                              className="p-2 text-gray-400 hover:text-[#00B5A5] hover:bg-[#00B5A5]/10 rounded-lg transition-colors flex-shrink-0"
+                            >
+                              {copyingField === "Token" ? (
+                                <CheckCircleSolid className="w-4 h-4 text-emerald-500" />
+                              ) : (
+                                <DocumentDuplicateIcon className="w-4 h-4" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Payment Info */}
+                        {certificate.payment && (
+                          <div>
+                            <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
+                              Payment Information
+                            </h3>
+                            <div className="p-4 bg-gradient-to-br from-[#00B5A5]/10 to-transparent border border-[#00B5A5]/20 rounded-xl">
+                              <div className="flex items-center justify-between mb-4">
+                                <span className="text-2xl font-bold text-gray-900 dark:text-white">
+                                  {certificate.payment.amount_paid}
+                                </span>
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
+                                  <CheckCircleSolid className="w-3 h-3" />
+                                  {certificate.payment.status}
+                                </span>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-3 text-sm">
+                                <div>
+                                  <p className="text-gray-500 dark:text-gray-400 text-xs">
+                                    Method
+                                  </p>
+                                  <p className="font-medium text-gray-900 dark:text-white">
+                                    {certificate.payment.payment_method}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-gray-500 dark:text-gray-400 text-xs">
+                                    Gateway
+                                  </p>
+                                  <p className="font-medium text-gray-900 dark:text-white">
+                                    {certificate.payment.gateway}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-gray-500 dark:text-gray-400 text-xs">
+                                    Transaction
+                                  </p>
+                                  <p className="font-mono text-gray-900 dark:text-white">
+                                    #{certificate.payment.transaction_number}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-gray-500 dark:text-gray-400 text-xs">
+                                    Date
+                                  </p>
+                                  <p className="font-medium text-gray-900 dark:text-white">
+                                    {formatDate(
+                                      certificate.payment.payment_date
+                                    )}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Membership Info */}
+                        {certificate.payment?.application && (
+                          <div>
+                            <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
+                              Membership Details
+                            </h3>
+                            <div className="flex flex-wrap gap-2">
+                              <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400">
+                                {
+                                  certificate.payment.application
+                                    .membership_type
+                                }
+                              </span>
+                              <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
+                                {
+                                  certificate.payment.application
+                                    .country_of_residency
+                                }
+                              </span>
+                              {certificate.payment.application
+                                .name_of_organization && (
+                                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                                  {
+                                    certificate.payment.application
+                                      .name_of_organization
+                                  }
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Footer Actions */}
+                    <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                      <div className="flex gap-3">
+                        <button
+                          onClick={onClose}
+                          className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                        >
+                          Close
+                        </button>
+                        <button
+                          onClick={onDownload}
+                          disabled={!certificate.certificate || downloading}
+                          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                            certificate.certificate
+                              ? "bg-[#00B5A5] hover:bg-[#009985] text-white"
+                              : "bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed"
+                          }`}
+                        >
+                          {downloading ? (
+                            <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <ArrowDownTrayIcon className="w-4 h-4" />
+                          )}
+                          Download Certificate
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
             </div>
           </div>
+        </div>
+      </Dialog>
+    </Transition>
+  );
+}
 
-          {certificate.payment && (
-            <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-              <h4 className="font-medium text-gray-900 dark:text-white mb-3">Payment Information</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+// Loading Skeleton
+function CertificatesSkeleton() {
+  return (
+    <div className="space-y-8">
+      {/* Stats Skeleton */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        {[...Array(5)].map((_, i) => (
+          <div
+            key={i}
+            className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="h-4 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                <div className="h-8 w-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mt-2" />
+              </div>
+              <div className="h-12 w-12 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse" />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* List Skeleton */}
+      <div className="space-y-4">
+        {[...Array(4)].map((_, i) => (
+          <div
+            key={i}
+            className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4"
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse" />
                 <div>
-                  <span className="text-gray-600 dark:text-gray-400">Amount: </span>
-                  <span className="font-medium text-gray-900 dark:text-white">
-                    {certificate.payment.amount_paid}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-gray-600 dark:text-gray-400">Method: </span>
-                  <span className="font-medium text-gray-900 dark:text-white">
-                    {certificate.payment.payment_method}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-gray-600 dark:text-gray-400">Transaction: </span>
-                  <code className="text-xs bg-gray-100 dark:bg-gray-700 px-1 rounded">
-                    {certificate.payment.transaction_number}
-                  </code>
-                </div>
-                <div>
-                  <span className="text-gray-600 dark:text-gray-400">Gateway: </span>
-                  <span className="font-medium text-gray-900 dark:text-white">
-                    {certificate.payment.gateway}
-                  </span>
-                </div>
-                <div className="md:col-span-2">
-                  <span className="text-gray-600 dark:text-gray-400">Payment Date: </span>
-                  <span className="font-medium text-gray-900 dark:text-white">
-                    {formatDateTime(certificate.payment.payment_date)}
-                  </span>
+                  <div className="h-5 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                  <div className="h-4 w-48 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mt-2" />
                 </div>
               </div>
+              <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div>
+                  <div className="h-3 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                  <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mt-1" />
+                </div>
+                <div>
+                  <div className="h-3 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                  <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mt-1" />
+                </div>
+                <div className="hidden sm:block">
+                  <div className="h-3 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                  <div className="h-4 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mt-1" />
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-20 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse" />
+                <div className="h-9 w-9 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse" />
+              </div>
             </div>
-          )}
-        </div>
+          </div>
+        ))}
       </div>
     </div>
   );
 }
 
+// Empty State
+function EmptyState({ onRefresh }: { onRefresh: () => void }) {
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-12 text-center">
+      <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+        <ShieldCheckIcon className="w-10 h-10 text-gray-400" />
+      </div>
+      <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+        No Certificates Yet
+      </h3>
+      <p className="text-gray-600 dark:text-gray-400 max-w-sm mx-auto mb-6">
+        You don't have any membership certificates yet. Complete your
+        application and payment to receive your certificate.
+      </p>
+      <button
+        onClick={onRefresh}
+        className="inline-flex items-center gap-2 px-6 py-3 bg-[#00B5A5] hover:bg-[#009985] text-white rounded-lg transition-colors"
+      >
+        <ArrowPathIcon className="w-5 h-5" />
+        Refresh
+      </button>
+    </div>
+  );
+}
+
+// Main Component
 export default function MyCertificatesClient() {
-  const [certificatesData, setCertificatesData] = useState<CertificatesResponse | null>(null);
+  const [certificatesData, setCertificatesData] =
+    useState<CertificatesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedCertificate, setSelectedCertificate] = useState<Certificate | null>(null);
+  const [selectedCertificate, setSelectedCertificate] =
+    useState<Certificate | null>(null);
+  const [sideSheetOpen, setSideSheetOpen] = useState(false);
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+
+  const router = useRouter();
+  const { getCertificateData } = useCertificates();
 
   useEffect(() => {
     fetchCertificates(currentPage);
@@ -367,17 +812,15 @@ export default function MyCertificatesClient() {
   const fetchCertificates = async (page: number = 1) => {
     try {
       setLoading(true);
+      setError(null);
       const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
       const token = localStorage.getItem("auth_token");
 
       if (!token) {
         showErrorToast("Please login to view certificates");
+        router.push("/login");
         return;
       }
-
-      console.group(`Certificates API Request - Page ${page}`);
-      console.log("API URL:", `${apiUrl}membership/certificates?page=${page}`);
-      console.log("Request timestamp:", new Date().toISOString());
 
       const response = await fetch(
         `${apiUrl}membership/certificates?page=${page}`,
@@ -391,6 +834,11 @@ export default function MyCertificatesClient() {
       );
 
       if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          showErrorToast("Unauthorized. Please log in again.");
+          router.push("/login");
+          return;
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
@@ -401,11 +849,7 @@ export default function MyCertificatesClient() {
         throw new Error(responseData.message || "Failed to fetch certificates");
       }
     } catch (err) {
-      console.error("Failed to fetch certificates:", {
-        page,
-        error: err instanceof Error ? err.message : "Unknown error",
-        timestamp: new Date().toISOString(),
-      });
+      console.error("Failed to fetch certificates:", err);
       setError(
         err instanceof Error ? err.message : "Failed to fetch certificates"
       );
@@ -415,26 +859,25 @@ export default function MyCertificatesClient() {
     }
   };
 
+  const handleViewDetails = (certificate: Certificate) => {
+    setSelectedCertificate(certificate);
+    setSideSheetOpen(true);
+  };
+
   const handleDownload = async (certificate: Certificate) => {
-    if (!certificate.certificate) {
-      showErrorToast("Certificate file not available");
+    if (!certificate.certificate && !certificate.token) {
+      showErrorToast("Certificate not available for download");
       return;
     }
 
     try {
       setDownloadingId(certificate.id);
 
-      // If certificate.certificate is a URL, open it
-      if (certificate.certificate.startsWith("http")) {
-        window.open(certificate.certificate, "_blank");
-      } else {
-        // If it's a file path, construct the download URL
-        const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
-        const downloadUrl = `${apiUrl}download/certificate/${certificate.certificate}`;
-        window.open(downloadUrl, "_blank");
+      // Use the useCertificates hook to get certificate data and generate PDF
+      const certData = await getCertificateData(certificate.token);
+      if (certData) {
+        showSuccessToast("Certificate downloaded successfully");
       }
-
-      showSuccessToast("Certificate download initiated");
     } catch (err) {
       console.error("Download error:", err);
       showErrorToast("Failed to download certificate");
@@ -443,143 +886,46 @@ export default function MyCertificatesClient() {
     }
   };
 
-  const handleViewDetails = (certificate: Certificate) => {
-    setSelectedCertificate(certificate);
-  };
-
-  const formatDate = (dateString: string) => {
-    try {
-      return new Date(dateString).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      });
-    } catch {
-      return dateString;
-    }
-  };
-
-  const formatDateTime = (dateString: string) => {
-    try {
-      return new Date(dateString).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    } catch {
-      return dateString;
-    }
-  };
-
-  const getCertificateStats = () => {
+  const getStats = () => {
     if (!certificatesData?.data)
       return { total: 0, approved: 0, pending: 0, active: 0, expired: 0 };
 
-    const stats = certificatesData.data.reduce(
+    return certificatesData.data.reduce(
       (acc, cert) => {
         acc.total++;
-        if (cert.status === "Approved") acc.approved++;
-        if (cert.status === "Pending") acc.pending++;
+        if (cert.status.toLowerCase() === "approved") acc.approved++;
+        if (cert.status.toLowerCase() === "pending") acc.pending++;
 
-        const validUntil = new Date(cert.valid_until);
-        const today = new Date();
-        if (validUntil < today) acc.expired++;
+        const daysLeft = getDaysUntilExpiry(cert.valid_until);
+        if (daysLeft < 0) acc.expired++;
         else acc.active++;
 
         return acc;
       },
       { total: 0, approved: 0, pending: 0, active: 0, expired: 0 }
     );
-
-    return stats;
   };
 
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-  };
+  const stats = getStats();
 
-  const renderPagination = () => {
-    if (!certificatesData || certificatesData.last_page <= 1) return null;
-
-    return (
-      <div className="flex items-center justify-between mt-6">
-        <div className="text-sm text-gray-700 dark:text-gray-300">
-          Showing {certificatesData.from} to {certificatesData.to} of{" "}
-          {certificatesData.total} certificates
-        </div>
-
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => handlePageChange(currentPage - 1)}
-            disabled={!certificatesData.prev_page_url}
-            className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Previous
-          </button>
-
-          {Array.from(
-            { length: certificatesData.last_page },
-            (_, i) => i + 1
-          ).map((page) => (
-            <button
-              key={page}
-              onClick={() => handlePageChange(page)}
-              className={`px-3 py-2 text-sm rounded-md transition-colors ${
-                page === certificatesData.current_page
-                  ? "bg-[#00B5A5] text-white"
-                  : "border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
-              }`}
-            >
-              {page}
-            </button>
-          ))}
-
-          <button
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={!certificatesData.next_page_url}
-            className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Next
-          </button>
-        </div>
-      </div>
-    );
-  };
-
-  if (loading) {
+  // Error State
+  if (error && !loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00B5A5] mx-auto"></div>
-            <p className="mt-4 text-gray-600 dark:text-gray-400">
-              Loading your certificates...
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-6 text-center">
-            <div className="text-red-600 dark:text-red-400 text-2xl mb-2">
-              ⚠️
+        <div className="max-w-2xl mx-auto px-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-red-200 dark:border-red-900 p-8 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+              <XCircleIcon className="w-8 h-8 text-red-600 dark:text-red-400" />
             </div>
-            <h3 className="text-red-800 dark:text-red-200 font-medium mb-2">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
               Error Loading Certificates
             </h3>
-            <p className="text-red-600 dark:text-red-300 text-sm">{error}</p>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">{error}</p>
             <button
-              // @ts-ignore
-              onClick={fetchCertificates}
-              className="mt-4 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors"
+              onClick={() => fetchCertificates(currentPage)}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-[#00B5A5] hover:bg-[#009985] text-white rounded-lg transition-colors"
             >
+              <ArrowPathIcon className="w-5 h-5" />
               Try Again
             </button>
           </div>
@@ -588,116 +934,147 @@ export default function MyCertificatesClient() {
     );
   }
 
-  const stats = getCertificateStats();
-
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            My Certificates
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            View and manage your membership certificates
-          </p>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-            <div className="text-2xl font-bold text-gray-900 dark:text-white">
-              {stats.total}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                My Certificates
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400 mt-1">
+                View and download your membership certificates
+              </p>
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Total</p>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-            <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-              {stats.approved}
-            </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Approved</p>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-              {stats.active}
-            </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Active</p>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-            <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-              {stats.pending}
-            </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Pending</p>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-            <div className="text-2xl font-bold text-red-600 dark:text-red-400">
-              {stats.expired}
-            </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Expired</p>
+            <button
+              onClick={() => fetchCertificates(currentPage)}
+              disabled={loading}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            >
+              <ArrowPathIcon
+                className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
+              />
+              Refresh
+            </button>
           </div>
         </div>
 
-        {/* Certificates Grid */}
-        {!certificatesData?.data || certificatesData.data.length === 0 ? (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8 text-center">
-            <div className="text-gray-400 dark:text-gray-500 text-4xl mb-4">
-              📜
-            </div>
-            <h3 className="text-gray-900 dark:text-white font-medium mb-2">
-              No Certificates Found
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400 text-sm">
-              You don't have any certificates yet.
-            </p>
-          </div>
+        {loading ? (
+          <CertificatesSkeleton />
+        ) : !certificatesData || certificatesData.data.length === 0 ? (
+          <EmptyState onRefresh={() => fetchCertificates(currentPage)} />
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Stats Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+              <StatCard
+                title="Total"
+                value={stats.total}
+                icon={DocumentTextIcon}
+                color="text-gray-900 dark:text-white"
+                bgColor="bg-gray-100 dark:bg-gray-700"
+              />
+              <StatCard
+                title="Approved"
+                value={stats.approved}
+                icon={CheckCircleIcon}
+                color="text-emerald-600 dark:text-emerald-400"
+                bgColor="bg-emerald-100 dark:bg-emerald-900/30"
+              />
+              <StatCard
+                title="Active"
+                value={stats.active}
+                icon={ShieldCheckIcon}
+                color="text-blue-600 dark:text-blue-400"
+                bgColor="bg-blue-100 dark:bg-blue-900/30"
+              />
+              <StatCard
+                title="Pending"
+                value={stats.pending}
+                icon={ClockIcon}
+                color="text-amber-600 dark:text-amber-400"
+                bgColor="bg-amber-100 dark:bg-amber-900/30"
+              />
+              <StatCard
+                title="Expired"
+                value={stats.expired}
+                icon={XCircleIcon}
+                color="text-red-600 dark:text-red-400"
+                bgColor="bg-red-100 dark:bg-red-900/30"
+              />
+            </div>
+
+            {/* Certificates List */}
+            <div className="space-y-4">
               {certificatesData.data.map((certificate) => (
-                <CertificateCard
+                <CertificateRow
                   key={certificate.id}
                   certificate={certificate}
-                  onDownload={handleDownload}
-                  onViewDetails={handleViewDetails}
+                  onViewDetails={() => handleViewDetails(certificate)}
+                  onDownload={() => handleDownload(certificate)}
+                  downloading={downloadingId === certificate.id}
                 />
               ))}
             </div>
-            
+
             {/* Pagination */}
-            {renderPagination()}
+            {certificatesData.last_page > 1 && (
+              <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Showing {certificatesData.from} to {certificatesData.to} of{" "}
+                  {certificatesData.total} certificates
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage(currentPage - 1)}
+                    disabled={!certificatesData.prev_page_url}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Previous
+                  </button>
+                  {certificatesData.links
+                    .filter((link) => link.page !== null)
+                    .map((link) => (
+                      <button
+                        key={link.page}
+                        onClick={() => setCurrentPage(link.page!)}
+                        className={`w-10 h-10 text-sm font-medium rounded-lg transition-colors ${
+                          link.active
+                            ? "bg-[#00B5A5] text-white"
+                            : "text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+                        }`}
+                      >
+                        {link.page}
+                      </button>
+                    ))}
+                  <button
+                    onClick={() => setCurrentPage(currentPage + 1)}
+                    disabled={!certificatesData.next_page_url}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </>
         )}
-
-        {/* Refresh Button */}
-        <div className="mt-8 text-center">
-          <button
-            onClick={() => fetchCertificates(currentPage)}
-            disabled={loading}
-            className="inline-flex items-center px-6 py-3 bg-[#00B5A5] hover:bg-[#009985] text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <svg
-              className={`w-5 h-5 mr-2 ${loading ? "animate-spin" : ""}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-            Refresh Certificates
-          </button>
-        </div>
-
-        {/* Certificate Details Modal */}
-        <CertificateDetailsModal
-          certificate={selectedCertificate}
-          onClose={() => setSelectedCertificate(null)}
-        />
       </div>
+
+      {/* Details Side Sheet */}
+      <CertificateDetailsSheet
+        certificate={selectedCertificate}
+        isOpen={sideSheetOpen}
+        onClose={() => setSideSheetOpen(false)}
+        onDownload={() =>
+          selectedCertificate && handleDownload(selectedCertificate)
+        }
+        downloading={
+          selectedCertificate ? downloadingId === selectedCertificate.id : false
+        }
+      />
     </div>
   );
 }
