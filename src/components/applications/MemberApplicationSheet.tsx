@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import {
   XMarkIcon,
@@ -105,6 +105,8 @@ interface MemberApplicationSheetProps {
   onGeneratePDF?: () => void;
   isRefreshing?: boolean;
 }
+
+type TabId = "overview" | "practice" | "documents" | "compliance";
 
 function getStatusConfig(status: string) {
   const normalized = status.toLowerCase();
@@ -238,12 +240,53 @@ function TagBadge({
       }`}
     >
       {label}
-      {isPrimary && (
-        <CheckBadgeIcon className="w-3.5 h-3.5" />
-      )}
+      {isPrimary && <CheckBadgeIcon className="w-3.5 h-3.5" />}
     </span>
   );
 }
+
+function ComplianceCard({
+  title,
+  description,
+  isCompliant,
+}: {
+  title: string;
+  description: string;
+  isCompliant: boolean;
+}) {
+  return (
+    <div
+      className={`p-4 rounded-xl border ${
+        isCompliant
+          ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800"
+          : "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
+      }`}
+    >
+      <div className="flex items-center gap-3">
+        {isCompliant ? (
+          <CheckCircleIcon className="w-6 h-6 text-emerald-500" />
+        ) : (
+          <XCircleIcon className="w-6 h-6 text-red-500" />
+        )}
+        <div>
+          <p className="text-sm font-medium text-gray-900 dark:text-white">
+            {title}
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {description}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const TABS: { id: TabId; label: string }[] = [
+  { id: "overview", label: "Overview" },
+  { id: "practice", label: "Practice" },
+  { id: "documents", label: "Documents" },
+  { id: "compliance", label: "Compliance" },
+];
 
 export default function MemberApplicationSheet({
   isOpen,
@@ -253,6 +296,8 @@ export default function MemberApplicationSheet({
   onGeneratePDF,
   isRefreshing = false,
 }: MemberApplicationSheetProps) {
+  const [activeTab, setActiveTab] = useState<TabId>("overview");
+
   if (!application) return null;
 
   const statusConfig = getStatusConfig(application.application_status);
@@ -280,7 +325,7 @@ export default function MemberApplicationSheet({
 
         <div className="fixed inset-0 overflow-hidden">
           <div className="absolute inset-0 overflow-hidden">
-            <div className="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10">
+            <div className="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-0 sm:pl-10">
               <Transition.Child
                 as={Fragment}
                 enter="transform transition ease-in-out duration-300"
@@ -290,10 +335,10 @@ export default function MemberApplicationSheet({
                 leaveFrom="translate-x-0"
                 leaveTo="translate-x-full"
               >
-                <Dialog.Panel className="pointer-events-auto w-screen max-w-md">
+                <Dialog.Panel className="pointer-events-auto w-screen max-w-full sm:max-w-3xl lg:max-w-4xl">
                   <div className="flex h-full flex-col bg-white dark:bg-gray-900 shadow-2xl">
                     {/* Header */}
-                    <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                    <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                       <div className="flex items-center justify-between">
                         <Dialog.Title className="text-lg font-semibold text-gray-900 dark:text-white">
                           My Application
@@ -324,73 +369,106 @@ export default function MemberApplicationSheet({
                       <div
                         className={`mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full border ${statusConfig.bg} ${statusConfig.border}`}
                       >
-                        <StatusIcon className={`w-4 h-4 ${statusConfig.color}`} />
-                        <span className={`text-sm font-medium ${statusConfig.color}`}>
+                        <StatusIcon
+                          className={`w-4 h-4 ${statusConfig.color}`}
+                        />
+                        <span
+                          className={`text-sm font-medium ${statusConfig.color}`}
+                        >
                           {application.application_status}
                         </span>
                       </div>
                     </div>
 
-                    {/* Content */}
-                    <div className="flex-1 overflow-y-auto">
-                      <div className="px-6 py-4 space-y-6">
-                        {/* Member Profile Card */}
-                        <div className="p-4 bg-gradient-to-br from-[#00B5A5]/5 to-[#00B5A5]/10 dark:from-[#00B5A5]/10 dark:to-[#00B5A5]/5 rounded-xl border border-[#00B5A5]/20">
-                          <div className="flex items-center gap-4">
-                            <div className="p-3 bg-[#00B5A5] rounded-xl">
-                              <UserCircleIcon className="w-8 h-8 text-white" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h2 className="text-lg font-bold text-gray-900 dark:text-white truncate">
-                                {application.member}
-                              </h2>
-                              <p className="text-sm text-[#00B5A5] font-medium">
-                                {application.membership_type}
-                              </p>
-                              {application.membership_number && (
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                                  {application.membership_number}
+                    {/* Tabs */}
+                    <div className="px-4 sm:px-6 border-b border-gray-200 dark:border-gray-700">
+                      <nav
+                        className="flex gap-1 -mb-px overflow-x-auto"
+                        aria-label="Tabs"
+                      >
+                        {TABS.map((tab) => (
+                          <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id)}
+                            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                              activeTab === tab.id
+                                ? "border-[#00B5A5] text-[#00B5A5]"
+                                : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:border-gray-300"
+                            }`}
+                          >
+                            {tab.label}
+                          </button>
+                        ))}
+                      </nav>
+                    </div>
+
+                    {/* Tab Content */}
+                    <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
+                      {/* Overview Tab */}
+                      {activeTab === "overview" && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {/* Member Profile Card */}
+                          <div className="md:col-span-2 p-4 bg-gradient-to-br from-[#00B5A5]/5 to-[#00B5A5]/10 dark:from-[#00B5A5]/10 dark:to-[#00B5A5]/5 rounded-xl border border-[#00B5A5]/20">
+                            <div className="flex items-center gap-4">
+                              <div className="p-3 bg-[#00B5A5] rounded-xl">
+                                <UserCircleIcon className="w-8 h-8 text-white" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h2 className="text-lg font-bold text-gray-900 dark:text-white truncate">
+                                  {application.member}
+                                </h2>
+                                <p className="text-sm text-[#00B5A5] font-medium">
+                                  {application.membership_type}
                                 </p>
+                                {application.membership_number && (
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                    {application.membership_number}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Contact Information */}
+                          <div>
+                            <SectionHeader
+                              icon={EnvelopeIcon}
+                              title="Contact Information"
+                            />
+                            <div className="space-y-1">
+                              <InfoRow
+                                icon={EnvelopeIcon}
+                                label="Email"
+                                value={member.email}
+                              />
+                              <InfoRow
+                                icon={PhoneIcon}
+                                label="Phone"
+                                value={member.phone_number}
+                              />
+                              {member.secondary_email && (
+                                <InfoRow
+                                  icon={EnvelopeIcon}
+                                  label="Secondary Email"
+                                  value={member.secondary_email}
+                                />
+                              )}
+                              {member.date_of_birth && (
+                                <InfoRow
+                                  icon={CalendarIcon}
+                                  label="Date of Birth"
+                                  value={formatDate(member.date_of_birth)}
+                                />
                               )}
                             </div>
                           </div>
-                        </div>
 
-                        {/* Contact Information */}
-                        <div>
-                          <SectionHeader icon={EnvelopeIcon} title="Contact Information" />
-                          <div className="space-y-1">
-                            <InfoRow
-                              icon={EnvelopeIcon}
-                              label="Email"
-                              value={member.email}
-                            />
-                            <InfoRow
-                              icon={PhoneIcon}
-                              label="Phone"
-                              value={member.phone_number}
-                            />
-                            {member.secondary_email && (
-                              <InfoRow
-                                icon={EnvelopeIcon}
-                                label="Secondary Email"
-                                value={member.secondary_email}
-                              />
-                            )}
-                            {member.date_of_birth && (
-                              <InfoRow
-                                icon={CalendarIcon}
-                                label="Date of Birth"
-                                value={formatDate(member.date_of_birth)}
-                              />
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Organization */}
-                        {(application.name_of_organization || application.company_email) && (
+                          {/* Organization */}
                           <div>
-                            <SectionHeader icon={BuildingOfficeIcon} title="Organization" />
+                            <SectionHeader
+                              icon={BuildingOfficeIcon}
+                              title="Organization"
+                            />
                             <div className="space-y-1">
                               <InfoRow
                                 icon={BuildingOfficeIcon}
@@ -413,108 +491,152 @@ export default function MemberApplicationSheet({
                               />
                             </div>
                           </div>
-                        )}
 
-                        {/* Fields of Practice */}
-                        {application.fieldsOfPractices.length > 0 && (
-                          <div>
-                            <SectionHeader icon={AcademicCapIcon} title="Fields of Practice" />
-                            <div className="flex flex-wrap gap-2">
-                              {application.fieldsOfPractices
-                                .filter(
-                                  (f, i, arr) =>
-                                    arr.findIndex((x) => x.id === f.id && x.is_primary === f.is_primary) === i
-                                )
-                                .map((field, index) => (
-                                  <TagBadge
-                                    key={`${field.id}-${field.is_primary}-${index}`}
-                                    label={field.field_of_practice}
-                                    isPrimary={field.is_primary}
-                                  />
-                                ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Countries of Practice */}
-                        {application.countriesOfPractice.length > 0 && (
-                          <div>
-                            <SectionHeader icon={GlobeAltIcon} title="Countries of Practice" />
-                            <div className="flex flex-wrap gap-2">
-                              {application.countriesOfPractice.map((country, index) => (
-                                <TagBadge
-                                  key={`${country.id}-${index}`}
-                                  label={`${country.country} (${country.region})`}
-                                  isPrimary={country.is_primary}
-                                />
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Documents */}
-                        {application.documents.length > 0 && (
-                          <div>
-                            <SectionHeader icon={DocumentTextIcon} title="Documents" />
-                            <div className="space-y-2">
-                              {application.documents.map((doc) => (
-                                <DocumentCard key={doc.id} document={doc} />
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Application Details */}
-                        <div>
-                          <SectionHeader icon={CalendarIcon} title="Application Details" />
-                          <div className="space-y-1">
+                          {/* Application Details */}
+                          <div className="md:col-span-2">
+                            <SectionHeader
+                              icon={CalendarIcon}
+                              title="Application Details"
+                            />
                             <InfoRow
                               icon={CalendarIcon}
                               label="Application Date"
                               value={formatDate(application.application_date)}
                             />
                           </div>
-                          
-                          {/* Compliance Checks */}
-                          <div className="mt-3 space-y-2">
-                            <div className="flex items-center gap-2">
-                              {application.abide_with_code_of_conduct ? (
-                                <CheckCircleIcon className="w-4 h-4 text-emerald-500" />
-                              ) : (
-                                <XCircleIcon className="w-4 h-4 text-red-500" />
-                              )}
-                              <span className="text-sm text-gray-600 dark:text-gray-400">
-                                Code of Conduct
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {application.comply_with_current_constitution ? (
-                                <CheckCircleIcon className="w-4 h-4 text-emerald-500" />
-                              ) : (
-                                <XCircleIcon className="w-4 h-4 text-red-500" />
-                              )}
-                              <span className="text-sm text-gray-600 dark:text-gray-400">
-                                Constitution Compliance
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {application.declaration ? (
-                                <CheckCircleIcon className="w-4 h-4 text-emerald-500" />
-                              ) : (
-                                <XCircleIcon className="w-4 h-4 text-red-500" />
-                              )}
-                              <span className="text-sm text-gray-600 dark:text-gray-400">
-                                Declaration Signed
-                              </span>
-                            </div>
+                        </div>
+                      )}
+
+                      {/* Practice Tab */}
+                      {activeTab === "practice" && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {/* Fields of Practice */}
+                          <div>
+                            <SectionHeader
+                              icon={AcademicCapIcon}
+                              title="Fields of Practice"
+                            />
+                            {application.fieldsOfPractices.length > 0 ? (
+                              <div className="flex flex-wrap gap-2">
+                                {application.fieldsOfPractices
+                                  .filter(
+                                    (f, i, arr) =>
+                                      arr.findIndex(
+                                        (x) =>
+                                          x.id === f.id &&
+                                          x.is_primary === f.is_primary,
+                                      ) === i,
+                                  )
+                                  .map((field, index) => (
+                                    <TagBadge
+                                      key={`${field.id}-${field.is_primary}-${index}`}
+                                      label={field.field_of_practice}
+                                      isPrimary={field.is_primary}
+                                    />
+                                  ))}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-gray-500 dark:text-gray-400">
+                                No fields of practice specified
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Countries of Practice */}
+                          <div>
+                            <SectionHeader
+                              icon={GlobeAltIcon}
+                              title="Countries of Practice"
+                            />
+                            {application.countriesOfPractice.length > 0 ? (
+                              <div className="flex flex-wrap gap-2">
+                                {application.countriesOfPractice.map(
+                                  (country, index) => (
+                                    <TagBadge
+                                      key={`${country.id}-${index}`}
+                                      label={`${country.country} (${country.region})`}
+                                      isPrimary={country.is_primary}
+                                    />
+                                  ),
+                                )}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-gray-500 dark:text-gray-400">
+                                No countries of practice specified
+                              </p>
+                            )}
                           </div>
                         </div>
-                      </div>
+                      )}
+
+                      {/* Documents Tab */}
+                      {activeTab === "documents" && (
+                        <div>
+                          <SectionHeader
+                            icon={DocumentTextIcon}
+                            title="Uploaded Documents"
+                          />
+                          {application.documents.length > 0 ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                              {application.documents.map((doc) => (
+                                <DocumentCard key={doc.id} document={doc} />
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              No documents uploaded
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Compliance Tab */}
+                      {activeTab === "compliance" && (
+                        <div>
+                          <SectionHeader
+                            icon={CheckBadgeIcon}
+                            title="Compliance Status"
+                          />
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <ComplianceCard
+                              title="Code of Conduct"
+                              description={
+                                application.abide_with_code_of_conduct
+                                  ? "Accepted"
+                                  : "Not accepted"
+                              }
+                              isCompliant={
+                                application.abide_with_code_of_conduct
+                              }
+                            />
+                            <ComplianceCard
+                              title="Constitution"
+                              description={
+                                application.comply_with_current_constitution
+                                  ? "Compliant"
+                                  : "Not compliant"
+                              }
+                              isCompliant={
+                                application.comply_with_current_constitution
+                              }
+                            />
+                            <ComplianceCard
+                              title="Declaration"
+                              description={
+                                application.declaration
+                                  ? "Signed"
+                                  : "Not signed"
+                              }
+                              isCompliant={application.declaration}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Footer Actions */}
                     {canGenerateCertificate && onGeneratePDF && (
-                      <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                      <div className="px-4 sm:px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                         <button
                           onClick={onGeneratePDF}
                           className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#00B5A5] hover:bg-[#009985] text-white font-medium rounded-xl transition-colors"

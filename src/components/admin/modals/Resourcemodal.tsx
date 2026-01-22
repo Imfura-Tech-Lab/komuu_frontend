@@ -17,7 +17,7 @@ export interface ResourceFormData {
   link: string;
   type: string;
   visibility: string;
-  group: number | null;
+  group: string | null;
   tags: string[];
   file?: File;
 }
@@ -51,10 +51,8 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
   const [fileName, setFileName] = useState("");
   const [groupQuery, setGroupQuery] = useState("");
 
-  // Fetch groups from hook
   const { groups, loading: groupsLoading, fetchGroups } = useGroups();
 
-  // Fetch groups when modal opens
   useEffect(() => {
     if (isOpen) {
       fetchGroups();
@@ -69,7 +67,7 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
         link: resource.link || "",
         type: resource.type,
         visibility: resource.visibility,
-        group: resource.groupId || null,
+        group: resource.groupId?.toString() || null,
         tags: resource.tags || [],
         file: undefined,
       });
@@ -90,16 +88,15 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
     setGroupQuery("");
   }, [resource, isOpen]);
 
-  // Filter groups based on search query
   const filteredGroups =
     groupQuery === ""
       ? groups
       : groups.filter((group) =>
-          group.name.toLowerCase().includes(groupQuery.toLowerCase())
+          group.name.toLowerCase().includes(groupQuery.toLowerCase()),
         );
 
-  // Get selected group object
-  const selectedGroup = groups.find((g) => g.id === formData.group) || null;
+  const selectedGroup =
+    groups.find((g) => String(g.id) === formData.group) || null;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -128,7 +125,6 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Omit group field if null to avoid sending empty string
     const { group, ...rest } = formData;
     const submitData = group !== null ? { ...rest, group } : rest;
     await onSubmit(submitData as ResourceFormData);
@@ -178,7 +174,6 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  {/* Title */}
                   <div>
                     <label
                       htmlFor="title"
@@ -199,7 +194,6 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
                     />
                   </div>
 
-                  {/* Description */}
                   <div>
                     <label
                       htmlFor="description"
@@ -222,7 +216,6 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
                     />
                   </div>
 
-                  {/* Type and Visibility */}
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label
@@ -273,7 +266,6 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Link */}
                   <div>
                     <label
                       htmlFor="link"
@@ -293,7 +285,6 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
                     />
                   </div>
 
-                  {/* File Upload */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       {resource ? "Replace File (optional)" : "Upload File"}
@@ -320,7 +311,6 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Tags */}
                   <div>
                     <label
                       htmlFor="tag-input"
@@ -370,7 +360,6 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Group - Searchable Combobox */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Group (optional)
@@ -378,7 +367,10 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
                     <Combobox
                       value={selectedGroup}
                       onChange={(group) =>
-                        setFormData({ ...formData, group: group?.id || null })
+                        setFormData({
+                          ...formData,
+                          group: group?.id ? String(group.id) : null,
+                        })
                       }
                       disabled={groupsLoading}
                     >
@@ -411,7 +403,6 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
                           afterLeave={() => setGroupQuery("")}
                         >
                           <Combobox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white dark:bg-gray-700 py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
-                            {/* Clear selection option */}
                             <Combobox.Option
                               value={null}
                               className={({ active }) =>
@@ -506,7 +497,6 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
                     )}
                   </div>
 
-                  {/* Actions */}
                   <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
                     <button
                       type="button"
