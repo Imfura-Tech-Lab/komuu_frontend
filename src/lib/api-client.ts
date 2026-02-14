@@ -357,3 +357,174 @@ export function useApi<T = any>() {
 
   return { ...state, execute, reset };
 }
+
+// ============================================================================
+// useApiRequest - Enhanced hook for API requests with automatic auth
+// ============================================================================
+
+export interface UseApiRequestOptions<T> {
+  onSuccess?: (data: T) => void;
+  onError?: (error: ApiError) => void;
+  showSuccessToast?: boolean;
+  showErrorToast?: boolean;
+  successMessage?: string;
+  errorMessage?: string;
+}
+
+export interface UseApiRequestState<T> {
+  data: T | null;
+  loading: boolean;
+  error: ApiError | null;
+  isSuccess: boolean;
+  isError: boolean;
+}
+
+export interface UseApiRequestReturn<T> extends UseApiRequestState<T> {
+  execute: () => Promise<T | null>;
+  reset: () => void;
+  refetch: () => Promise<T | null>;
+}
+
+// Get authenticated API client
+export function getAuthenticatedClient(): ApiClient {
+  const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+  const client = new ApiClient(getApiBaseUrl());
+  if (token) {
+    client.setAuthToken(token);
+  }
+  return client;
+}
+
+// Helper to get company header
+export function getCompanyHeaders(): Record<string, string> {
+  const companyId = typeof window !== "undefined" ? localStorage.getItem("company_id") : null;
+  return companyId ? { "X-Company-ID": companyId } : {};
+}
+
+export function useApiRequest<T>(
+  apiCall: (client: ApiClient) => Promise<ApiResponse<T>>,
+  options: UseApiRequestOptions<T> = {}
+): UseApiRequestReturn<T> {
+  const [state, setState] = useState<UseApiRequestState<T>>({
+    data: null,
+    loading: false,
+    error: null,
+    isSuccess: false,
+    isError: false,
+  });
+
+  const execute = useCallback(async (): Promise<T | null> => {
+    setState((prev) => ({
+      ...prev,
+      loading: true,
+      error: null,
+      isSuccess: false,
+      isError: false,
+    }));
+
+    try {
+      const client = getAuthenticatedClient();
+      const response = await apiCall(client);
+
+      // Handle nested data structure from API
+      const responseData = response.data?.data ?? response.data;
+
+      setState({
+        data: responseData,
+        loading: false,
+        error: null,
+        isSuccess: true,
+        isError: false,
+      });
+
+      options.onSuccess?.(responseData);
+
+      return responseData;
+    } catch (error) {
+      const apiError: ApiError = {
+        message: (error as ApiError).message || "An unexpected error occurred",
+        status: (error as ApiError).status || 500,
+        errors: (error as ApiError).errors,
+      };
+
+      setState({
+        data: null,
+        loading: false,
+        error: apiError,
+        isSuccess: false,
+        isError: true,
+      });
+
+      options.onError?.(apiError);
+
+      return null;
+    }
+  }, [apiCall, options]);
+
+  const reset = useCallback(() => {
+    setState({
+      data: null,
+      loading: false,
+      error: null,
+      isSuccess: false,
+      isError: false,
+    });
+  }, []);
+
+  const refetch = useCallback(async (): Promise<T | null> => {
+    return execute();
+  }, [execute]);
+
+  return {
+    ...state,
+    execute,
+    reset,
+    refetch,
+  };
+}
+
+// ============================================================================
+// Utility function for standalone API calls (outside hooks)
+// ============================================================================
+
+export async function apiRequest<T>(
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
+  endpoint: string,
+  data?: any,
+  config?: RequestConfig
+): Promise<T> {
+  const client = getAuthenticatedClient();
+  const headers = { ...getCompanyHeaders(), ...config?.headers };
+  const requestConfig = { ...config, headers };
+
+  let response: ApiResponse<T>;
+
+  switch (method) {
+    case "GET":
+      response = await client.get<T>(endpoint, requestConfig);
+      break;
+    case "POST":
+      response = await client.post<T>(endpoint, data, requestConfig);
+      break;
+    case "PUT":
+      response = await client.put<T>(endpoint, data, requestConfig);
+      break;
+    case "PATCH":
+      response = await client.patch<T>(endpoint, data, requestConfig);
+      break;
+    case "DELETE":
+      response = await client.delete<T>(endpoint, requestConfig);
+      break;
+  }
+
+  // Handle nested data structure
+  return response.data?.data ?? response.data;
+}
+
+// Helper function for internal API base URL
+function getApiBaseUrl(): string {
+  if (process.env.NEXT_PUBLIC_BACKEND_API_URL) {
+    return process.env.NEXT_PUBLIC_BACKEND_API_URL.replace(/\/$/, "");
+  }
+  return "/api";
+}
