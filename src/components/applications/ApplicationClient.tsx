@@ -298,7 +298,7 @@ export default function ApplicationClient() {
                 </p>
               </div>
               <button
-                onClick={fetchApplications}
+                onClick={() => fetchApplications()}
                 disabled={loading}
                 className="inline-flex items-center gap-2 px-4 py-2 text-gray-700 transition-colors bg-white border border-gray-300 rounded-lg dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
               >
@@ -326,7 +326,7 @@ export default function ApplicationClient() {
           <MemberApplicationSheet
             isOpen={isSheetOpen}
             onClose={() => setIsSheetOpen(false)}
-            application={memberApplication}
+            application={memberApplication as any}
             onRefresh={fetchApplications}
             isRefreshing={loading}
             onGeneratePDF={
@@ -368,7 +368,7 @@ export default function ApplicationClient() {
             </div>
             <div className="flex items-center gap-3">
               <button
-                onClick={fetchApplications}
+                onClick={() => fetchApplications()}
                 disabled={loading}
                 className="inline-flex items-center gap-2 px-4 py-2 text-gray-700 transition-colors bg-white border border-gray-300 rounded-lg dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
               >

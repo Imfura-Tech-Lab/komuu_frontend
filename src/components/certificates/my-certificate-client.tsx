@@ -874,7 +874,7 @@ export default function MyCertificatesClient() {
       setDownloadingId(certificate.id);
 
       // Use the useCertificates hook to get certificate data and generate PDF
-      const certData = await getCertificateData(certificate.token);
+      const certData = await getCertificateData(certificate.id);
       if (certData) {
         showSuccessToast("Certificate downloaded successfully");
       }

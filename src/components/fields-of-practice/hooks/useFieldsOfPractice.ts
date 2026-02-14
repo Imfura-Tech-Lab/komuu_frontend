@@ -15,8 +15,9 @@ export interface FieldOfPractice {
   id: number;
   field: string;
   code: string;
-  description?:string;
+  description?: string;
   sub_fields: SubField[];
+  total_applications?: number;
 }
 
 export interface CreateFieldOfPractice {

@@ -18,7 +18,6 @@ export default function FieldsOfPracticeClient() {
     fields,
     loading,
     error,
-    pagination,
     fetchFields,
     createField,
     updateField,

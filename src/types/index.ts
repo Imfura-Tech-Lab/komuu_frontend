@@ -128,6 +128,7 @@ export interface NavigationItemType {
   icon?: string;
   description?: string;
   badge?: string;
+  children?: NavigationItemType[];
 }
 
 // Function to create navigation items

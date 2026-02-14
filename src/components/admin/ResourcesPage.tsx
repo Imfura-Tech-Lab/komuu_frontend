@@ -510,7 +510,7 @@ export default function ResourcesPage() {
       link: formData.link,
       type: formData.type,
       visibility: formData.visibility,
-      ...(formData.group != null && { group: formData.group }),
+      ...(formData.group != null && { group: parseInt(formData.group, 10) }),
       tags: formData.tags,
       file: formData.file,
     });
@@ -532,7 +532,7 @@ export default function ResourcesPage() {
       link: formData.link,
       type: formData.type,
       visibility: formData.visibility,
-      ...(formData.group != null && { group: formData.group }),
+      ...(formData.group != null && { group: parseInt(formData.group, 10) }),
       tags: formData.tags,
       file: formData.file,
     });

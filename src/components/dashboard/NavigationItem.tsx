@@ -16,20 +16,20 @@ export function NavigationItem({
   hasPermission,
 }: NavigationItemProps) {
   const hasChildren = item.children && item.children.length > 0;
-  
+
   // Auto-expand if current path matches any child
   const [isExpanded, setIsExpanded] = useState(() => {
     if (hasChildren) {
-      return item.children!.some((child) => pathname.startsWith(child.href));
+      return item.children!.some((child: NavigationItemType) => pathname.startsWith(child.href));
     }
     return false;
   });
 
   const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
-  const isChildActive = item.children?.some((child) => pathname.startsWith(child.href));
+  const isChildActive = item.children?.some((child: NavigationItemType) => pathname.startsWith(child.href));
 
   // Filter visible children based on permissions
-  const visibleChildren = item.children?.filter((child) =>
+  const visibleChildren = item.children?.filter((child: NavigationItemType) =>
     hasPermission(child.permission)
   );
 
@@ -110,8 +110,8 @@ export function NavigationItem({
       {hasChildren && visibleChildren && visibleChildren.length > 0 && isExpanded && (
         <div className="mt-1 space-y-1 pl-11">
           {visibleChildren
-            .sort((a, b) => a.order - b.order)
-            .map((child) => {
+            .sort((a: NavigationItemType, b: NavigationItemType) => a.order - b.order)
+            .map((child: NavigationItemType) => {
               const isChildItemActive =
                 pathname === child.href || pathname.startsWith(child.href + "/");
 
