@@ -1,6 +1,8 @@
 import { useState } from "react";
 import CollapsibleSection from "./collapsible-section";
 import { Application } from "@/types";
+import { useFileViewer } from "@/lib/hooks/useFileViewer";
+import { FileViewer } from "@/components/ui/FileViwer";
 
 export interface ApplicationCardProps {
   application: Application;
@@ -25,6 +27,13 @@ export default function ApplicationCard({
 }: ApplicationCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isSigningCertificate, setIsSigningCertificate] = useState(false);
+  const {
+    isOpen: fileViewerOpen,
+    fileUrl,
+    fileName,
+    openFile,
+    closeFile,
+  } = useFileViewer();
 
   // Generate a meaningful title based on application data
   const getApplicationTitle = () => {
@@ -638,10 +647,8 @@ export default function ApplicationCard({
                         </p>
                       </div>
                     </div>
-                    <a
-                      href={application.qualification}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      onClick={() => openFile(application.qualification!, "Qualification Document")}
                       className="px-3 py-2 bg-[#00B5A5] hover:bg-[#009985] text-white text-sm rounded-md transition-colors flex items-center"
                     >
                       <svg
@@ -664,7 +671,7 @@ export default function ApplicationCard({
                         />
                       </svg>
                       View
-                    </a>
+                    </button>
                   </div>
                 )}
 
@@ -695,10 +702,8 @@ export default function ApplicationCard({
                         </p>
                       </div>
                     </div>
-                    <a
-                      href={application.cv_resume}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      onClick={() => openFile(application.cv_resume!, "CV/Resume")}
                       className="px-3 py-2 bg-[#00B5A5] hover:bg-[#009985] text-white text-sm rounded-md transition-colors flex items-center"
                     >
                       <svg
@@ -721,7 +726,7 @@ export default function ApplicationCard({
                         />
                       </svg>
                       View
-                    </a>
+                    </button>
                   </div>
                 )}
               </div>
@@ -978,6 +983,14 @@ export default function ApplicationCard({
             )}
         </div>
       )}
+
+      {/* File Viewer Modal */}
+      <FileViewer
+        isOpen={fileViewerOpen}
+        onClose={closeFile}
+        fileUrl={fileUrl}
+        fileName={fileName}
+      />
     </div>
   );
 }

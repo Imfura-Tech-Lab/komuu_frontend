@@ -14,13 +14,15 @@ import {
   BuildingOfficeIcon,
   AcademicCapIcon,
   GlobeAltIcon,
-  ArrowDownTrayIcon,
+  EyeIcon,
   ArrowPathIcon,
   CheckCircleIcon,
   ClockIcon,
   XCircleIcon,
   DocumentArrowDownIcon,
 } from "@heroicons/react/24/outline";
+import { useFileViewer } from "@/lib/hooks/useFileViewer";
+import { FileViewer } from "@/components/ui/FileViwer";
 
 interface MemberDetails {
   id: number;
@@ -200,13 +202,17 @@ function SectionHeader({
   );
 }
 
-function DocumentCard({ document }: { document: Document }) {
+function DocumentCard({
+  document,
+  onView,
+}: {
+  document: Document;
+  onView: (url: string, name: string) => void;
+}) {
   return (
-    <a
-      href={document.document_path}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors group"
+    <button
+      onClick={() => onView(document.document_path, document.document_type)}
+      className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors group w-full text-left"
     >
       <div className="p-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
         <DocumentTextIcon className="w-5 h-5 text-[#00B5A5]" />
@@ -219,8 +225,8 @@ function DocumentCard({ document }: { document: Document }) {
           {formatDate(document.uploaded_at)}
         </p>
       </div>
-      <ArrowDownTrayIcon className="w-4 h-4 text-gray-400 group-hover:text-[#00B5A5] transition-colors" />
-    </a>
+      <EyeIcon className="w-4 h-4 text-gray-400 group-hover:text-[#00B5A5] transition-colors" />
+    </button>
   );
 }
 
@@ -297,6 +303,13 @@ export default function MemberApplicationSheet({
   isRefreshing = false,
 }: MemberApplicationSheetProps) {
   const [activeTab, setActiveTab] = useState<TabId>("overview");
+  const {
+    isOpen: fileViewerOpen,
+    fileUrl,
+    fileName,
+    openFile,
+    closeFile,
+  } = useFileViewer();
 
   if (!application) return null;
 
@@ -308,7 +321,8 @@ export default function MemberApplicationSheet({
     .includes("certificate");
 
   return (
-    <Transition.Root show={isOpen} as={Fragment}>
+    <>
+      <Transition.Root show={isOpen} as={Fragment}>
       <Dialog as="div" className="relative z-50" onClose={onClose}>
         {/* Backdrop */}
         <Transition.Child
@@ -579,7 +593,7 @@ export default function MemberApplicationSheet({
                           {application.documents.length > 0 ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                               {application.documents.map((doc) => (
-                                <DocumentCard key={doc.id} document={doc} />
+                                <DocumentCard key={doc.id} document={doc} onView={openFile} />
                               ))}
                             </div>
                           ) : (
@@ -654,5 +668,14 @@ export default function MemberApplicationSheet({
         </div>
       </Dialog>
     </Transition.Root>
+
+      {/* File Viewer Modal */}
+      <FileViewer
+        isOpen={fileViewerOpen}
+        onClose={closeFile}
+        fileUrl={fileUrl}
+        fileName={fileName}
+      />
+    </>
   );
 }

@@ -20,11 +20,13 @@ import {
   IdentificationIcon,
   ShieldCheckIcon,
   DocumentCheckIcon,
-  ArrowTopRightOnSquareIcon,
+  EyeIcon,
   SparklesIcon,
   CheckBadgeIcon,
 } from "@heroicons/react/24/outline";
 import { CheckCircleIcon as CheckCircleSolid } from "@heroicons/react/24/solid";
+import { useFileViewer } from "@/lib/hooks/useFileViewer";
+import { FileViewer } from "@/components/ui/FileViwer";
 
 // Types based on API response
 interface MemberDetails {
@@ -243,7 +245,13 @@ function ComplianceItem({
 }
 
 // Document Card Component
-function DocumentCard({ document }: { document: Document }) {
+function DocumentCard({
+  document,
+  onView,
+}: {
+  document: Document;
+  onView: (url: string, name: string) => void;
+}) {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
       year: "numeric",
@@ -253,11 +261,9 @@ function DocumentCard({ document }: { document: Document }) {
   };
 
   return (
-    <a
-      href={document.document_path}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="group flex items-center gap-4 p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-[#00B5A5] dark:hover:border-[#00B5A5] hover:shadow-lg transition-all bg-white dark:bg-gray-800"
+    <button
+      onClick={() => onView(document.document_path, document.document_type)}
+      className="group flex items-center gap-4 p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-[#00B5A5] dark:hover:border-[#00B5A5] hover:shadow-lg transition-all bg-white dark:bg-gray-800 w-full text-left"
     >
       <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
         <DocumentTextIcon className="w-6 h-6 text-red-600 dark:text-red-400" />
@@ -270,8 +276,8 @@ function DocumentCard({ document }: { document: Document }) {
           Uploaded {formatDate(document.uploaded_at)}
         </p>
       </div>
-      <ArrowTopRightOnSquareIcon className="w-5 h-5 text-gray-400 group-hover:text-[#00B5A5] transition-colors flex-shrink-0" />
-    </a>
+      <EyeIcon className="w-5 h-5 text-gray-400 group-hover:text-[#00B5A5] transition-colors flex-shrink-0" />
+    </button>
   );
 }
 
@@ -304,6 +310,14 @@ export default function MemberApplicationDetail({
   loading = false,
   onGeneratePDF,
 }: MemberApplicationDetailProps) {
+  const {
+    isOpen: fileViewerOpen,
+    fileUrl,
+    fileName,
+    openFile,
+    closeFile,
+  } = useFileViewer();
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
       weekday: "long",
@@ -592,7 +606,7 @@ export default function MemberApplicationDetail({
                 
                 <div className="space-y-3">
                   {application.documents.map((doc) => (
-                    <DocumentCard key={doc.id} document={doc} />
+                    <DocumentCard key={doc.id} document={doc} onView={openFile} />
                   ))}
                 </div>
               </div>
@@ -682,6 +696,14 @@ export default function MemberApplicationDetail({
           </div>
         </div>
       </div>
+
+      {/* File Viewer Modal */}
+      <FileViewer
+        isOpen={fileViewerOpen}
+        onClose={closeFile}
+        fileUrl={fileUrl}
+        fileName={fileName}
+      />
     </div>
   );
 }

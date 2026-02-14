@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { RefreshCw, ChevronDown, ExternalLink, Edit2, Lock, CreditCard, Key, Webhook, FileText } from "lucide-react";
+import { RefreshCw, ChevronDown, Eye, Edit2, Lock, CreditCard, Key, Webhook, FileText } from "lucide-react";
 import {
   useSettings,
   FieldConfig,
   CATEGORY_NAMES,
 } from "@/lib/hooks/useSettings";
+import { useFileViewer } from "@/lib/hooks/useFileViewer";
+import { FileViewer } from "@/components/ui/FileViwer";
 
 const CATEGORY_ICONS: { [key: string]: React.ReactNode } = {
   payment_gateway: <CreditCard className="w-5 h-5" />,
@@ -29,6 +31,14 @@ export default function SettingsDetailsClient() {
     isImageField,
     getGroupedFields,
   } = useSettings();
+
+  const {
+    isOpen: fileViewerOpen,
+    fileUrl,
+    fileName,
+    openFile,
+    closeFile,
+  } = useFileViewer();
 
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
@@ -210,10 +220,19 @@ export default function SettingsDetailsClient() {
                 onCancel={handleCancel}
                 onValueChange={setEditValue}
                 onFileChange={handleFileChange}
+                onViewFile={openFile}
               />
             ))}
           </div>
         </div>
+
+        {/* File Viewer Modal */}
+        <FileViewer
+          isOpen={fileViewerOpen}
+          onClose={closeFile}
+          fileUrl={fileUrl}
+          fileName={fileName}
+        />
       </div>
     </div>
   );
@@ -234,6 +253,7 @@ interface SettingsFieldProps {
   onCancel: () => void;
   onValueChange: (value: string) => void;
   onFileChange: (file: File) => void;
+  onViewFile: (url: string, name: string) => void;
 }
 
 function SettingsField({
@@ -251,6 +271,7 @@ function SettingsField({
   onCancel,
   onValueChange,
   onFileChange,
+  onViewFile,
 }: SettingsFieldProps) {
   return (
     <div className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
@@ -293,6 +314,7 @@ function SettingsField({
               value={currentValue}
               imageUrl={imageUrl}
               onEdit={onEdit}
+              onViewFile={onViewFile}
             />
           )}
         </div>
@@ -468,9 +490,10 @@ interface FieldDisplayProps {
   value: string | null;
   imageUrl: string | null;
   onEdit: () => void;
+  onViewFile: (url: string, name: string) => void;
 }
 
-function FieldDisplay({ field, value, imageUrl, onEdit }: FieldDisplayProps) {
+function FieldDisplay({ field, value, imageUrl, onEdit, onViewFile }: FieldDisplayProps) {
   if (imageUrl) {
     return (
       <div className="flex flex-col sm:flex-row gap-4 items-start">
@@ -485,16 +508,13 @@ function FieldDisplay({ field, value, imageUrl, onEdit }: FieldDisplayProps) {
           }}
         />
         <div className="flex gap-2">
-          <a
-            href={imageUrl}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            onClick={() => onViewFile(imageUrl, field.label)}
             className="inline-flex items-center text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400"
           >
-
-            <ExternalLink className="w-3 h-3 mr-1" />
+            <Eye className="w-3 h-3 mr-1" />
             <span>View Full Size</span>
-          </a>
+          </button>
           <button
             onClick={onEdit}
             className="inline-flex items-center text-xs text-gray-600 hover:text-gray-800 dark:text-gray-400"

@@ -6,6 +6,8 @@ import {
   showErrorToast,
   showSuccessToast,
 } from "@/components/layouts/auth-layer-out";
+import { useFileViewer } from "@/lib/hooks/useFileViewer";
+import { FileViewer } from "@/components/ui/FileViwer";
 
 interface SignedBy {
   id: number;
@@ -191,6 +193,13 @@ export default function SingleCertificatePage({
   });
 
   const router = useRouter();
+  const {
+    isOpen: fileViewerOpen,
+    fileUrl,
+    fileName,
+    openFile,
+    closeFile,
+  } = useFileViewer();
 
   useEffect(() => {
     fetchCertificate();
@@ -613,10 +622,8 @@ export default function SingleCertificatePage({
         {/* Action Bar */}
         <div className="flex items-center justify-end gap-3 mb-6">
           {certificate.certificate && (
-            <a
-              href={certificate.certificate}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              onClick={() => openFile(certificate.certificate!, `${certificate.name} Certificate`)}
               className="inline-flex items-center px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium text-sm"
             >
               <svg
@@ -629,11 +636,17 @@ export default function SingleCertificatePage({
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
                 />
               </svg>
-              Download Certificate
-            </a>
+              View Certificate
+            </button>
           )}
           <button
             onClick={() => setShowEditModal(true)}
@@ -963,6 +976,14 @@ export default function SingleCertificatePage({
             </div>
           </div>
         )}
+
+        {/* File Viewer Modal */}
+        <FileViewer
+          isOpen={fileViewerOpen}
+          onClose={closeFile}
+          fileUrl={fileUrl}
+          fileName={fileName}
+        />
       </div>
     </div>
   );
