@@ -45,7 +45,7 @@ export class PaymentPDFService {
     pdf.setTextColor(0, 0, 0);
     pdf.setFontSize(16);
     pdf.setFont("helvetica", "bold");
-    pdf.text(`Payment #${payment.id}`, 25, yPosition + 12);
+    pdf.text(`Transaction: ${payment.transaction_number}`, 25, yPosition + 12);
     
     pdf.setFontSize(14);
     pdf.text(this.formatAmount(payment.amount_paid), 25, yPosition + 24);
@@ -119,7 +119,7 @@ export class PaymentPDFService {
         footerY
       );
       
-      const fileName = `payment_receipt_${payment.id}_${payment.member}.pdf`;
+      const fileName = `payment_receipt_${payment.transaction_number}_${payment.member}.pdf`;
       pdf.save(fileName);
       
       showSuccessToast("Payment receipt generated successfully!");
@@ -176,12 +176,12 @@ export class PaymentPDFService {
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(9);
       
-      pdf.text("ID", 25, yPosition + 5);
-      pdf.text("Member", 40, yPosition + 5);
-      pdf.text("Amount", 70, yPosition + 5);
-      pdf.text("Method", 95, yPosition + 5);
-      pdf.text("Status", 125, yPosition + 5);
-      pdf.text("Date", 150, yPosition + 5);
+      pdf.text("Transaction", 25, yPosition + 5);
+      pdf.text("Member", 55, yPosition + 5);
+      pdf.text("Amount", 85, yPosition + 5);
+      pdf.text("Method", 110, yPosition + 5);
+      pdf.text("Status", 140, yPosition + 5);
+      pdf.text("Date", 165, yPosition + 5);
       
       yPosition += 12;
       pdf.setTextColor(0, 0, 0);
@@ -193,14 +193,14 @@ export class PaymentPDFService {
           pdf.addPage();
           yPosition = 30;
         }
-        
-        pdf.text(payment.id.toString(), 25, yPosition);
-        pdf.text(payment.member, 40, yPosition);
-        pdf.text(payment.amount_paid.split(' ')[0], 70, yPosition);
-        pdf.text(payment.payment_method, 95, yPosition);
-        pdf.text(payment.status, 125, yPosition);
-        pdf.text(new Date(payment.payment_date).toLocaleDateString(), 150, yPosition);
-        
+
+        pdf.text(payment.transaction_number.substring(0, 10), 25, yPosition);
+        pdf.text(payment.member, 55, yPosition);
+        pdf.text(payment.amount_paid.split(' ')[0], 85, yPosition);
+        pdf.text(payment.payment_method, 110, yPosition);
+        pdf.text(payment.status, 140, yPosition);
+        pdf.text(new Date(payment.payment_date).toLocaleDateString(), 165, yPosition);
+
         yPosition += 6;
       });
       

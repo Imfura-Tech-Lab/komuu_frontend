@@ -499,17 +499,6 @@ function CertificateDetailsSheet({
                             Certificate Information
                           </h3>
                           <div className="space-y-3">
-                            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                              <div>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">
-                                  Certificate ID
-                                </p>
-                                <p className="font-medium text-gray-900 dark:text-white">
-                                  #{certificate.id}
-                                </p>
-                              </div>
-                            </div>
-
                             <div className="grid grid-cols-2 gap-3">
                               <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                                 <p className="text-xs text-gray-500 dark:text-gray-400">

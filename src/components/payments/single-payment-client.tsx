@@ -520,7 +520,7 @@ export default function SinglePaymentClient({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8 pt-6 border-t border-white/20">
             <div>
               <p className="text-white/60 text-xs uppercase tracking-wider">
-                Member ID
+                Member Number
               </p>
               <p className="font-semibold mt-1">{payment.member}</p>
             </div>
@@ -568,7 +568,6 @@ export default function SinglePaymentClient({
             {/* Transaction Details */}
             <InfoCard title="Transaction Details" icon={CreditCardIcon}>
               <div className="space-y-1">
-                <DetailRow label="Payment ID" value={`#${payment.id}`} />
                 <DetailRow
                   label="Transaction Number"
                   value={payment.transaction_number}
@@ -606,14 +605,6 @@ export default function SinglePaymentClient({
             {/* Application Details */}
             <InfoCard title="Application Details" icon={DocumentTextIcon}>
               <div className="space-y-1">
-                <DetailRow
-                  label="Application ID"
-                  value={application.id.substring(0, 18) + "..."}
-                  copyable
-                  onCopy={() => handleCopy(application.id, "Application ID")}
-                  copying={copying === "Application ID"}
-                  mono
-                />
                 <DetailRow
                   label="Membership Type"
                   value={application.membership_type}
@@ -856,9 +847,9 @@ export default function SinglePaymentClient({
                 <button
                   onClick={() =>
                     handleCopy(
-                      `Payment #${payment.id}\nAmount: ${
+                      `Transaction: ${payment.transaction_number}\nAmount: ${
                         payment.amount_paid
-                      }\nTransaction: ${payment.transaction_number}\nStatus: ${
+                      }\nStatus: ${
                         payment.status
                       }\nDate: ${formatDateTime(
                         payment.payment_date

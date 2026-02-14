@@ -215,16 +215,6 @@ export function ViewGroupModal({
                                 </code>
                               </div>
 
-                              {/* ID */}
-                              <div className="flex items-center justify-between p-4">
-                                <span className="text-sm text-gray-600 dark:text-gray-400">
-                                  Group ID
-                                </span>
-                                <span className="text-sm font-medium text-gray-900 dark:text-white">
-                                  {group.id}
-                                </span>
-                              </div>
-
                               {/* Created Date */}
                               <div className="flex items-center justify-between p-4">
                                 <span className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">

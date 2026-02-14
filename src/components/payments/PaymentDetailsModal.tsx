@@ -29,7 +29,6 @@ export default function PaymentDetailsModal({ payment, onClose }: PaymentDetails
   const handleCopyAll = async () => {
     setCopyingField("all");
     const paymentInfo = `
-Payment ID: ${payment.id}
 Member: ${payment.member}
 Amount: ${payment.amount_paid}
 Method: ${payment.payment_method}
@@ -130,10 +129,6 @@ Certificate Generated: ${payment.is_certificate_generated ? 'Yes' : 'No'}
 
                           <div className="grid grid-cols-2 gap-4">
                             <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Payment ID</p>
-                              <p className="font-medium text-gray-900 dark:text-white">{payment.id}</p>
-                            </div>
-                            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
                               <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Member Number</p>
                               <p className="font-medium text-gray-900 dark:text-white">{payment.member}</p>
                             </div>
@@ -144,6 +139,10 @@ Certificate Generated: ${payment.is_certificate_generated ? 'Yes' : 'No'}
                             <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
                               <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Gateway</p>
                               <p className="font-medium text-gray-900 dark:text-white">{payment.gateway}</p>
+                            </div>
+                            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Date</p>
+                              <p className="font-medium text-gray-900 dark:text-white">{formatDateTime(payment.payment_date)}</p>
                             </div>
                           </div>
                         </div>
