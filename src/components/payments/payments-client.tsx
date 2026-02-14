@@ -264,19 +264,19 @@ function PaymentCard({
         {/* Member Info */}
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#00B5A5] to-[#008F82] flex items-center justify-center text-white font-medium text-sm">
-            {payment.application.member_details.name
+            {(payment.application?.member_details?.name || payment.member)
               .split(" ")
-              .map((n) => n[0])
+              .map((n: string) => n[0])
               .join("")
               .substring(0, 2)
               .toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-medium text-gray-900 dark:text-white truncate">
-              {payment.application.member_details.name}
+              {payment.application?.member_details?.name || payment.member}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              {payment.member} • {payment.application.membership_type}
+              {payment.member}{payment.application?.membership_type ? ` • ${payment.application.membership_type}` : ''}
             </p>
           </div>
         </div>
@@ -484,49 +484,59 @@ function PaymentSideSheet({
                           <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                             <div className="flex items-start gap-3">
                               <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#00B5A5] to-[#008F82] flex items-center justify-center text-white font-semibold">
-                                {payment.application.member_details.name
+                                {(payment.application?.member_details?.name || payment.member)
                                   .split(" ")
-                                  .map((n) => n[0])
+                                  .map((n: string) => n[0])
                                   .join("")
                                   .substring(0, 2)
                                   .toUpperCase()}
                               </div>
                               <div className="flex-1">
                                 <p className="font-semibold text-gray-900 dark:text-white">
-                                  {payment.application.member_details.name}
+                                  {payment.application?.member_details?.name || payment.member}
                                 </p>
-                                <p className="text-sm text-gray-500 dark:text-gray-400">
-                                  {payment.application.member_details.email}
-                                </p>
+                                {payment.application?.member_details?.email && (
+                                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                                    {payment.application.member_details.email}
+                                  </p>
+                                )}
                                 <div className="flex items-center gap-2 mt-2">
                                   <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#00B5A5]/10 text-[#00B5A5]">
                                     {payment.member}
                                   </span>
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400">
-                                    {payment.application.membership_type}
-                                  </span>
+                                  {payment.application?.membership_type && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400">
+                                      {payment.application.membership_type}
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                             </div>
 
-                            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 grid grid-cols-2 gap-3 text-sm">
-                              <div>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">
-                                  Phone
-                                </p>
-                                <p className="text-gray-900 dark:text-white">
-                                  {payment.application.member_details.phone_number}
-                                </p>
+                            {(payment.application?.member_details?.phone_number || payment.application?.country_of_residency) && (
+                              <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 grid grid-cols-2 gap-3 text-sm">
+                                {payment.application?.member_details?.phone_number && (
+                                  <div>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                      Phone
+                                    </p>
+                                    <p className="text-gray-900 dark:text-white">
+                                      {payment.application.member_details.phone_number}
+                                    </p>
+                                  </div>
+                                )}
+                                {payment.application?.country_of_residency && (
+                                  <div>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                      Country
+                                    </p>
+                                    <p className="text-gray-900 dark:text-white">
+                                      {payment.application.country_of_residency}
+                                    </p>
+                                  </div>
+                                )}
                               </div>
-                              <div>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">
-                                  Country
-                                </p>
-                                <p className="text-gray-900 dark:text-white">
-                                  {payment.application.country_of_residency}
-                                </p>
-                              </div>
-                            </div>
+                            )}
 
                             <button
                               onClick={() => onViewMember(payment.member)}
@@ -540,48 +550,54 @@ function PaymentSideSheet({
                         </div>
 
                         {/* Application Info */}
-                        <div>
-                          <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
-                            Application Details
-                          </h3>
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                              <span className="text-sm text-gray-500 dark:text-gray-400">
-                                Application Status
-                              </span>
-                              <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
-                                {payment.application.application_status}
-                              </span>
-                            </div>
-                            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                              <span className="text-sm text-gray-500 dark:text-gray-400">
-                                Application Date
-                              </span>
-                              <span className="text-sm text-gray-900 dark:text-white">
-                                {formatDate(payment.application.application_date)}
-                              </span>
-                            </div>
-                            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                              <span className="text-sm text-gray-500 dark:text-gray-400">
-                                Certificate Generated
-                              </span>
-                              {payment.is_certificate_generated ? (
-                                <span className="inline-flex items-center gap-1 text-sm font-medium text-emerald-600 dark:text-emerald-400">
-                                  <CheckCircleIcon className="w-4 h-4" />
-                                  Yes
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 text-sm font-medium text-amber-600 dark:text-amber-400">
-                                  <ClockIcon className="w-4 h-4" />
-                                  Pending
-                                </span>
+                        {payment.application && (
+                          <div>
+                            <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
+                              Application Details
+                            </h3>
+                            <div className="space-y-2">
+                              {payment.application.application_status && (
+                                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                                    Application Status
+                                  </span>
+                                  <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                                    {payment.application.application_status}
+                                  </span>
+                                </div>
                               )}
+                              {payment.application.application_date && (
+                                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                                    Application Date
+                                  </span>
+                                  <span className="text-sm text-gray-900 dark:text-white">
+                                    {formatDate(payment.application.application_date)}
+                                  </span>
+                                </div>
+                              )}
+                              <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                <span className="text-sm text-gray-500 dark:text-gray-400">
+                                  Certificate Generated
+                                </span>
+                                {payment.is_certificate_generated ? (
+                                  <span className="inline-flex items-center gap-1 text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                                    <CheckCircleIcon className="w-4 h-4" />
+                                    Yes
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-sm font-medium text-amber-600 dark:text-amber-400">
+                                    <ClockIcon className="w-4 h-4" />
+                                    Pending
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </div>
+                        )}
 
                         {/* Organization Info (if available) */}
-                        {payment.application.name_of_organization && (
+                        {payment.application?.name_of_organization && (
                           <div>
                             <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
                               Organization
@@ -781,8 +797,8 @@ export default function PaymentsClient() {
       const matchesSearch =
         payment.member.toLowerCase().includes(searchLower) ||
         payment.transaction_number.toLowerCase().includes(searchLower) ||
-        payment.application.member_details.name.toLowerCase().includes(searchLower) ||
-        payment.application.member_details.email.toLowerCase().includes(searchLower);
+        (payment.application?.member_details?.name?.toLowerCase().includes(searchLower) ?? false) ||
+        (payment.application?.member_details?.email?.toLowerCase().includes(searchLower) ?? false);
 
       const matchesStatus =
         statusFilter === "all" ||

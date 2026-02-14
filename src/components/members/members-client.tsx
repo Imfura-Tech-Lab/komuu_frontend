@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   showErrorToast,
   showSuccessToast,
@@ -59,6 +59,8 @@ export default function MembersClient() {
   const [error, setError] = useState<string | null>(null);
 
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialSearch = searchParams.get("search") || "";
 
   useEffect(() => {
     fetchMembers();
@@ -654,6 +656,7 @@ export default function MembersClient() {
             "membership_number",
             "country_of_residency",
           ]}
+          initialSearchTerm={initialSearch}
           pagination={true}
           pageSize={25}
           onRowClick={(member) => router.push(`/members/${member.id}`)}
