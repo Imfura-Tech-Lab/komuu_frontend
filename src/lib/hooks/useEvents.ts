@@ -72,7 +72,7 @@ export function useEvents(): UseEventsReturn {
     return {
       Accept: "application/json",
       Authorization: `Bearer ${token}`,
-      "X-Company-ID": institutionId || "",
+      "X-Company-ID": companyId || "",
     };
   }, []);
 
