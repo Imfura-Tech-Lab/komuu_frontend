@@ -427,7 +427,8 @@ export function useApiRequest<T>(
       const response = await apiCall(client);
 
       // Handle nested data structure from API
-      const responseData = response.data?.data ?? response.data;
+      const rawData = response.data as Record<string, unknown> | undefined;
+      const responseData = (rawData?.data ?? response.data) as T;
 
       setState({
         data: responseData,
@@ -518,5 +519,6 @@ export async function apiRequest<T>(
   }
 
   // Handle nested data structure
-  return response.data?.data ?? response.data;
+  const rawData = response.data as Record<string, unknown> | undefined;
+  return (rawData?.data ?? response.data) as T;
 }

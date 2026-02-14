@@ -9,7 +9,7 @@ export const ApiResponseSchema = <T extends z.ZodTypeAny>(dataSchema: T) =>
     status: z.enum(["success", "error"]),
     message: z.string().optional(),
     data: dataSchema.optional(),
-    errors: z.record(z.array(z.string())).optional(),
+    errors: z.record(z.string(), z.array(z.string())).optional(),
   });
 
 export const PaginatedResponseSchema = <T extends z.ZodTypeAny>(itemSchema: T) =>
@@ -310,7 +310,7 @@ export function safeParseWithFallback<T>(
   if (result.success) {
     return result.data;
   }
-  console.warn("Validation failed, using fallback:", result.error.errors);
+  console.warn("Validation failed, using fallback:", result.error.issues);
   return fallback;
 }
 
