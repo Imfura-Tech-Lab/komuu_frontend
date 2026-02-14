@@ -520,11 +520,3 @@ export async function apiRequest<T>(
   // Handle nested data structure
   return response.data?.data ?? response.data;
 }
-
-// Helper function for internal API base URL
-function getApiBaseUrl(): string {
-  if (process.env.NEXT_PUBLIC_BACKEND_API_URL) {
-    return process.env.NEXT_PUBLIC_BACKEND_API_URL.replace(/\/$/, "");
-  }
-  return "/api";
-}
