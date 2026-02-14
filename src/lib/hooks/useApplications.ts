@@ -2,8 +2,6 @@ import { useState, useEffect, useCallback } from "react";
 import { showErrorToast } from "@/components/layouts/auth-layer-out";
 import { Application } from "@/types";
 import { getAuthenticatedClient, ApiError } from "@/lib/api-client";
-import { ApplicationSchema, safeParseWithFallback } from "@/lib/validations/api-schemas";
-import { z } from "zod";
 
 interface PaginationState {
   currentPage: number;
@@ -21,24 +19,6 @@ interface UseApplicationsReturn {
   fetchApplications: (page?: number) => Promise<void>;
   setApplications: React.Dispatch<React.SetStateAction<Application[]>>;
 }
-
-// Response schema for validation
-const ApplicationsResponseSchema = z.object({
-  status: z.enum(["success", "error"]),
-  message: z.string().optional(),
-  data: z.union([
-    // Single application (member view)
-    ApplicationSchema,
-    // Paginated response (admin view)
-    z.object({
-      data: z.array(ApplicationSchema),
-      current_page: z.number(),
-      last_page: z.number(),
-      total: z.number(),
-      per_page: z.number(),
-    }),
-  ]).optional(),
-});
 
 export const useApplications = (): UseApplicationsReturn => {
   const [applications, setApplications] = useState<Application[]>([]);
@@ -86,38 +66,35 @@ export const useApplications = (): UseApplicationsReturn => {
       const client = getAuthenticatedClient();
       const response = await client.get(endpoint);
 
-      // Validate response structure
-      const validatedResponse = safeParseWithFallback(
-        ApplicationsResponseSchema,
-        response.data,
-        { status: "error", data: undefined }
-      );
+      // Handle response - use raw data if validation fails
+      const responseData = response.data as { status?: string; data?: any; message?: string };
 
-      if (validatedResponse.status === "success" && validatedResponse.data) {
+      if (responseData.status === "success" || responseData.data) {
         if (isMember) {
           // For member: my-application returns single object
-          const applicationData = validatedResponse.data as Application;
+          const applicationData = responseData.data;
           setApplications(applicationData ? [applicationData] : []);
         } else {
           // For admin: applications returns paginated data
-          const paginatedData = validatedResponse.data as {
-            data: Application[];
-            current_page: number;
-            last_page: number;
-            total: number;
-            per_page: number;
-          };
+          const paginatedData = responseData.data || {};
+          const applicationsData = Array.isArray(paginatedData.data)
+            ? paginatedData.data
+            : Array.isArray(paginatedData)
+            ? paginatedData
+            : [];
 
-          setApplications(paginatedData.data || []);
-          setPagination({
-            currentPage: paginatedData.current_page,
-            lastPage: paginatedData.last_page,
-            total: paginatedData.total,
-            perPage: paginatedData.per_page,
-          });
+          setApplications(applicationsData);
+          if (paginatedData.current_page) {
+            setPagination({
+              currentPage: paginatedData.current_page,
+              lastPage: paginatedData.last_page,
+              total: paginatedData.total,
+              perPage: paginatedData.per_page,
+            });
+          }
         }
       } else {
-        throw new Error(validatedResponse.message || "Failed to fetch applications");
+        throw new Error(responseData.message || "Failed to fetch applications");
       }
     } catch (err) {
       console.error("Failed to fetch applications:", err);

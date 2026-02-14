@@ -136,13 +136,16 @@ function InteractiveMap({
   );
 
   // Memoized handlers to prevent infinite loops
- const handleMoveEnd = useCallback((newPosition: any) => {
-   setPosition((prev) => ({
-     ...prev,
-     ...newPosition,
-     zoom: newPosition.zoom ?? prev.zoom ?? 1,
-   }));
- }, []);
+  // Use setTimeout to defer state update and avoid setState during render
+  const handleMoveEnd = useCallback((newPosition: any) => {
+    setTimeout(() => {
+      setPosition((prev) => ({
+        ...prev,
+        ...newPosition,
+        zoom: newPosition.zoom ?? prev.zoom ?? 1,
+      }));
+    }, 0);
+  }, []);
 
   const handleCountryClick = useCallback((geo: any) => {
     const countryName = geo.properties.name;
