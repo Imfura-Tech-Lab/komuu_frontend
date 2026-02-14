@@ -264,9 +264,11 @@ function PaymentCard({
       <div className="p-4 space-y-3">
         {/* Membership Info */}
         <div className="flex items-center gap-2">
-          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400">
-            {payment.application.membership_type}
-          </span>
+          {payment.application?.membership_type && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400">
+              {payment.application.membership_type}
+            </span>
+          )}
           <span className="text-xs text-gray-500 dark:text-gray-400">
             {payment.member}
           </span>
@@ -351,10 +353,12 @@ function PaymentRow({
             <p className="text-gray-500 dark:text-gray-400 text-xs">Date</p>
             <p className="text-gray-900 dark:text-white">{formatDate(payment.payment_date)}</p>
           </div>
-          <div className="hidden sm:block">
-            <p className="text-gray-500 dark:text-gray-400 text-xs">Membership</p>
-            <p className="text-gray-900 dark:text-white">{payment.application.membership_type}</p>
-          </div>
+          {payment.application?.membership_type && (
+            <div className="hidden sm:block">
+              <p className="text-gray-500 dark:text-gray-400 text-xs">Membership</p>
+              <p className="text-gray-900 dark:text-white">{payment.application.membership_type}</p>
+            </div>
+          )}
         </div>
 
         {/* Right: Status & Certificate */}
@@ -427,7 +431,7 @@ function PaymentSideSheet({
         {/* Side Sheet */}
         <div className="fixed inset-0 overflow-hidden">
           <div className="absolute inset-0 overflow-hidden">
-            <div className="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10">
+            <div className="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-0 sm:pl-10">
               <Transition.Child
                 as={Fragment}
                 enter="transform transition ease-in-out duration-300"
@@ -437,7 +441,7 @@ function PaymentSideSheet({
                 leaveFrom="translate-x-0"
                 leaveTo="translate-x-full"
               >
-                <Dialog.Panel className="pointer-events-auto w-screen max-w-md">
+                <Dialog.Panel className="pointer-events-auto w-screen max-w-full sm:max-w-2xl md:max-w-3xl lg:max-w-5xl xl:max-w-[70vw]">
                   <div className="flex h-full flex-col bg-white dark:bg-gray-900 shadow-2xl">
                     {/* Header */}
                     <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
@@ -545,29 +549,37 @@ function PaymentSideSheet({
                               <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-[#00B5A5]/10 text-[#00B5A5]">
                                 {payment.member}
                               </span>
-                              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400">
-                                {payment.application.membership_type}
-                              </span>
+                              {payment.application?.membership_type && (
+                                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400">
+                                  {payment.application.membership_type}
+                                </span>
+                              )}
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3 text-sm">
-                              <div>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">
-                                  Application Status
-                                </p>
-                                <p className="font-medium text-emerald-600 dark:text-emerald-400">
-                                  {payment.application.application_status}
-                                </p>
+                            {payment.application && (
+                              <div className="grid grid-cols-2 gap-3 text-sm">
+                                {payment.application.application_status && (
+                                  <div>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                      Application Status
+                                    </p>
+                                    <p className="font-medium text-emerald-600 dark:text-emerald-400">
+                                      {payment.application.application_status}
+                                    </p>
+                                  </div>
+                                )}
+                                {payment.application.country_of_residency && (
+                                  <div>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                      Country
+                                    </p>
+                                    <p className="font-medium text-gray-900 dark:text-white">
+                                      {payment.application.country_of_residency}
+                                    </p>
+                                  </div>
+                                )}
                               </div>
-                              <div>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">
-                                  Country
-                                </p>
-                                <p className="font-medium text-gray-900 dark:text-white">
-                                  {payment.application.country_of_residency}
-                                </p>
-                              </div>
-                            </div>
+                            )}
                           </div>
                         </div>
 
@@ -813,7 +825,7 @@ export default function MyPaymentsClient() {
       const matchesSearch =
         payment.transaction_number.toLowerCase().includes(searchLower) ||
         payment.member.toLowerCase().includes(searchLower) ||
-        payment.application.membership_type.toLowerCase().includes(searchLower);
+        (payment.application?.membership_type?.toLowerCase().includes(searchLower) ?? false);
 
       const matchesStatus =
         statusFilter === "all" ||

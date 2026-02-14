@@ -590,7 +590,7 @@ function PaymentSideSheet({
 
         <div className="fixed inset-0 overflow-hidden">
           <div className="absolute inset-0 overflow-hidden">
-            <div className="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10">
+            <div className="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-0 sm:pl-10">
               <Transition.Child
                 as={Fragment}
                 enter="transform transition ease-in-out duration-300"
@@ -600,7 +600,7 @@ function PaymentSideSheet({
                 leaveFrom="translate-x-0"
                 leaveTo="translate-x-full"
               >
-                <Dialog.Panel className="pointer-events-auto w-screen max-w-md">
+                <Dialog.Panel className="pointer-events-auto w-screen max-w-full sm:max-w-2xl md:max-w-3xl lg:max-w-5xl xl:max-w-[70vw]">
                   <div className="flex h-full flex-col bg-white dark:bg-gray-900 shadow-2xl">
                     <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
                       <div className="flex items-center justify-between">
