@@ -599,36 +599,33 @@ export default function FieldsOfPracticeClient() {
       </div>
 
       {/* Modals */}
-      {showCreateModal && (
-        <CreateFieldModal
-          onClose={() => setShowCreateModal(false)}
-          onSubmit={createField}
-          existingFields={fields}
-        />
-      )}
+      <CreateFieldModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSubmit={createField}
+        existingFields={fields}
+      />
 
-      {showEditModal && editingField && (
-        <EditFieldModal
-          field={editingField}
-          onClose={() => {
-            setShowEditModal(false);
-            setEditingField(null);
-          }}
-          onSubmit={updateField}
-          existingFields={fields}
-        />
-      )}
+      <EditFieldModal
+        isOpen={showEditModal && !!editingField}
+        field={editingField}
+        onClose={() => {
+          setShowEditModal(false);
+          setEditingField(null);
+        }}
+        onSubmit={updateField}
+        existingFields={fields}
+      />
 
-      {showDeleteModal && deletingField && (
-        <DeleteFieldModal
-          field={deletingField}
-          onClose={() => {
-            setShowDeleteModal(false);
-            setDeletingField(null);
-          }}
-          onConfirm={deleteField}
-        />
-      )}
+      <DeleteFieldModal
+        isOpen={showDeleteModal && !!deletingField}
+        field={deletingField}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setDeletingField(null);
+        }}
+        onConfirm={deleteField}
+      />
 
       {/* Sub-fields Modal */}
       {showSubFieldsModal && selectedField && (
