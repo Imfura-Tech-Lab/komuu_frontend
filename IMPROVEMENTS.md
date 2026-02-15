@@ -239,6 +239,16 @@ This document tracks identified improvements for the AFSA Membership Portal fron
 | # | Improvement | Date | PR/Commit |
 |---|-------------|------|-----------|
 | - | Initial codebase setup | - | - |
+| 2 | Add Error Boundary component | 2026-02-15 | Already existed |
+| 4 | Add input validation with Zod | 2026-02-15 | Already existed |
+| 5 | Consolidate ROLE_PERMISSIONS | 2026-02-15 | Already using single source |
+| 6 | Create BaseModal component | 2026-02-15 | src/components/ui/BaseModal.tsx |
+| 7 | Standardize form components | 2026-02-15 | src/components/ui/FormComponents.tsx |
+| 10 | Create StatusBadge component | 2026-02-15 | src/components/ui/StatusBadge.tsx |
+| 11 | Add loading skeleton components | 2026-02-15 | src/components/ui/Skeleton.tsx |
+| 14 | Standardize date formatting | 2026-02-15 | src/lib/utils/date.ts |
+| 15 | Create useApiRequest hook | 2026-02-15 | Already existed in api-client.ts |
+| - | Fix file naming (Resourcemodal) | 2026-02-15 | Renamed to ResourceModal.tsx |
 
 ---
 

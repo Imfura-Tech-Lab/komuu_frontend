@@ -25,7 +25,7 @@ import {
 import { HeartIcon as HeartIconSolid } from "@heroicons/react/24/solid";
 import { useResources, Resource } from "@/lib/hooks/useResources";
 import { FileViewer } from "@/components/ui/FileViwer";
-import { ResourceFormData, ResourceModal } from "./modals/Resourcemodal";
+import { ResourceFormData, ResourceModal } from "./modals/ResourceModal";
 import { DeleteConfirmModal } from "./modals/DeleteConfirmModal";
 
 // ============================================================================
