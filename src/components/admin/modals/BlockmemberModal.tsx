@@ -42,8 +42,8 @@ export function BlockMemberModal({
       setIsBlocking(true);
       await onBlockMember(selectedMemberId);
       handleClose();
-    } catch (error) {
-      console.error("Error blocking member:", error);
+    } catch {
+      // Error handled by parent component
     } finally {
       setIsBlocking(false);
     }

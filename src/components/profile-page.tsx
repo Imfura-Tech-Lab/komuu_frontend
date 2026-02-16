@@ -140,7 +140,6 @@ export default function ProfilePage() {
     try {
       const token = localStorage.getItem("auth_token");
       if (!token) {
-        console.error("No auth token found for image fetch");
         return null;
       }
 
@@ -152,14 +151,12 @@ export default function ProfilePage() {
       });
 
       if (!response.ok) {
-        console.error(`Failed to fetch image: ${response.status}`);
         return null;
       }
 
       const blob = await response.blob();
       return URL.createObjectURL(blob);
-    } catch (error) {
-      console.error("Error fetching authenticated image:", error);
+    } catch {
       return null;
     }
   }, []);
@@ -264,8 +261,7 @@ export default function ProfilePage() {
             setProfileImagePreview(blobUrl);
           }
         }
-      } catch (error) {
-        console.error("Failed to load user data:", error);
+      } catch {
         showErrorToast("Failed to load profile data.");
       } finally {
         setIsLoading(false);
@@ -391,7 +387,6 @@ export default function ProfilePage() {
         }
       }
     } catch (error) {
-      console.error("Profile update failed:", error);
       if (error instanceof Error) {
         showErrorToast(error.message);
       } else {
@@ -1196,8 +1191,7 @@ export default function ProfilePage() {
                             const error = await response.json();
                             showErrorToast(error.message || "Failed to send verification email");
                           }
-                        } catch (error) {
-                          console.error("Error sending verification email:", error);
+                        } catch {
                           showErrorToast("Failed to send verification email");
                         }
                       }}

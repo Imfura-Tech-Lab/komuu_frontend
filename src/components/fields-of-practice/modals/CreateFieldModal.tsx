@@ -20,27 +20,24 @@ export function CreateFieldModal({ isOpen, onClose, onSubmit, existingFields }: 
   const [selectedMainField, setSelectedMainField] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Get only main fields (fields that don't have a main_field parent, or are top-level)
+  // Get only main fields (fields that don't have a main_field parent)
   const mainFields = existingFields.filter(field => {
-    // Assuming a field is "main" if it's not a subfield of another
-    // You may need to adjust this logic based on your data structure
-    // @ts-ignore
-    return !existingFields.some(f => f.id === field.main_field);
+    return !field.main_field;
   });
 
   const handleSubmit = async () => {
     setLoading(true);
 
-    let submitData: any = {
+    const baseData = {
       field_of_practice: formData.field_of_practice,
       code: formData.code,
       description: formData.description,
     };
 
     // Only add main_field if it's a subfield
-    if (isSubField && selectedMainField) {
-      submitData.main_field = selectedMainField;
-    }
+    const submitData = isSubField && selectedMainField
+      ? { ...baseData, main_field: selectedMainField }
+      : baseData;
 
     const success = await onSubmit(submitData);
     setLoading(false);

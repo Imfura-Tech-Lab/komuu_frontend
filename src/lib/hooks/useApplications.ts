@@ -38,8 +38,8 @@ export const useApplications = (): UseApplicationsReturn => {
       try {
         const parsedData = JSON.parse(userData);
         setUserRole(parsedData.role || "");
-      } catch (e) {
-        console.error("Failed to parse user data:", e);
+      } catch {
+        // Invalid JSON in localStorage
       }
     }
     fetchApplications();
@@ -97,8 +97,6 @@ export const useApplications = (): UseApplicationsReturn => {
         throw new Error(responseData.message || "Failed to fetch applications");
       }
     } catch (err) {
-      console.error("Failed to fetch applications:", err);
-
       const apiError = err as ApiError;
       const errorMessage = apiError.message || "Failed to fetch applications";
       setError(errorMessage);

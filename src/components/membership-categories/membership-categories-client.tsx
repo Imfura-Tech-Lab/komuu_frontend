@@ -715,7 +715,6 @@ export default function MembershipCategoriesClient() {
         throw new Error(responseData.message || "Failed to fetch categories");
       }
     } catch (err) {
-      console.error("Failed to fetch categories:", err);
       setError(err instanceof Error ? err.message : "Failed to fetch categories");
       showErrorToast("Failed to load membership categories");
     } finally {
@@ -755,7 +754,6 @@ export default function MembershipCategoriesClient() {
       setEditingCategory(null);
       fetchCategories(currentPage);
     } catch (err) {
-      console.error("Failed to save category:", err);
       showErrorToast(err instanceof Error ? err.message : "Failed to save category");
     } finally {
       setSaving(false);
@@ -788,7 +786,6 @@ export default function MembershipCategoriesClient() {
       showSuccessToast("Category deleted successfully");
       fetchCategories(currentPage);
     } catch (err) {
-      console.error("Failed to delete category:", err);
       showErrorToast(err instanceof Error ? err.message : "Failed to delete category");
     } finally {
       setDeletingId(null);

@@ -3,6 +3,7 @@ import {
   showErrorToast,
   showSuccessToast,
 } from "@/components/layouts/auth-layer-out";
+import { getAuthenticatedClient, getCompanyHeaders, ApiError } from "@/lib/api-client";
 
 export interface MemberGroup {
   id: string;
@@ -31,7 +32,7 @@ interface Pagination {
   to: number;
 }
 
-interface ApiResponse<T = any> {
+interface ApiResponse<T> {
   status: "success" | "error" | boolean;
   message: string;
   data: T;
@@ -39,7 +40,7 @@ interface ApiResponse<T = any> {
 
 interface LaravelPaginatedResponse {
   current_page: number;
-  data: any[];
+  data: Record<string, unknown>[];
   first_page_url: string;
   from: number;
   last_page: number;
@@ -71,6 +72,23 @@ interface UseMemberGroupsReturn {
   leaveGroup: (slug: string) => Promise<boolean>;
 }
 
+function transformGroup(apiGroup: Record<string, unknown>): MemberGroup {
+  const createdBy = apiGroup.created_by as { id: number; name: string; role: string } | undefined;
+  return {
+    id: String(apiGroup.id),
+    name: apiGroup.name as string,
+    slug: apiGroup.slug as string,
+    description: (apiGroup.description as string) || "",
+    members: (apiGroup.total_members as number) || 0,
+    category: (apiGroup.category as string) || "General",
+    privacy: (apiGroup.privacy as "Public" | "Private") || "Public",
+    activity: (apiGroup.activity as "High" | "Medium" | "Low") || "Medium",
+    created_at: apiGroup.created_at as string,
+    created_by: createdBy || { id: 0, name: "", role: "" },
+    is_member: apiGroup.is_member as boolean | undefined,
+  };
+}
+
 export function useMemberGroups(): UseMemberGroupsReturn {
   const [groups, setGroups] = useState<MemberGroup[]>([]);
   const [joinedGroups, setJoinedGroups] = useState<MemberGroup[]>([]);
@@ -85,169 +103,97 @@ export function useMemberGroups(): UseMemberGroupsReturn {
     to: 0,
   });
 
-  const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
-  const companyId =
-    typeof window !== "undefined" ? localStorage.getItem("company_id") : null;
+  // Fetch all available groups
+  const fetchAllGroups = useCallback(async (page: number = 1) => {
+    try {
+      setLoading(true);
+      setError(null);
 
-  // Transform API group to component interface
-  const transformGroup = useCallback((apiGroup: any): MemberGroup => {
-    return {
-      id: apiGroup.id.toString(),
-      name: apiGroup.name,
-      slug: apiGroup.slug,
-      description: apiGroup.description || "",
-      members: apiGroup.total_members || 0,
-      category: apiGroup.category || "General",
-      privacy: apiGroup.privacy || "Public",
-      activity: apiGroup.activity || "Medium",
-      created_at: apiGroup.created_at,
-      created_by: apiGroup.created_by,
-      is_member: apiGroup.is_member,
-    };
+      const client = getAuthenticatedClient();
+      const response = await client.get<ApiResponse<LaravelPaginatedResponse>>(
+        `communication/groups/all?page=${page}`,
+        { headers: getCompanyHeaders() }
+      );
+
+      const data = response.data;
+      if ((data.status === "success" || data.status === true) && data.data) {
+        const transformedGroups = data.data.data.map(transformGroup);
+        setGroups(transformedGroups);
+
+        setPagination({
+          currentPage: data.data.current_page,
+          lastPage: data.data.last_page,
+          perPage: data.data.per_page,
+          total: data.data.total,
+          from: data.data.from || 0,
+          to: data.data.to || 0,
+        });
+      }
+    } catch {
+      showErrorToast("Failed to load groups");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  // Get auth headers
-  const getAuthHeaders = () => {
-    const token =
-      typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
-    return {
-      Accept: "application/json",
-      Authorization: `Bearer ${token}`,
-      "X-Company-ID": companyId || "",
-    };
-  };
-
-  // Base fetch wrapper with error handling
-  const apiCall = useCallback(
-    async <T>(
-      endpoint: string,
-      options: RequestInit = {}
-    ): Promise<T | null> => {
-      try {
-        const response = await fetch(`${apiUrl}${endpoint}`, {
-          ...options,
-          headers: {
-            ...getAuthHeaders(),
-            ...options.headers,
-          },
-        });
-
-        const data: ApiResponse<T> = await response.json();
-
-        if (!response.ok) {
-          throw new Error(
-            data.message ||
-              `API error: ${response.status} ${response.statusText}`
-          );
-        }
-
-        if (data.status === "success" || data.status === true) {
-          return data.data;
-        } else {
-          throw new Error(data.message || "API request failed");
-        }
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : "Unknown error occurred";
-        setError(errorMessage);
-        throw err;
-      }
-    },
-    [apiUrl, companyId]
-  );
-
-  // Fetch all available groups
-  const fetchAllGroups = useCallback(
-    async (page: number = 1) => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const data = await apiCall<LaravelPaginatedResponse>(
-          `communication/groups/all?page=${page}`
-        );
-
-        if (data) {
-          const transformedGroups = data.data.map(transformGroup);
-          setGroups(transformedGroups);
-
-          setPagination({
-            currentPage: data.current_page,
-            lastPage: data.last_page,
-            perPage: data.per_page,
-            total: data.total,
-            from: data.from || 0,
-            to: data.to || 0,
-          });
-        }
-      } catch (err) {
-        console.error("Failed to fetch all groups:", err);
-        showErrorToast("Failed to load groups");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [apiCall, transformGroup]
-  );
-
   // Fetch groups current member has joined
-  const fetchJoinedGroups = useCallback(
-    async (page: number = 1) => {
-      try {
-        setLoading(true);
-        setError(null);
+  const fetchJoinedGroups = useCallback(async (page: number = 1) => {
+    try {
+      setLoading(true);
+      setError(null);
 
-        const data = await apiCall<LaravelPaginatedResponse>(
-          `communication/groups/all/joined?page=${page}`
-        );
+      const client = getAuthenticatedClient();
+      const response = await client.get<ApiResponse<LaravelPaginatedResponse>>(
+        `communication/groups/all/joined?page=${page}`,
+        { headers: getCompanyHeaders() }
+      );
 
-        if (data) {
-          const transformedGroups = data.data.map(transformGroup);
-          setJoinedGroups(transformedGroups);
+      const data = response.data;
+      if ((data.status === "success" || data.status === true) && data.data) {
+        const transformedGroups = data.data.data.map(transformGroup);
+        setJoinedGroups(transformedGroups);
 
-          setPagination({
-            currentPage: data.current_page,
-            lastPage: data.last_page,
-            perPage: data.per_page,
-            total: data.total,
-            from: data.from || 0,
-            to: data.to || 0,
-          });
-        }
-      } catch (err) {
-        console.error("Failed to fetch joined groups:", err);
-        showErrorToast("Failed to load your groups");
-      } finally {
-        setLoading(false);
+        setPagination({
+          currentPage: data.data.current_page,
+          lastPage: data.data.last_page,
+          perPage: data.data.per_page,
+          total: data.data.total,
+          from: data.data.from || 0,
+          to: data.data.to || 0,
+        });
       }
-    },
-    [apiCall, transformGroup]
-  );
+    } catch {
+      showErrorToast("Failed to load your groups");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   // Fetch single group details by slug
-  const fetchGroup = useCallback(
-    async (slug: string): Promise<MemberGroup | null> => {
-      try {
-        setLoading(true);
-        setError(null);
+  const fetchGroup = useCallback(async (slug: string): Promise<MemberGroup | null> => {
+    try {
+      setLoading(true);
+      setError(null);
 
-        const data = await apiCall<any>(`communication/groups/${slug}`);
+      const client = getAuthenticatedClient();
+      const response = await client.get<ApiResponse<Record<string, unknown>>>(
+        `communication/groups/${slug}`,
+        { headers: getCompanyHeaders() }
+      );
 
-        if (data) {
-          return transformGroup(data);
-        }
-
-        return null;
-      } catch (err) {
-        console.error(`Failed to fetch group ${slug}:`, err);
-        showErrorToast("Failed to load group details");
-        return null;
-      } finally {
-        setLoading(false);
+      const data = response.data;
+      if ((data.status === "success" || data.status === true) && data.data) {
+        return transformGroup(data.data);
       }
-    },
-    [apiCall, transformGroup]
-  );
+
+      return null;
+    } catch {
+      showErrorToast("Failed to load group details");
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   // Join a group
   const joinGroup = useCallback(
@@ -256,9 +202,12 @@ export function useMemberGroups(): UseMemberGroupsReturn {
         setLoading(true);
         setError(null);
 
-        await apiCall<void>(`communication/groups/${slug}/join`, {
-          method: "PUT",
-        });
+        const client = getAuthenticatedClient();
+        await client.put(
+          `communication/groups/${slug}/join`,
+          undefined,
+          { headers: getCompanyHeaders() }
+        );
 
         showSuccessToast("Successfully joined the group");
 
@@ -270,16 +219,14 @@ export function useMemberGroups(): UseMemberGroupsReturn {
 
         return true;
       } catch (err) {
-        console.error(`Failed to join group ${slug}:`, err);
-        showErrorToast(
-          err instanceof Error ? err.message : "Failed to join group"
-        );
+        const apiError = err as ApiError;
+        showErrorToast(apiError.message || "Failed to join group");
         return false;
       } finally {
         setLoading(false);
       }
     },
-    [apiCall, fetchAllGroups, fetchJoinedGroups, pagination.currentPage]
+    [fetchAllGroups, fetchJoinedGroups, pagination.currentPage]
   );
 
   // Leave a group
@@ -289,9 +236,12 @@ export function useMemberGroups(): UseMemberGroupsReturn {
         setLoading(true);
         setError(null);
 
-        await apiCall<void>(`communication/groups/${slug}/exit-group`, {
-          method: "PUT",
-        });
+        const client = getAuthenticatedClient();
+        await client.put(
+          `communication/groups/${slug}/exit-group`,
+          undefined,
+          { headers: getCompanyHeaders() }
+        );
 
         showSuccessToast("Successfully left the group");
 
@@ -303,16 +253,14 @@ export function useMemberGroups(): UseMemberGroupsReturn {
 
         return true;
       } catch (err) {
-        console.error(`Failed to leave group ${slug}:`, err);
-        showErrorToast(
-          err instanceof Error ? err.message : "Failed to leave group"
-        );
+        const apiError = err as ApiError;
+        showErrorToast(apiError.message || "Failed to leave group");
         return false;
       } finally {
         setLoading(false);
       }
     },
-    [apiCall, fetchAllGroups, fetchJoinedGroups, pagination.currentPage]
+    [fetchAllGroups, fetchJoinedGroups, pagination.currentPage]
   );
 
   return {

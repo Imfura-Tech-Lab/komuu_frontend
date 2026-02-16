@@ -728,7 +728,6 @@ export default function SingleMemberPage({ memberId }: SingleMemberPageProps) {
         throw new Error(responseData.message || "Failed to fetch member");
       }
     } catch (err) {
-      console.error("Failed to fetch member:", err);
       setError(err instanceof Error ? err.message : "Failed to fetch member");
       showErrorToast("Failed to load member details");
     } finally {

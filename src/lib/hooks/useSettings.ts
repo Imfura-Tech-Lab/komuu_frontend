@@ -5,6 +5,7 @@ import {
   showErrorToast,
   showSuccessToast,
 } from "@/components/layouts/auth-layer-out";
+import { getAuthenticatedClient, getCompanyHeaders, ApiError } from "@/lib/api-client";
 
 // Types
 export interface SettingsCredentials {
@@ -21,14 +22,14 @@ export interface SettingsData {
   president_signature: string | null;
   ngo_stamp: string | null;
   currency: string | null;
-  style_config_vars: any | null;
+  style_config_vars: Record<string, unknown> | null;
   provider: string | null;
   credentials: SettingsCredentials | null;
   is_gateway_enabled: boolean | null;
   mode: string | null;
   webhook_secret: string | null;
   fallback_url: string | null;
-  metadata: any | null;
+  metadata: Record<string, unknown> | null;
 }
 
 interface SettingsResponse {
@@ -169,37 +170,24 @@ export function useSettings() {
   const [isCreating, setIsCreating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  const getAuthHeaders = useCallback(() => {
-    const token = localStorage.getItem("auth_token");
-    const companyId = localStorage.getItem("company_id");
-
-    return {
-      Accept: "application/json",
-      Authorization: `Bearer ${token}`,
-      "X-Company-ID": companyId || "",
-    };
-  }, []);
-
   const fetchSettings = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
       const token = localStorage.getItem("auth_token");
-
       if (!token) {
         showErrorToast("Authentication required. Please login to continue.");
         setError("Authentication required");
         return;
       }
 
-      const response = await fetch(`${apiUrl}settings/details`, {
-        method: "GET",
-        headers: getAuthHeaders(),
+      const client = getAuthenticatedClient();
+      const response = await client.get<SettingsResponse>("settings/details", {
+        headers: getCompanyHeaders(),
       });
 
-      const data: SettingsResponse = await response.json();
+      const data = response.data;
 
       // Check JSON status first - backend returns success with null data when settings don't exist
       if (data.status === "success") {
@@ -214,30 +202,24 @@ export function useSettings() {
         return;
       }
 
-      // Handle actual errors
+      showErrorToast(data.message || "Failed to fetch settings");
+      setError(data.message || "Failed to fetch settings");
+    } catch (err) {
+      const apiError = err as ApiError;
+
       const errorMessages: { [key: number]: string } = {
         401: "Session expired. Please login again.",
         403: "You don't have permission to view settings.",
         500: "Server error. Please try again later.",
       };
 
-      const errorMessage =
-        errorMessages[response.status] ||
-        data.message ||
-        `Error: ${response.status}`;
-
+      const errorMessage = errorMessages[apiError.status] || apiError.message || "Failed to fetch settings";
+      setError(errorMessage);
       showErrorToast(errorMessage);
-      setError(errorMessage);
-    } catch (err) {
-      console.error("Failed to fetch settings:", err);
-      const errorMessage =
-        err instanceof Error ? err.message : "Failed to fetch settings";
-      setError(errorMessage);
-      showErrorToast("Network error. Please check your connection.");
     } finally {
       setLoading(false);
     }
-  }, [getAuthHeaders]);
+  }, []);
 
   const saveSetting = useCallback(
     async (fieldKey: string, value: string, file?: File): Promise<boolean> => {
@@ -245,7 +227,6 @@ export function useSettings() {
 
       try {
         setIsSaving(true);
-        const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
         const fieldConfig = SETTINGS_FIELDS.find((f) => f.key === fieldKey);
 
         const formData = new FormData();
@@ -258,23 +239,17 @@ export function useSettings() {
           formData.append(fieldKey, value);
         }
 
-        let endpoint: string;
-        let method = "POST";
-
-        if (isCreating) {
-          endpoint = `${apiUrl}settings/create`;
-        } else {
-          endpoint = `${apiUrl}settings/update`;
+        const endpoint = isCreating ? "settings/create" : "settings/update";
+        if (!isCreating) {
           formData.append("_method", "PUT");
         }
 
-        const response = await fetch(endpoint, {
-          method,
-          headers: getAuthHeaders(),
-          body: formData,
+        const client = getAuthenticatedClient();
+        const response = await client.postFormData<SettingsResponse>(endpoint, formData, {
+          headers: getCompanyHeaders(),
         });
 
-        const data = await response.json();
+        const data = response.data;
 
         if (data.status === "success") {
           showSuccessToast(
@@ -291,16 +266,14 @@ export function useSettings() {
         return false;
       } catch (err) {
         const action = isCreating ? "create" : "update";
-        showErrorToast(
-          err instanceof Error ? err.message : `Failed to ${action} setting`
-        );
-        console.error(`${action} error:`, err);
+        const apiError = err as ApiError;
+        showErrorToast(apiError.message || `Failed to ${action} setting`);
         return false;
       } finally {
         setIsSaving(false);
       }
     },
-    [isCreating, isSaving, getAuthHeaders]
+    [isCreating, isSaving]
   );
 
   const getFieldValue = useCallback(
@@ -312,7 +285,7 @@ export function useSettings() {
         const [parent, child] = fieldKey.split(".");
         const parentObj = settings[parent as keyof SettingsData];
         if (parentObj && typeof parentObj === "object") {
-          const value = (parentObj as any)[child];
+          const value = (parentObj as Record<string, unknown>)[child];
           return value !== null && value !== undefined ? String(value) : null;
         }
         return null;
@@ -337,7 +310,6 @@ export function useSettings() {
     // If relative path, construct full URL
     const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
     if (!apiUrl) {
-      console.error("NEXT_PUBLIC_BACKEND_API_URL not configured");
       return null;
     }
 

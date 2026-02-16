@@ -332,8 +332,7 @@ export default function TeamsPage() {
       setShowCreateModal(false);
       await fetchTeams(pagination?.currentPage || 1);
       return true;
-    } catch (error) {
-      console.error("Failed to add member:", error);
+    } catch {
       return false;
     }
   };

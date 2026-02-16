@@ -41,8 +41,8 @@ export function RemoveMemberModal({
       setIsRemoving(true);
       await onRemoveMember(selectedMemberId);
       handleClose();
-    } catch (error) {
-      console.error("Error removing member:", error);
+    } catch {
+      // Error handled by parent component
     } finally {
       setIsRemoving(false);
     }

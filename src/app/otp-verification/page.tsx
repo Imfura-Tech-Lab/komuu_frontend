@@ -156,8 +156,7 @@ export default function OTPVerification() {
         showErrorToast(data.message || "Invalid OTP code. Please try again.");
         setErrors({ otp: data.message || "Invalid OTP code" });
       }
-    } catch (error) {
-      console.error("OTP verification error:", error);
+    } catch {
       showErrorToast("An unexpected error occurred. Please try again.");
     } finally {
       setIsVerifying(false);
@@ -197,8 +196,7 @@ export default function OTPVerification() {
           data.message || "Failed to resend OTP. Please try again."
         );
       }
-    } catch (error) {
-      console.error("Resend OTP error:", error);
+    } catch {
       showErrorToast("Failed to resend OTP. Please try again.");
     } finally {
       setIsResending(false);
@@ -219,8 +217,9 @@ export default function OTPVerification() {
             {otp.map((digit, index) => (
               <input
                 key={index}
-                //@ts-ignore
-                ref={(el) => (inputRefs.current[index] = el)}
+                ref={(el) => {
+                  inputRefs.current[index] = el;
+                }}
                 type="text"
                 maxLength={1}
                 value={digit}

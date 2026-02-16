@@ -17,8 +17,8 @@ export function useRoleAccess() {
       if (storedUserData) {
         setUserData(JSON.parse(storedUserData));
       }
-    } catch (error) {
-      console.error("Failed to parse user data:", error);
+    } catch {
+      // Invalid user data in localStorage
     }
     setIsLoading(false);
   }, []);

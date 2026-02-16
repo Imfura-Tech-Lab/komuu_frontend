@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { showErrorToast } from "@/components/layouts/auth-layer-out";
 import { DashboardResponse } from "@/types/dashboard";
+import { getAuthenticatedClient, ApiError } from "@/lib/api-client";
 
 const BOARD_ROLES = ["Administrator", "President", "Board"];
 
@@ -20,7 +21,6 @@ export function useDashboardData() {
         }
         setError(null);
 
-        const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
         const token = localStorage.getItem("auth_token");
         const cachedUserData = localStorage.getItem("user_data");
 
@@ -30,64 +30,49 @@ export function useDashboardData() {
           return;
         }
 
-        if (!apiUrl) {
-          showErrorToast("Backend API URL is not configured.");
-          setError(new Error("Configuration error: Backend API URL missing."));
-          return;
-        }
-
         let userRole = "Member";
         if (cachedUserData) {
           try {
             const parsed = JSON.parse(cachedUserData);
             userRole = parsed.role;
-          } catch (parseErr) {
-            console.warn("Failed to parse cached user data:", parseErr);
+          } catch {
+            // Invalid cached user data
           }
         }
 
         const isBoard = BOARD_ROLES.includes(userRole);
-        const endpoint = isBoard
-          ? `${apiUrl}board/dashboard`
-          : `${apiUrl}dashboard`;
+        const endpoint = isBoard ? "board/dashboard" : "dashboard";
 
-        const response = await fetch(endpoint, {
-          method: "GET",
-          headers: {
-            Accept: "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          cache: "no-store",
-        });
-
-        if (!response.ok) {
-          if (response.status === 401 || response.status === 403) {
-            showErrorToast("Unauthorized. Please log in again.");
-            localStorage.removeItem("auth_token");
-            localStorage.removeItem("user_data");
-            router.push("/login");
-            return;
-          }
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.json();
+        const client = getAuthenticatedClient();
+        const response = await client.get<{ status: string; data: DashboardResponse; message?: string }>(endpoint);
+        const result = response.data;
 
         if (!isMounted.current) return;
 
         if (result.status === "success") {
           // Tag response with role for type discrimination
-          setData({
+          const dashboardData = {
             ...result,
             role: isBoard ? "board" : "member",
-          } as DashboardResponse);
+          } as unknown as DashboardResponse;
+          setData(dashboardData);
         } else {
           throw new Error(result.message || "Failed to fetch dashboard data");
         }
       } catch (err) {
         if (!isMounted.current) return;
 
-        console.error("Failed to fetch dashboard:", err);
+        const apiError = err as ApiError;
+
+        // Handle auth errors
+        if (apiError.status === 401 || apiError.status === 403) {
+          showErrorToast("Unauthorized. Please log in again.");
+          localStorage.removeItem("auth_token");
+          localStorage.removeItem("user_data");
+          router.push("/login");
+          return;
+        }
+
         setError(
           err instanceof Error ? err : new Error("Failed to fetch dashboard")
         );
@@ -102,7 +87,7 @@ export function useDashboardData() {
       }
     },
     [router]
-  ); // Fixed dependency array
+  );
 
   useEffect(() => {
     isMounted.current = true;

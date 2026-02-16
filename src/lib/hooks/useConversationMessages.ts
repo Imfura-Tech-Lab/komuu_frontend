@@ -3,6 +3,7 @@ import {
   showErrorToast,
   showSuccessToast,
 } from "@/components/layouts/auth-layer-out";
+import { getAuthenticatedClient, getCompanyHeaders, ApiError } from "@/lib/api-client";
 
 export interface ConversationMessage {
   id: number;
@@ -28,7 +29,7 @@ export interface CreateMessageParams {
   attachment?: File;
 }
 
-interface ApiResponse<T = any> {
+interface ApiResponse<T> {
   status: "success" | "error" | boolean;
   message: string;
   data: T;
@@ -67,251 +68,164 @@ export function useConversationMessages(): UseConversationMessagesReturn {
   const [error, setError] = useState<string | null>(null);
   const [currentConversationId, setCurrentConversationId] = useState<number | null>(null);
 
-  const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
+  const fetchMessages = useCallback(async (conversationId: number) => {
+    if (typeof window === "undefined") return;
 
-  const getAuthHeaders = useCallback(() => {
-    if (typeof window === "undefined") {
-      return {
-        Accept: "application/json",
-        Authorization: "",
-        "X-Company-ID": "",
-      };
+    try {
+      setLoading(true);
+      setError(null);
+      setCurrentConversationId(conversationId);
+
+      const client = getAuthenticatedClient();
+      const response = await client.get<ApiResponse<ConversationDetailResponse>>(
+        `community/conversations/${conversationId}`,
+        { headers: getCompanyHeaders() }
+      );
+
+      const data = response.data;
+      if (data.status === "success" || data.status === true) {
+        let messagesData: ConversationMessage[] = [];
+
+        if (data.data && data.data.messages && Array.isArray(data.data.messages)) {
+          messagesData = data.data.messages;
+        } else if (Array.isArray(data.data)) {
+          messagesData = data.data as unknown as ConversationMessage[];
+        }
+
+        const sortedMessages = messagesData.sort((a, b) =>
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
+
+        setMessages(sortedMessages);
+      }
+    } catch (err) {
+      const apiError = err as ApiError;
+      const errorMessage = apiError.message || "Failed to load messages";
+      setError(errorMessage);
+      showErrorToast(errorMessage);
+      setMessages([]);
+    } finally {
+      setLoading(false);
     }
-
-    const authToken = localStorage.getItem("auth_token");
-    const companyId = localStorage.getItem("company_id");
-
-    return {
-      Accept: "application/json",
-      Authorization: `Bearer ${authToken}`,
-      "X-Company-ID": companyId || "",
-    };
   }, []);
 
-  const fetchMessages = useCallback(
-    async (conversationId: number) => {
-      if (typeof window === "undefined") return;
+  const fetchMessage = useCallback(async (id: number): Promise<ConversationMessage | null> => {
+    if (typeof window === "undefined") return null;
 
-      try {
-        setLoading(true);
-        setError(null);
-        setCurrentConversationId(conversationId);
+    try {
+      setLoading(true);
+      setError(null);
 
-        console.log(`🔵 Fetching messages for conversation: ${conversationId}`);
+      const client = getAuthenticatedClient();
+      const response = await client.get<ApiResponse<ConversationMessage>>(
+        `community/messages/${id}`,
+        { headers: getCompanyHeaders() }
+      );
 
-        const endpoint = `community/conversations/${conversationId}`;
-
-        const response = await fetch(`${apiUrl}${endpoint}`, {
-          method: "GET",
-          headers: getAuthHeaders(),
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data: ApiResponse<ConversationDetailResponse> = await response.json();
-
-        console.log("📦 API Response:", data);
-
-        if (data.status === "error" || data.status === false) {
-          throw new Error(data.message || "Failed to fetch messages");
-        }
-
-        if (data.status === "success" || data.status === true) {
-          let messagesData: ConversationMessage[] = [];
-          
-          if (data.data && data.data.messages && Array.isArray(data.data.messages)) {
-            messagesData = data.data.messages;
-          } else if (Array.isArray(data.data)) {
-            messagesData = data.data;
-          }
-
-          console.log("✅ Processed messages:", messagesData.length);
-          
-          const sortedMessages = messagesData.sort((a, b) => 
-            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-          );
-
-          setMessages(sortedMessages);
-        } else {
-          throw new Error(data.message || "Failed to fetch messages");
-        }
-      } catch (err) {
-        console.error("❌ Error fetching messages:", err);
-        const errorMessage = err instanceof Error ? err.message : "Failed to load messages";
-        setError(errorMessage);
-        showErrorToast(errorMessage);
-        setMessages([]);
-      } finally {
-        setLoading(false);
+      const data = response.data;
+      if (data.status === "success" || data.status === true) {
+        return data.data;
       }
-    },
-    [apiUrl, getAuthHeaders]
-  );
 
-  const fetchMessage = useCallback(
-    async (id: number): Promise<ConversationMessage | null> => {
-      if (typeof window === "undefined") return null;
+      return null;
+    } catch (err) {
+      const apiError = err as ApiError;
+      showErrorToast(apiError.message || "Failed to load message details");
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-      try {
-        setLoading(true);
-        setError(null);
+  const createMessage = useCallback(async (params: CreateMessageParams): Promise<boolean> => {
+    if (typeof window === "undefined") return false;
 
-        const response = await fetch(`${apiUrl}community/messages/${id}`, {
-          method: "GET",
-          headers: getAuthHeaders(),
-        });
+    try {
+      setLoading(true);
+      setError(null);
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
+      const formData = new FormData();
+      formData.append("conversation_id", params.conversation_id.toString());
+      formData.append("conversation", params.conversation_id.toString());
 
-        const data: ApiResponse<ConversationMessage> = await response.json();
-
-        if (data.status === "error" || data.status === false) {
-          throw new Error(data.message || "Failed to fetch message");
-        }
-
-        if (data.status === "success" || data.status === true) {
-          return data.data;
-        }
-
-        return null;
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : "Failed to load message details";
-        console.error("❌ Error fetching message:", err);
-        showErrorToast(errorMessage);
-        return null;
-      } finally {
-        setLoading(false);
+      if (params.parent_id) {
+        formData.append("parent_id", params.parent_id.toString());
       }
-    },
-    [apiUrl, getAuthHeaders]
-  );
 
-  const createMessage = useCallback(
-    async (params: CreateMessageParams): Promise<boolean> => {
-      if (typeof window === "undefined") return false;
+      formData.append("content", params.content);
 
-      try {
-        setLoading(true);
-        setError(null);
-
-        const formData = new FormData();
-        formData.append("conversation_id", params.conversation_id.toString());
-        formData.append("conversation", params.conversation_id.toString());
-
-        if (params.parent_id) {
-          formData.append("parent_id", params.parent_id.toString());
-        }
-
-        formData.append("content", params.content);
-
-        if (params.attachment) {
-          formData.append("attachment", params.attachment);
-        }
-
-        const headers = getAuthHeaders();
-        delete (headers as any).Accept;
-
-        console.log("🔵 Creating message for conversation:", params.conversation_id);
-
-        const response = await fetch(`${apiUrl}community/messages`, {
-          method: "POST",
-          body: formData,
-          headers,
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data: ApiResponse<ConversationMessage> = await response.json();
-
-        console.log("📦 Create message response:", data);
-
-        if (data.status === "error" || data.status === false) {
-          throw new Error(data.message || "Failed to create message");
-        }
-
-        if (data.status === "success" || data.status === true) {
-          const successMessage = params.parent_id
-            ? "Reply posted successfully"
-            : "Message posted successfully";
-          
-          showSuccessToast(successMessage);
-
-          if (data.data) {
-            setMessages((prev) => {
-              const newMessages = [...prev, data.data!];
-              return newMessages.sort((a, b) => 
-                new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-              );
-            });
-          }
-
-          return true;
-        }
-
-        return false;
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : "Failed to post message";
-        console.error("❌ Error creating message:", err);
-        showErrorToast(errorMessage);
-        return false;
-      } finally {
-        setLoading(false);
+      if (params.attachment) {
+        formData.append("attachment", params.attachment);
       }
-    },
-    [apiUrl, getAuthHeaders]
-  );
 
-  const deleteMessage = useCallback(
-    async (id: number): Promise<boolean> => {
-      if (typeof window === "undefined") return false;
+      const client = getAuthenticatedClient();
+      const response = await client.postFormData<ApiResponse<ConversationMessage>>(
+        "community/messages",
+        formData,
+        { headers: getCompanyHeaders() }
+      );
 
-      try {
-        setLoading(true);
-        setError(null);
+      const data = response.data;
+      if (data.status === "success" || data.status === true) {
+        const successMessage = params.parent_id
+          ? "Reply posted successfully"
+          : "Message posted successfully";
 
-        console.log("🔵 Deleting message:", id);
+        showSuccessToast(successMessage);
 
-        const response = await fetch(`${apiUrl}community/messages/${id}`, {
-          method: "DELETE",
-          headers: getAuthHeaders(),
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+        if (data.data) {
+          setMessages((prev) => {
+            const newMessages = [...prev, data.data!];
+            return newMessages.sort((a, b) =>
+              new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+            );
+          });
         }
-
-        const data: ApiResponse<void> = await response.json();
-
-        if (data.status === "error" || data.status === false) {
-          throw new Error(data.message || "Failed to delete message");
-        }
-
-        showSuccessToast("Message deleted successfully");
-        console.log("✅ Message deleted:", id);
-
-        setMessages((prev) => prev.filter((msg) => msg.id !== id));
 
         return true;
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : "Failed to delete message";
-        console.error("❌ Error deleting message:", err);
-        showErrorToast(errorMessage);
-        return false;
-      } finally {
-        setLoading(false);
       }
-    },
-    [apiUrl, getAuthHeaders]
-  );
+
+      return false;
+    } catch (err) {
+      const apiError = err as ApiError;
+      showErrorToast(apiError.message || "Failed to post message");
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const deleteMessage = useCallback(async (id: number): Promise<boolean> => {
+    if (typeof window === "undefined") return false;
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const client = getAuthenticatedClient();
+      const response = await client.delete<ApiResponse<void>>(
+        `community/messages/${id}`,
+        { headers: getCompanyHeaders() }
+      );
+
+      const data = response.data;
+      if (data.status === "success" || data.status === true) {
+        showSuccessToast("Message deleted successfully");
+        setMessages((prev) => prev.filter((msg) => msg.id !== id));
+        return true;
+      }
+
+      return false;
+    } catch (err) {
+      const apiError = err as ApiError;
+      showErrorToast(apiError.message || "Failed to delete message");
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const clearMessages = useCallback(() => {
-    console.log("🔵 Clearing messages");
     setMessages([]);
     setCurrentConversationId(null);
     setError(null);

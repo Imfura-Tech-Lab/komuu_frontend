@@ -245,7 +245,6 @@ export default function SingleCertificatePage({
         throw new Error(data.message || "Failed to fetch certificate");
       }
     } catch (err) {
-      console.error("Failed to fetch certificate:", err);
       setError(
         err instanceof Error ? err.message : "Failed to fetch certificate"
       );
@@ -297,7 +296,6 @@ export default function SingleCertificatePage({
         throw new Error(data.message || "Failed to update certificate");
       }
     } catch (err) {
-      console.error("Failed to update certificate:", err);
       showErrorToast(
         err instanceof Error ? err.message : "Failed to update certificate"
       );

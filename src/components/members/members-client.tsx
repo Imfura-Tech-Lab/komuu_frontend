@@ -98,7 +98,6 @@ export default function MembersClient() {
         throw new Error(data.message || "Failed to fetch members");
       }
     } catch (err) {
-      console.error("Failed to fetch members:", err);
       setError(err instanceof Error ? err.message : "Failed to fetch members");
       showErrorToast("Failed to load members");
     } finally {
@@ -406,7 +405,6 @@ export default function MembersClient() {
     {
       label: "Export Selected",
       action: (selectedMembers: Member[]) => {
-        console.log("Exporting selected members:", selectedMembers);
         showSuccessToast(`Exporting ${selectedMembers.length} members`);
       },
       icon: <Download className="h-4 w-4" />,
@@ -414,7 +412,6 @@ export default function MembersClient() {
     {
       label: "Send Email",
       action: (selectedMembers: Member[]) => {
-        console.log("Sending email to:", selectedMembers);
         showSuccessToast(`Email sent to ${selectedMembers.length} members`);
       },
       icon: <Mail className="h-4 w-4" />,

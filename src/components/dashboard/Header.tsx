@@ -14,7 +14,7 @@ interface HeaderProps {
   handleProfileClick: () => void;
   handleSettingsClick: () => void;
   setSidebarOpen: (open: boolean) => void;
-  dropdownRef: RefObject<HTMLDivElement>;
+  dropdownRef: RefObject<HTMLDivElement | null>;
 }
 
 export function Header({

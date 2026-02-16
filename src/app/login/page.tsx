@@ -58,7 +58,6 @@ export default function Login() {
 
     try {
       const result = await login({ email, password });
-      console.log("Login result:", result);
 
       if (result.success) {
         // Show success toast

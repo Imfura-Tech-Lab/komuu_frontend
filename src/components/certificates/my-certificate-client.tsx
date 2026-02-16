@@ -838,7 +838,6 @@ export default function MyCertificatesClient() {
         throw new Error(responseData.message || "Failed to fetch certificates");
       }
     } catch (err) {
-      console.error("Failed to fetch certificates:", err);
       setError(
         err instanceof Error ? err.message : "Failed to fetch certificates"
       );
@@ -867,8 +866,7 @@ export default function MyCertificatesClient() {
       if (certData) {
         showSuccessToast("Certificate downloaded successfully");
       }
-    } catch (err) {
-      console.error("Download error:", err);
+    } catch {
       showErrorToast("Failed to download certificate");
     } finally {
       setDownloadingId(null);

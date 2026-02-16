@@ -245,7 +245,6 @@ export default function FieldsOfPracticeClient() {
     {
       label: "Export Selected",
       action: (selectedFields: FieldOfPractice[]) => {
-        console.log("Exporting selected fields:", selectedFields);
         showSuccessToast(`Exporting ${selectedFields.length} fields`);
       },
       icon: (

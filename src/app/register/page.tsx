@@ -977,8 +977,7 @@ const MembershipSignupForm = () => {
           }));
           setCurrentStep(1);
         }
-      } catch (error) {
-        console.error("Failed to fetch organizations:", error);
+      } catch {
         setDataError("Failed to load organizations. Please refresh the page.");
       } finally {
         setIsLoadingOrganizations(false);
@@ -998,7 +997,6 @@ const MembershipSignupForm = () => {
         );
         setMasterData(data);
       } catch (error) {
-        console.error("Failed to fetch master data:", error);
         const apiError = error as ApiError;
         setDataError(
           apiError.message || "Failed to load form data. Please try again.",
@@ -1521,17 +1519,16 @@ const MembershipSignupForm = () => {
           "Registration successful! Your application has been submitted.",
       );
       setTimeout(() => router.push("/login"), 2000);
-    } catch (error: any) {
-      console.error("Registration failed:", error);
-
+    } catch (error) {
+      const apiError = error as ApiError;
       // Check if we have validation errors from the backend
       const hasValidationErrors =
-        error.errors &&
-        typeof error.errors === "object" &&
-        Object.keys(error.errors).length > 0;
+        apiError.errors &&
+        typeof apiError.errors === "object" &&
+        Object.keys(apiError.errors).length > 0;
 
       if (hasValidationErrors) {
-        const backendErrors = error.errors;
+        const backendErrors = apiError.errors!
         const fieldMap: Record<string, string> = {
           "field_of_practice.0.field": "field_of_practice",
           "countries_of_operation.0.country": "countries_of_operation",
@@ -1559,7 +1556,7 @@ const MembershipSignupForm = () => {
       } else {
         // Handle server errors (500) or other non-validation errors
         const errorMessage =
-          error.message || "Registration failed. Please try again later.";
+          apiError.message || "Registration failed. Please try again later.";
         showErrorToast(errorMessage);
       }
     } finally {

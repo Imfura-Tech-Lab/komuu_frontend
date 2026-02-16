@@ -3,6 +3,7 @@ import {
   showErrorToast,
   showSuccessToast,
 } from "@/components/layouts/auth-layer-out";
+import { getAuthenticatedClient, getCompanyHeaders, ApiError } from "@/lib/api-client";
 
 export interface ConversationMessage {
   id: number;
@@ -28,7 +29,7 @@ export interface SendMessageParams {
   attachment?: File;
 }
 
-interface ApiResponse<T = any> {
+interface ApiResponse<T> {
   status: "success" | "error" | boolean;
   message: string;
   data: T;
@@ -67,91 +68,50 @@ export function useMemberConversationMessages(): UseMemberConversationMessagesRe
   const [error, setError] = useState<string | null>(null);
   const [currentConversationId, setCurrentConversationId] = useState<number | null>(null);
 
-  const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
-
-  const getAuthHeaders = useCallback(() => {
-    if (typeof window === "undefined") {
-      return {
-        Accept: "application/json",
-        Authorization: "",
-        "X-Company-ID": "",
-      };
-    }
-
-    const authToken = localStorage.getItem("auth_token");
-    const companyId = localStorage.getItem("company_id");
-
-    return {
-      Accept: "application/json",
-      Authorization: `Bearer ${authToken}`,
-      "X-Company-ID": companyId || "",
-    };
-  }, []);
-
   /**
    * Fetch all messages for a conversation
    * Member endpoint: GET /conversations/{conversation_id}/messages
-   * 
-   * Note: This endpoint returns the conversation with nested messages
-   * Same as admin endpoint for fetching conversation details
    */
-  const fetchMessages = useCallback(
-    async (conversationId: number) => {
-      if (typeof window === "undefined") return;
+  const fetchMessages = useCallback(async (conversationId: number) => {
+    if (typeof window === "undefined") return;
 
-      try {
-        setLoading(true);
-        setError(null);
-        setCurrentConversationId(conversationId);
+    try {
+      setLoading(true);
+      setError(null);
+      setCurrentConversationId(conversationId);
 
-        const endpoint = `conversations/${conversationId}`;
+      const client = getAuthenticatedClient();
+      const response = await client.get<ApiResponse<ConversationDetailResponse>>(
+        `conversations/${conversationId}`,
+        { headers: getCompanyHeaders() }
+      );
 
-        const response = await fetch(`${apiUrl}${endpoint}`, {
-          method: "GET",
-          headers: getAuthHeaders(),
-        });
+      const data = response.data;
+      if (data.status === "success" || data.status === true) {
+        let messagesData: ConversationMessage[] = [];
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+        if (data.data && data.data.messages && Array.isArray(data.data.messages)) {
+          messagesData = data.data.messages;
+        } else if (Array.isArray(data.data)) {
+          messagesData = data.data as unknown as ConversationMessage[];
         }
 
-        const data: ApiResponse<ConversationDetailResponse> = await response.json();
+        const sortedMessages = messagesData.sort((a, b) =>
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
 
-        if (data.status === "error" || data.status === false) {
-          throw new Error(data.message || "Failed to fetch messages");
-        }
-
-        if (data.status === "success" || data.status === true) {
-          let messagesData: ConversationMessage[] = [];
-          
-          // Handle different response structures
-          if (data.data && data.data.messages && Array.isArray(data.data.messages)) {
-            messagesData = data.data.messages;
-          } else if (Array.isArray(data.data)) {
-            messagesData = data.data;
-          }
-
-          // Sort by creation time (oldest first for chat display)
-          const sortedMessages = messagesData.sort((a, b) => 
-            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-          );
-
-          setMessages(sortedMessages);
-        } else {
-          throw new Error(data.message || "Failed to fetch messages");
-        }
-      } catch (err) {
-        console.error("Error fetching messages:", err);
-        const errorMessage = err instanceof Error ? err.message : "Failed to load messages";
-        setError(errorMessage);
-        showErrorToast(errorMessage);
-        setMessages([]);
-      } finally {
-        setLoading(false);
+        setMessages(sortedMessages);
       }
-    },
-    [apiUrl, getAuthHeaders]
-  );
+    } catch (err) {
+      const apiError = err as ApiError;
+      const errorMessage = apiError.message || "Failed to load messages";
+      setError(errorMessage);
+      showErrorToast(errorMessage);
+      setMessages([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   /**
    * Fetch details of a specific message
@@ -165,203 +125,144 @@ export function useMemberConversationMessages(): UseMemberConversationMessagesRe
         setLoading(true);
         setError(null);
 
-        const endpoint = `conversations/${conversationId}/messages/${messageId}/details`;
+        const client = getAuthenticatedClient();
+        const response = await client.get<ApiResponse<ConversationMessage>>(
+          `conversations/${conversationId}/messages/${messageId}/details`,
+          { headers: getCompanyHeaders() }
+        );
 
-        const response = await fetch(`${apiUrl}${endpoint}`, {
-          method: "GET",
-          headers: getAuthHeaders(),
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data: ApiResponse<ConversationMessage> = await response.json();
-
-        if (data.status === "error" || data.status === false) {
-          throw new Error(data.message || "Failed to fetch message details");
-        }
-
+        const data = response.data;
         if (data.status === "success" || data.status === true) {
           return data.data;
         }
 
         return null;
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : "Failed to load message details";
-        console.error("Error fetching message details:", err);
-        showErrorToast(errorMessage);
+        const apiError = err as ApiError;
+        showErrorToast(apiError.message || "Failed to load message details");
         return null;
       } finally {
         setLoading(false);
       }
     },
-    [apiUrl, getAuthHeaders]
+    []
   );
 
   /**
    * Send a new message or reply to a conversation
    * Member endpoint: POST /conversations/{conversation_id}/send-message
-   * 
-   * Required fields:
-   * - content: string (min 10 characters)
-   * Optional fields:
-   * - parent_id: number (for replies)
-   * - attachment: File (images, PDFs, docs)
    */
-  const sendMessage = useCallback(
-    async (params: SendMessageParams): Promise<boolean> => {
-      if (typeof window === "undefined") return false;
+  const sendMessage = useCallback(async (params: SendMessageParams): Promise<boolean> => {
+    if (typeof window === "undefined") return false;
 
-      try {
-        setLoading(true);
-        setError(null);
+    try {
+      setLoading(true);
+      setError(null);
 
-        // Validate content
-        if (!params.content || params.content.trim().length < 10) {
-          throw new Error("Message must be at least 10 characters long");
-        }
-
-        // Validate attachment if provided
-        if (params.attachment) {
-          const maxSize = 10 * 1024 * 1024; // 10MB
-          if (params.attachment.size > maxSize) {
-            throw new Error("File size must be less than 10MB");
-          }
-
-          const allowedTypes = [
-            "image/jpeg",
-            "image/jpg",
-            "image/png",
-            "image/gif",
-            "image/webp",
-            "application/pdf",
-            "application/msword",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            "application/vnd.ms-excel",
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-          ];
-
-          if (!allowedTypes.includes(params.attachment.type)) {
-            throw new Error("File type not supported");
-          }
-        }
-
-        // Build FormData
-        const formData = new FormData();
-        
-        if (params.parent_id) {
-          formData.append("parent_id", params.parent_id.toString());
-        }
-
-        formData.append("content", params.content.trim());
-
-        if (params.attachment) {
-          formData.append("attachment", params.attachment);
-        }
-
-        // Remove Accept header for FormData
-        const headers = getAuthHeaders();
-        delete (headers as any).Accept;
-
-        const endpoint = `conversations/${params.conversation_id}/send-message`;
-
-        const response = await fetch(`${apiUrl}${endpoint}`, {
-          method: "POST",
-          body: formData,
-          headers,
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-        }
-
-        const data: ApiResponse<ConversationMessage> = await response.json();
-
-        if (data.status === "error" || data.status === false) {
-          throw new Error(data.message || "Failed to send message");
-        }
-
-        if (data.status === "success" || data.status === true) {
-          const successMessage = params.parent_id
-            ? "Reply posted successfully"
-            : "Message sent successfully";
-          
-          showSuccessToast(successMessage);
-
-          // Optimistic update: Add new message to state
-          if (data.data) {
-            setMessages((prev) => {
-              const newMessages = [...prev, data.data!];
-              return newMessages.sort((a, b) => 
-                new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-              );
-            });
-          }
-
-          return true;
-        }
-
-        return false;
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : "Failed to send message";
-        console.error("Error sending message:", err);
-        showErrorToast(errorMessage);
-        return false;
-      } finally {
-        setLoading(false);
+      if (!params.content || params.content.trim().length < 10) {
+        throw new Error("Message must be at least 10 characters long");
       }
-    },
-    [apiUrl, getAuthHeaders]
-  );
+
+      if (params.attachment) {
+        const maxSize = 10 * 1024 * 1024;
+        if (params.attachment.size > maxSize) {
+          throw new Error("File size must be less than 10MB");
+        }
+
+        const allowedTypes = [
+          "image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp",
+          "application/pdf", "application/msword",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "application/vnd.ms-excel",
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ];
+
+        if (!allowedTypes.includes(params.attachment.type)) {
+          throw new Error("File type not supported");
+        }
+      }
+
+      const formData = new FormData();
+      if (params.parent_id) {
+        formData.append("parent_id", params.parent_id.toString());
+      }
+      formData.append("content", params.content.trim());
+      if (params.attachment) {
+        formData.append("attachment", params.attachment);
+      }
+
+      const client = getAuthenticatedClient();
+      const response = await client.postFormData<ApiResponse<ConversationMessage>>(
+        `conversations/${params.conversation_id}/send-message`,
+        formData,
+        { headers: getCompanyHeaders() }
+      );
+
+      const data = response.data;
+      if (data.status === "success" || data.status === true) {
+        const successMessage = params.parent_id
+          ? "Reply posted successfully"
+          : "Message sent successfully";
+
+        showSuccessToast(successMessage);
+
+        if (data.data) {
+          setMessages((prev) => {
+            const newMessages = [...prev, data.data!];
+            return newMessages.sort((a, b) =>
+              new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+            );
+          });
+        }
+
+        return true;
+      }
+
+      return false;
+    } catch (err) {
+      const apiError = err as ApiError;
+      showErrorToast(apiError.message || "Failed to send message");
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   /**
    * Delete a message (member can only delete their own messages)
    * Member endpoint: DELETE /conversations/messages/{message_id}/delete
    */
   const deleteMessage = useCallback(
-    async (conversationId: number, messageId: number): Promise<boolean> => {
+    async (_conversationId: number, messageId: number): Promise<boolean> => {
       if (typeof window === "undefined") return false;
 
       try {
         setLoading(true);
         setError(null);
 
-        const endpoint = `conversations/messages/${messageId}/delete`;
+        const client = getAuthenticatedClient();
+        const response = await client.delete<ApiResponse<void>>(
+          `conversations/messages/${messageId}/delete`,
+          { headers: getCompanyHeaders() }
+        );
 
-        const response = await fetch(`${apiUrl}${endpoint}`, {
-          method: "DELETE",
-          headers: getAuthHeaders(),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        const data = response.data;
+        if (data.status === "success" || data.status === true) {
+          showSuccessToast("Message deleted successfully");
+          setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+          return true;
         }
 
-        const data: ApiResponse<void> = await response.json();
-
-        if (data.status === "error" || data.status === false) {
-          throw new Error(data.message || "Failed to delete message");
-        }
-
-        showSuccessToast("Message deleted successfully");
-
-        // Optimistic update: Remove message from state
-        setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
-
-        return true;
+        return false;
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : "Failed to delete message";
-        console.error("Error deleting message:", err);
-        showErrorToast(errorMessage);
+        const apiError = err as ApiError;
+        showErrorToast(apiError.message || "Failed to delete message");
         return false;
       } finally {
         setLoading(false);
       }
     },
-    [apiUrl, getAuthHeaders]
+    []
   );
 
   /**

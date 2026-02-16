@@ -588,8 +588,8 @@ export default function ResourcesPage() {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-    } catch (err) {
-      console.error("Download failed:", err);
+    } catch {
+      // Download failed silently
     }
   };
 

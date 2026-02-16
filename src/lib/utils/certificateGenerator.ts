@@ -55,8 +55,7 @@ async function loadImageAsBase64(url: string): Promise<string | null> {
       reader.onerror = reject;
       reader.readAsDataURL(blob);
     });
-  } catch (error) {
-    console.error('Failed to load image:', url, error);
+  } catch {
     return null;
   }
 }
@@ -213,7 +212,6 @@ async function generateQRCodeWithText(data: string, text: string): Promise<strin
 
     return canvas.toDataURL('image/png');
   } catch (error) {
-    console.error('Failed to generate QR code:', error);
     throw error;
   }
 }
@@ -284,8 +282,8 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Blo
       const logoWidth = 30;
       const logoHeight = (logoDimensions.height / logoDimensions.width) * logoWidth;
       pdf.addImage(logoBase64, 'PNG', (pageWidth - logoWidth) / 2, 18, logoWidth, logoHeight);
-    } catch (error) {
-      console.error('Failed to add logo:', error);
+    } catch {
+      // Logo loading failed - continue without logo
     }
   }
 
@@ -362,8 +360,8 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Blo
       const sigWidth = 35;
       const sigHeight = (sigDimensions.height / sigDimensions.width) * sigWidth;
       pdf.addImage(signatureBase64, 'PNG', signatureX, signatureY - sigHeight - 5, sigWidth, sigHeight);
-    } catch (error) {
-      console.error('Failed to add signature:', error);
+    } catch {
+      // Signature loading failed - continue without signature
     }
   }
   
@@ -397,8 +395,8 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Blo
       const stampSize = 30;
       const stampHeight = (stampDimensions.height / stampDimensions.width) * stampSize;
       pdf.addImage(stampBase64, 'PNG', stampX, signatureY - stampHeight - 5, stampSize, stampHeight);
-    } catch (error) {
-      console.error('Failed to add stamp:', error);
+    } catch {
+      // Stamp loading failed - continue without stamp
     }
   }
 

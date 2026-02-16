@@ -259,7 +259,6 @@ export class PDFService {
 
       showSuccessToast("PDF generated successfully!");
     } catch (error) {
-      console.error("Error generating PDF:", error);
       showErrorToast("Failed to generate PDF");
       throw error;
     }
@@ -314,7 +313,6 @@ export class PDFService {
 
       showSuccessToast("Comprehensive applications report generated successfully!");
     } catch (error) {
-      console.error("Error generating applications PDF:", error);
       showErrorToast("Failed to generate applications report");
       throw error;
     }

@@ -69,14 +69,11 @@ export default function ApplicationCard({
         if (onCertificateSign) {
           onCertificateSign(application.id);
         }
-        // You might want to show a success toast here
-        console.log("Certificate signed successfully");
       } else {
         throw new Error("Failed to sign certificate");
       }
-    } catch (error) {
-      console.error("Error signing certificate:", error);
-      // You might want to show an error toast here
+    } catch {
+      // Certificate signing error handled silently
     } finally {
       setIsSigningCertificate(false);
     }

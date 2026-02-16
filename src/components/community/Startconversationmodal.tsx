@@ -190,9 +190,8 @@ export default function StartConversationModal({
       });
 
       // Modal will be closed by parent component on success
-    } catch (error) {
+    } catch {
       // Error handling is done in the hook
-      console.error("Failed to start conversation:", error);
     }
   };
 

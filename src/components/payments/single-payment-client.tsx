@@ -353,7 +353,6 @@ export default function SinglePaymentClient({
         );
       }
     } catch (err) {
-      console.error("Failed to fetch payment:", err);
       setError(err instanceof Error ? err.message : "Failed to fetch payment.");
       showErrorToast("Failed to load payment details.");
     } finally {

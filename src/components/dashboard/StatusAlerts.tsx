@@ -1,10 +1,10 @@
 import React from "react";
-import { UserData } from "@/types"; 
-import { NextRouter } from "next/router";
+import { UserData } from "@/types";
+import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 
 interface StatusAlertsProps {
   userData: UserData;
-  router: NextRouter;
+  router: AppRouterInstance;
 }
 
 export function StatusAlerts({ userData, router }: StatusAlertsProps) {

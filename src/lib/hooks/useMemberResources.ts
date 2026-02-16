@@ -3,6 +3,7 @@ import {
   showSuccessToast,
   showErrorToast,
 } from "@/components/layouts/auth-layer-out";
+import { getAuthenticatedClient, getCompanyHeaders, ApiError } from "@/lib/api-client";
 
 export interface Resource {
   id: number;
@@ -27,6 +28,16 @@ export interface Resource {
 
 export type ResourceType = string;
 
+interface ApiResponse<T> {
+  status: "success" | "error" | boolean;
+  message?: string;
+  data?: T;
+  types?: string[];
+  download_url?: string;
+  file_url?: string;
+  filename?: string;
+}
+
 interface UseMemberResourcesReturn {
   resources: Resource[];
   resourceTypes: ResourceType[];
@@ -41,37 +52,47 @@ interface UseMemberResourcesReturn {
   commentResource: (id: number, comment: string) => Promise<boolean>;
 }
 
-// Utility: Force HTTPS on Cloudinary URLs
 const sanitizeFileUrl = (url?: string | null): string | undefined => {
   if (!url) return undefined;
   return url.replace(/^http:\/\//i, "https://");
 };
 
-// Utility: Normalize API resource to frontend type
-const normalizeResource = (resource: any): Resource => ({
-  id: resource.id,
-  title: resource.title,
-  description: resource.description,
-  type: resource.type,
-  category: resource.category,
-  visibility: resource.visibility,
-  file_url: sanitizeFileUrl(resource.file_url),
-  link: resource.link,
-  file_size: resource.file_size,
-  downloads: resource.downloads || 0,
-  likes_count: resource.likes_count || 0,
-  dislikes_count: resource.dislikes_count || 0,
-  comments_count: resource.comments_count || 0,
-  tags: resource.tags
-    ? typeof resource.tags === "string"
-      ? JSON.parse(resource.tags)
-      : resource.tags
-    : [],
-  group: resource.group,
-  uploaded_by: resource.uploaded_by,
-  created_at: resource.created_at,
-  updated_at: resource.updated_at,
-});
+function normalizeResource(resource: Record<string, unknown>): Resource {
+  const tags = resource.tags;
+  let parsedTags: string[] = [];
+  if (tags) {
+    if (typeof tags === "string") {
+      try {
+        parsedTags = JSON.parse(tags);
+      } catch {
+        parsedTags = [];
+      }
+    } else if (Array.isArray(tags)) {
+      parsedTags = tags as string[];
+    }
+  }
+
+  return {
+    id: resource.id as number,
+    title: resource.title as string,
+    description: resource.description as string | undefined,
+    type: resource.type as string,
+    category: resource.category as string | undefined,
+    visibility: resource.visibility as string,
+    file_url: sanitizeFileUrl(resource.file_url as string | null),
+    link: resource.link as string | undefined,
+    file_size: resource.file_size as string | undefined,
+    downloads: (resource.downloads as number) || 0,
+    likes_count: (resource.likes_count as number) || 0,
+    dislikes_count: (resource.dislikes_count as number) || 0,
+    comments_count: (resource.comments_count as number) || 0,
+    tags: parsedTags,
+    group: resource.group as string | undefined,
+    uploaded_by: resource.uploaded_by as string | undefined,
+    created_at: resource.created_at as string,
+    updated_at: resource.updated_at as string | undefined,
+  };
+}
 
 export function useMemberResources(): UseMemberResourcesReturn {
   const [resources, setResources] = useState<Resource[]>([]);
@@ -79,400 +100,224 @@ export function useMemberResources(): UseMemberResourcesReturn {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const getHeaders = useCallback(() => {
-    if (typeof window === "undefined") {
-      return {
-        Accept: "application/json",
-        Authorization: "",
-        "X-Company-ID": "",
-      };
-    }
-
-    const token = localStorage.getItem("auth_token");
-    const companyId = localStorage.getItem("company_id");
-
-    return {
-      Accept: "application/json",
-      Authorization: `Bearer ${token}`,
-      "X-Company-ID": companyId || "",
-    };
-  }, []);
-
-  /**
-   * Fetch available resource types
-   * Member endpoint: GET /resource-types
-   */
   const fetchResourceTypes = useCallback(async () => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
-      const token = localStorage.getItem("auth_token");
+      const client = getAuthenticatedClient();
+      const response = await client.get<ApiResponse<string[]>>(
+        "resource-types",
+        { headers: getCompanyHeaders() }
+      );
 
-      if (!token || !apiUrl) {
-        return;
-      }
-
-      const response = await fetch(`${apiUrl}resource-types`, {
-        method: "GET",
-        headers: getHeaders(),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      if (data.status === "success" && data.types) {
+      const data = response.data;
+      if ((data.status === "success" || data.status === true) && data.types) {
         setResourceTypes(Array.isArray(data.types) ? data.types : []);
       }
-    } catch (err) {
-      console.error("Failed to fetch resource types:", err);
+    } catch {
       // Silent fail - types are optional for filtering UI
     }
-  }, [getHeaders]);
+  }, []);
 
-  /**
-   * Fetch all community resources (member view)
-   * Member endpoint: GET /resources/all
-   */
   const fetchResources = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
-      const token = localStorage.getItem("auth_token");
+      const client = getAuthenticatedClient();
+      const response = await client.get<ApiResponse<{ data?: Record<string, unknown>[] } | Record<string, unknown>[]>>(
+        "resources/all",
+        { headers: getCompanyHeaders() }
+      );
 
-      if (!token) {
-        showErrorToast("Please login to view resources");
-        return;
-      }
-
-      if (!apiUrl) {
-        showErrorToast("Backend API URL is not configured.");
-        setError("Configuration error: Backend API URL missing.");
-        return;
-      }
-
-      const response = await fetch(`${apiUrl}resources/all`, {
-        method: "GET",
-        headers: getHeaders(),
-      });
-
-      if (!response.ok) {
-        if (response.status === 401 || response.status === 403) {
-          showErrorToast("Unauthorized. Please log in again.");
-          return;
-        }
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      if (data.status === "success") {
-        const resourcesData = data.data?.data || data.data || [];
+      const data = response.data;
+      if (data.status === "success" || data.status === true) {
+        const resourcesData = (data.data as { data?: Record<string, unknown>[] })?.data || data.data || [];
         setResources(
           Array.isArray(resourcesData)
             ? resourcesData.map(normalizeResource)
             : []
         );
-      } else {
-        throw new Error(data.message || "Failed to fetch resources");
       }
     } catch (err) {
-      console.error("Failed to fetch resources:", err);
-      const errorMessage =
-        err instanceof Error ? err.message : "Failed to fetch resources";
+      const apiError = err as ApiError;
+      if (apiError.status === 401 || apiError.status === 403) {
+        showErrorToast("Unauthorized. Please log in again.");
+        return;
+      }
+      const errorMessage = apiError.message || "Failed to fetch resources";
       setError(errorMessage);
       showErrorToast(errorMessage);
     } finally {
       setLoading(false);
     }
-  }, [getHeaders]);
+  }, []);
 
-  /**
-   * Fetch single resource details
-   * Member endpoint: GET /resources/all/{id}
-   */
-  const fetchResource = useCallback(
-    async (id: number): Promise<Resource | null> => {
-      try {
-        setLoading(true);
-        setError(null);
+  const fetchResource = useCallback(async (id: number): Promise<Resource | null> => {
+    try {
+      setLoading(true);
+      setError(null);
 
-        const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
-        const token = localStorage.getItem("auth_token");
+      const client = getAuthenticatedClient();
+      const response = await client.get<ApiResponse<Record<string, unknown>>>(
+        `resources/all/${id}`,
+        { headers: getCompanyHeaders() }
+      );
 
-        if (!token || !apiUrl) {
-          showErrorToast("Configuration error");
-          return null;
-        }
+      const data = response.data;
+      if ((data.status === "success" || data.status === true) && data.data) {
+        return normalizeResource(data.data);
+      }
 
-        const response = await fetch(`${apiUrl}resources/all/${id}`, {
-          method: "GET",
-          headers: getHeaders(),
-        });
-
-        if (!response.ok) {
-          if (response.status === 404) {
-            showErrorToast("Resource not found");
-          } else if (response.status === 403) {
-            showErrorToast("You don't have permission to view this resource");
-          } else {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-          return null;
-        }
-
-        const data = await response.json();
-
-        if (data.status === "success" && data.data) {
-          return normalizeResource(data.data);
-        }
-
-        return null;
-      } catch (err) {
-        console.error("Failed to fetch resource:", err);
+      return null;
+    } catch (err) {
+      const apiError = err as ApiError;
+      if (apiError.status === 404) {
+        showErrorToast("Resource not found");
+      } else if (apiError.status === 403) {
+        showErrorToast("You don't have permission to view this resource");
+      } else {
         showErrorToast("Failed to load resource details");
-        return null;
-      } finally {
-        setLoading(false);
       }
-    },
-    [getHeaders]
-  );
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  /**
-   * Download/access a resource (increments download count)
-   * Member endpoint: GET /resources/{id}/download
-   */
-  const downloadResource = useCallback(
-    async (id: number): Promise<boolean> => {
-      try {
-        const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
-        const token = localStorage.getItem("auth_token");
+  const downloadResource = useCallback(async (id: number): Promise<boolean> => {
+    try {
+      const client = getAuthenticatedClient();
+      const response = await client.get<ApiResponse<void>>(
+        `resources/${id}/download`,
+        { headers: getCompanyHeaders() }
+      );
 
-        if (!token || !apiUrl) {
-          showErrorToast("Configuration error");
-          return false;
-        }
-
-        const response = await fetch(`${apiUrl}resources/${id}/download`, {
-          method: "GET",
-          headers: getHeaders(),
-        });
-
-        if (!response.ok) {
-          if (response.status === 403) {
-            showErrorToast("You don't have permission to download this resource");
-          } else if (response.status === 404) {
-            showErrorToast("Resource not found");
-          } else {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-          return false;
-        }
-
-        const data = await response.json();
-
-        if (data.status === "success") {
-          // Update local download count
-          setResources((prev) =>
-            prev.map((r) =>
-              r.id === id ? { ...r, downloads: (r.downloads || 0) + 1 } : r
-            )
-          );
-
-          // If there's a direct file URL, trigger download
-          if (data.download_url || data.file_url) {
-            const downloadUrl = data.download_url || data.file_url;
-            const link = document.createElement("a");
-            link.href = sanitizeFileUrl(downloadUrl) || "";
-            link.download = data.filename || `resource-${id}`;
-            link.target = "_blank";
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-          }
-
-          showSuccessToast("Download started");
-          return true;
-        }
-
-        throw new Error(data.message || "Failed to download resource");
-      } catch (err) {
-        console.error("Failed to download resource:", err);
-        showErrorToast(
-          err instanceof Error ? err.message : "Failed to download resource"
-        );
-        return false;
-      }
-    },
-    [getHeaders]
-  );
-
-  /**
-   * Like a resource
-   * Member endpoint: GET /resources/{id}/like
-   */
-  const likeResource = useCallback(
-    async (id: number): Promise<boolean> => {
-      try {
-        const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
-        const token = localStorage.getItem("auth_token");
-
-        if (!token || !apiUrl) {
-          showErrorToast("Configuration error");
-          return false;
-        }
-
-        const response = await fetch(`${apiUrl}resources/${id}/like`, {
-          method: "GET",
-          headers: getHeaders(),
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        if (data.status === "success") {
-          // Optimistic update
-          setResources((prev) =>
-            prev.map((r) =>
-              r.id === id
-                ? { ...r, likes_count: (r.likes_count || 0) + 1 }
-                : r
-            )
-          );
-
-          showSuccessToast("Resource liked");
-          return true;
-        }
-
-        throw new Error(data.message || "Failed to like resource");
-      } catch (err) {
-        console.error("Failed to like resource:", err);
-        showErrorToast(
-          err instanceof Error ? err.message : "Failed to like resource"
-        );
-        return false;
-      }
-    },
-    [getHeaders]
-  );
-
-  /**
-   * Dislike a resource
-   * Member endpoint: GET /resources/{id}/dislike
-   */
-  const dislikeResource = useCallback(
-    async (id: number): Promise<boolean> => {
-      try {
-        const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
-        const token = localStorage.getItem("auth_token");
-
-        if (!token || !apiUrl) {
-          showErrorToast("Configuration error");
-          return false;
-        }
-
-        const response = await fetch(`${apiUrl}resources/${id}/dislike`, {
-          method: "GET",
-          headers: getHeaders(),
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        if (data.status === "success") {
-          // Optimistic update
-          setResources((prev) =>
-            prev.map((r) =>
-              r.id === id
-                ? { ...r, dislikes_count: (r.dislikes_count || 0) + 1 }
-                : r
-            )
-          );
-
-          showSuccessToast("Feedback recorded");
-          return true;
-        }
-
-        throw new Error(data.message || "Failed to record feedback");
-      } catch (err) {
-        console.error("Failed to dislike resource:", err);
-        showErrorToast(
-          err instanceof Error ? err.message : "Failed to record feedback"
-        );
-        return false;
-      }
-    },
-    [getHeaders]
-  );
-
-  /**
-   * Comment on a resource
-   * Member endpoint: GET /resources/comment/{id}?comment={text}
-   * 
-   * Note: Your API uses GET with query param + form data which is unusual.
-   * Standard REST would be POST with body. Kept as-is per your cURL.
-   */
-  const commentResource = useCallback(
-    async (id: number, comment: string): Promise<boolean> => {
-      try {
-        const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
-        const token = localStorage.getItem("auth_token");
-
-        if (!token || !apiUrl) {
-          showErrorToast("Configuration error");
-          return false;
-        }
-
-        const encodedComment = encodeURIComponent(comment);
-        const response = await fetch(
-          `${apiUrl}resources/comment/${id}?comment=${encodedComment}`,
-          {
-            method: "GET",
-            headers: getHeaders(),
-          }
+      const data = response.data;
+      if (data.status === "success" || data.status === true) {
+        setResources((prev) =>
+          prev.map((r) =>
+            r.id === id ? { ...r, downloads: (r.downloads || 0) + 1 } : r
+          )
         );
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+        if (data.download_url || data.file_url) {
+          const downloadUrl = data.download_url || data.file_url;
+          const link = document.createElement("a");
+          link.href = sanitizeFileUrl(downloadUrl) || "";
+          link.download = data.filename || `resource-${id}`;
+          link.target = "_blank";
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
         }
 
-        const data = await response.json();
-
-        if (data.status === "success") {
-          // Update local comment count
-          setResources((prev) =>
-            prev.map((r) =>
-              r.id === id
-                ? { ...r, comments_count: (r.comments_count || 0) + 1 }
-                : r
-            )
-          );
-
-          showSuccessToast("Comment added");
-          return true;
-        }
-
-        throw new Error(data.message || "Failed to add comment");
-      } catch (err) {
-        console.error("Failed to add comment:", err);
-        showErrorToast(
-          err instanceof Error ? err.message : "Failed to add comment"
-        );
-        return false;
+        showSuccessToast("Download started");
+        return true;
       }
-    },
-    [getHeaders]
-  );
+
+      throw new Error(data.message || "Failed to download resource");
+    } catch (err) {
+      const apiError = err as ApiError;
+      if (apiError.status === 403) {
+        showErrorToast("You don't have permission to download this resource");
+      } else if (apiError.status === 404) {
+        showErrorToast("Resource not found");
+      } else {
+        showErrorToast(apiError.message || "Failed to download resource");
+      }
+      return false;
+    }
+  }, []);
+
+  const likeResource = useCallback(async (id: number): Promise<boolean> => {
+    try {
+      const client = getAuthenticatedClient();
+      const response = await client.get<ApiResponse<void>>(
+        `resources/${id}/like`,
+        { headers: getCompanyHeaders() }
+      );
+
+      const data = response.data;
+      if (data.status === "success" || data.status === true) {
+        setResources((prev) =>
+          prev.map((r) =>
+            r.id === id
+              ? { ...r, likes_count: (r.likes_count || 0) + 1 }
+              : r
+          )
+        );
+
+        showSuccessToast("Resource liked");
+        return true;
+      }
+
+      throw new Error(data.message || "Failed to like resource");
+    } catch (err) {
+      const apiError = err as ApiError;
+      showErrorToast(apiError.message || "Failed to like resource");
+      return false;
+    }
+  }, []);
+
+  const dislikeResource = useCallback(async (id: number): Promise<boolean> => {
+    try {
+      const client = getAuthenticatedClient();
+      const response = await client.get<ApiResponse<void>>(
+        `resources/${id}/dislike`,
+        { headers: getCompanyHeaders() }
+      );
+
+      const data = response.data;
+      if (data.status === "success" || data.status === true) {
+        setResources((prev) =>
+          prev.map((r) =>
+            r.id === id
+              ? { ...r, dislikes_count: (r.dislikes_count || 0) + 1 }
+              : r
+          )
+        );
+
+        showSuccessToast("Feedback recorded");
+        return true;
+      }
+
+      throw new Error(data.message || "Failed to record feedback");
+    } catch (err) {
+      const apiError = err as ApiError;
+      showErrorToast(apiError.message || "Failed to record feedback");
+      return false;
+    }
+  }, []);
+
+  const commentResource = useCallback(async (id: number, comment: string): Promise<boolean> => {
+    try {
+      const encodedComment = encodeURIComponent(comment);
+      const client = getAuthenticatedClient();
+      const response = await client.get<ApiResponse<void>>(
+        `resources/comment/${id}?comment=${encodedComment}`,
+        { headers: getCompanyHeaders() }
+      );
+
+      const data = response.data;
+      if (data.status === "success" || data.status === true) {
+        setResources((prev) =>
+          prev.map((r) =>
+            r.id === id
+              ? { ...r, comments_count: (r.comments_count || 0) + 1 }
+              : r
+          )
+        );
+
+        showSuccessToast("Comment added");
+        return true;
+      }
+
+      throw new Error(data.message || "Failed to add comment");
+    } catch (err) {
+      const apiError = err as ApiError;
+      showErrorToast(apiError.message || "Failed to add comment");
+      return false;
+    }
+  }, []);
 
   return {
     resources,

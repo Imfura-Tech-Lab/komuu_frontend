@@ -124,7 +124,6 @@ export class PaymentPDFService {
       
       showSuccessToast("Payment receipt generated successfully!");
     } catch (error) {
-      console.error("Error generating payment PDF:", error);
       showErrorToast("Failed to generate payment receipt");
       throw error;
     }
@@ -209,7 +208,6 @@ export class PaymentPDFService {
       
       showSuccessToast("Payment report generated successfully!");
     } catch (error) {
-      console.error("Error generating payment report:", error);
       showErrorToast("Failed to generate payment report");
       throw error;
     }

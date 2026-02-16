@@ -787,7 +787,6 @@ export default function MyPaymentsClient() {
         throw new Error(responseData.message || "Failed to fetch payments");
       }
     } catch (err) {
-      console.error("Failed to fetch payments:", err);
       setError(err instanceof Error ? err.message : "Failed to fetch payments");
       showErrorToast("Failed to load payments");
     } finally {

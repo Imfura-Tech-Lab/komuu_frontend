@@ -55,8 +55,7 @@ export function FileViewer({
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-    } catch (err) {
-      console.error("Download failed:", err);
+    } catch {
       setError("Failed to download file");
     }
   };

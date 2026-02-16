@@ -232,8 +232,6 @@ export function EventModal({
       registration_deadline: formatForAPI(formData.registration_deadline),
     };
 
-    console.log("Submission data:", submissionData);
-
     const result = await onSubmit(submissionData);
     
     // If there are backend validation errors, display them

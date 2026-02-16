@@ -310,7 +310,7 @@ export function safeParseWithFallback<T>(
   if (result.success) {
     return result.data;
   }
-  console.warn("Validation failed, using fallback:", result.error.issues);
+  // Validation failed, using fallback
   return fallback;
 }
 

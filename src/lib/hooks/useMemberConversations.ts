@@ -3,6 +3,7 @@ import {
   showErrorToast,
   showSuccessToast,
 } from "@/components/layouts/auth-layer-out";
+import { getAuthenticatedClient, getCompanyHeaders, ApiError } from "@/lib/api-client";
 
 export interface Conversation {
   id: number;
@@ -57,7 +58,7 @@ export interface StartConversationParams {
   attachment?: File;
 }
 
-interface ApiResponse<T = any> {
+interface ApiResponse<T> {
   status: "success" | "error" | boolean;
   message: string;
   data?: T;
@@ -103,176 +104,105 @@ export function useMemberConversations(): UseMemberConversationsReturn {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
-
-  const getAuthHeaders = useCallback(() => {
-    if (typeof window === "undefined") {
-      return {
-        Accept: "application/json",
-        Authorization: "",
-        "X-Company-ID": "",
-      };
-    }
-
-    const authToken = localStorage.getItem("auth_token");
-    const companyId = localStorage.getItem("company_id");
-
-    return {
-      Accept: "application/json",
-      Authorization: `Bearer ${authToken}`,
-      "X-Company-ID": companyId || "",
-    };
-  }, []);
-
-  const apiCall = useCallback(
-    async <T>(
-      endpoint: string,
-      options: RequestInit = {}
-    ): Promise<T | null> => {
-      try {
-        const response = await fetch(`${apiUrl}${endpoint}`, {
-          ...options,
-          headers: {
-            ...getAuthHeaders(),
-            ...options.headers,
-          },
-        });
-
-        const data: ApiResponse<T> = await response.json();
-
-        if (!response.ok) {
-          throw new Error(
-            data.message ||
-              `API error: ${response.status} ${response.statusText}`
-          );
-        }
-
-        if (data.status === "success" || data.status === true) {
-          return data.data || (data as any);
-        } else {
-          throw new Error(data.message || "API request failed");
-        }
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : "Unknown error occurred";
-        throw new Error(errorMessage);
-      }
-    },
-    [apiUrl, getAuthHeaders]
-  );
-
   /**
    * Fetch conversations with optional group filter
    * Member endpoint: GET /conversations?group={slug}
    */
-  const fetchConversations = useCallback(
-    async (groupSlug?: string) => {
-      try {
-        setLoading(true);
-        setError(null);
+  const fetchConversations = useCallback(async (groupSlug?: string) => {
+    try {
+      setLoading(true);
+      setError(null);
 
-        const endpoint = groupSlug
-          ? `conversations?group=${groupSlug}`
-          : `conversations`;
+      const endpoint = groupSlug
+        ? `conversations?group=${groupSlug}`
+        : `conversations`;
 
-        const response = await fetch(`${apiUrl}${endpoint}`, {
-          headers: getAuthHeaders(),
-        });
+      const client = getAuthenticatedClient();
+      const response = await client.get<ApiResponse<PaginatedResponse<Conversation>>>(
+        endpoint,
+        { headers: getCompanyHeaders() }
+      );
 
-        const result: ApiResponse<PaginatedResponse<Conversation>> =
-          await response.json();
+      const result = response.data;
+      if ((result.status === "success" || result.status === true) && result.data) {
+        const conversationsData = result.data.data || [];
 
-        if (!response.ok) {
-          throw new Error(result.message || "Failed to fetch conversations");
+        const transformedConversations = conversationsData.map((conv) => ({
+          ...conv,
+          author: conv.sender?.name || conv.author || "Unknown",
+          author_id: conv.sender?.id?.toString() || conv.author_id,
+          replies: conv.replies || 0,
+          views: conv.views || 0,
+          last_activity: conv.updated_at || conv.created_at,
+          category: conv.type || conv.category || "General",
+          status: (conv.status || "open") as "open" | "closed",
+          is_pinned: conv.is_pinned || false,
+        }));
+
+        setConversations(transformedConversations);
+
+        if (result.data.total !== undefined) {
+          setStats({
+            total_topics: result.data.total,
+            total_replies: transformedConversations.reduce(
+              (sum, conv) => sum + (conv.replies || 0),
+              0
+            ),
+            total_views: transformedConversations.reduce(
+              (sum, conv) => sum + (conv.views || 0),
+              0
+            ),
+            active_today: 0,
+          });
         }
-
-        if (result.status === "success" && result.data) {
-          const conversationsData = result.data.data || [];
-
-          const transformedConversations = conversationsData.map((conv) => ({
-            ...conv,
-            author: conv.sender?.name || conv.author || "Unknown",
-            author_id: conv.sender?.id?.toString() || conv.author_id,
-            replies: conv.replies || 0,
-            views: conv.views || 0,
-            last_activity: conv.updated_at || conv.created_at,
-            category: conv.type || conv.category || "General",
-            status: (conv.status || "open") as "open" | "closed",
-            is_pinned: conv.is_pinned || false,
-          }));
-
-          setConversations(transformedConversations);
-
-          // Set stats from pagination metadata
-          if (result.data.total !== undefined) {
-            setStats({
-              total_topics: result.data.total,
-              total_replies: transformedConversations.reduce(
-                (sum, conv) => sum + (conv.replies || 0),
-                0
-              ),
-              total_views: transformedConversations.reduce(
-                (sum, conv) => sum + (conv.views || 0),
-                0
-              ),
-              active_today: 0, // Backend should provide this
-            });
-          }
-        }
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to load conversations"
-        );
-        showErrorToast("Failed to load conversations");
-      } finally {
-        setLoading(false);
       }
-    },
-    [apiUrl, getAuthHeaders]
-  );
+    } catch (err) {
+      const apiError = err as ApiError;
+      setError(apiError.message || "Failed to load conversations");
+      showErrorToast("Failed to load conversations");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   /**
    * Fetch single conversation details
    * Member endpoint: GET /conversations/{id}
    */
-  const fetchConversation = useCallback(
-    async (id: number): Promise<Conversation | null> => {
-      try {
-        setLoading(true);
-        setError(null);
+  const fetchConversation = useCallback(async (id: number): Promise<Conversation | null> => {
+    try {
+      setLoading(true);
+      setError(null);
 
-        const data = await apiCall<Conversation>(`conversations/${id}`);
+      const client = getAuthenticatedClient();
+      const response = await client.get<ApiResponse<Conversation>>(
+        `conversations/${id}`,
+        { headers: getCompanyHeaders() }
+      );
 
-        if (data) {
-          return {
-            ...data,
-            author: data.sender?.name || data.author || "Unknown",
-            author_id: data.sender?.id?.toString() || data.author_id,
-            last_activity: data.updated_at || data.created_at,
-            category: data.type || data.category || "General",
-          };
-        }
-
-        return null;
-      } catch (err) {
-        showErrorToast("Failed to load conversation details");
-        return null;
-      } finally {
-        setLoading(false);
+      const data = response.data;
+      if ((data.status === "success" || data.status === true) && data.data) {
+        return {
+          ...data.data,
+          author: data.data.sender?.name || data.data.author || "Unknown",
+          author_id: data.data.sender?.id?.toString() || data.data.author_id,
+          last_activity: data.data.updated_at || data.data.created_at,
+          category: data.data.type || data.data.category || "General",
+        };
       }
-    },
-    [apiCall]
-  );
+
+      return null;
+    } catch {
+      showErrorToast("Failed to load conversation details");
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   /**
    * Start a new conversation (member-initiated)
    * Member endpoint: POST /conversations/start-conversation
-   * 
-   * Required fields:
-   * - group: number (group ID)
-   * - title: string
-   * - content: string
-   * - attachment: File (optional)
    */
   const startConversation = useCallback(
     async (params: StartConversationParams): Promise<Conversation | null> => {
@@ -280,7 +210,6 @@ export function useMemberConversations(): UseMemberConversationsReturn {
         setLoading(true);
         setError(null);
 
-        // Validate required fields
         if (!params.group) {
           throw new Error("Group is required");
         }
@@ -293,21 +222,15 @@ export function useMemberConversations(): UseMemberConversationsReturn {
           throw new Error("Content must be at least 10 characters long");
         }
 
-        // Validate attachment if provided
         if (params.attachment) {
-          const maxSize = 10 * 1024 * 1024; // 10MB
+          const maxSize = 10 * 1024 * 1024;
           if (params.attachment.size > maxSize) {
             throw new Error("File size must be less than 10MB");
           }
 
           const allowedTypes = [
-            "image/jpeg",
-            "image/jpg",
-            "image/png",
-            "image/gif",
-            "image/webp",
-            "application/pdf",
-            "application/msword",
+            "image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp",
+            "application/pdf", "application/msword",
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             "application/vnd.ms-excel",
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -318,7 +241,6 @@ export function useMemberConversations(): UseMemberConversationsReturn {
           }
         }
 
-        // Build FormData
         const formData = new FormData();
         formData.append("group", params.group.toString());
         formData.append("title", params.title.trim());
@@ -328,39 +250,30 @@ export function useMemberConversations(): UseMemberConversationsReturn {
           formData.append("attachment", params.attachment);
         }
 
-        // Remove Accept header for FormData
-        const headers = getAuthHeaders();
-        delete (headers as any).Accept;
-
-        const data = await apiCall<Conversation>(
+        const client = getAuthenticatedClient();
+        const response = await client.postFormData<ApiResponse<Conversation>>(
           "conversations/start-conversation",
-          {
-            method: "POST",
-            body: formData,
-            headers,
-          }
+          formData,
+          { headers: getCompanyHeaders() }
         );
 
-        if (data) {
+        const data = response.data;
+        if ((data.status === "success" || data.status === true) && data.data) {
           showSuccessToast("Conversation started successfully");
-          
-          // Refresh conversations list
           await fetchConversations();
-          
-          return data;
+          return data.data;
         }
 
         return null;
       } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : "Failed to start conversation";
-        showErrorToast(errorMessage);
+        const apiError = err as ApiError;
+        showErrorToast(apiError.message || "Failed to start conversation");
         return null;
       } finally {
         setLoading(false);
       }
     },
-    [apiCall, fetchConversations, getAuthHeaders]
+    [fetchConversations]
   );
 
   return {
