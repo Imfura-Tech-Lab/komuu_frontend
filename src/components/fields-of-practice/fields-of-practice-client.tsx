@@ -111,7 +111,7 @@ export default function FieldsOfPracticeClient() {
       label: "Applications",
       sortable: true,
       filterable: false,
-      width: 120,
+      width: 110,
       render: (field) => {
         const count = field.total_applications || 0;
         const hasApplications = count > 0;
@@ -130,6 +130,31 @@ export default function FieldsOfPracticeClient() {
         );
       },
       exportRender: (field) => `${field.total_applications || 0}`,
+    },
+    {
+      key: "total_members",
+      label: "Members",
+      sortable: true,
+      filterable: false,
+      width: 100,
+      render: (field) => {
+        const count = field.total_members || 0;
+        const hasMembers = count > 0;
+        return (
+          <div className="flex items-center gap-2">
+            <span
+              className={`inline-flex items-center justify-center min-w-[28px] h-7 px-2 rounded-full text-xs font-semibold ${
+                hasMembers
+                  ? "bg-[#00B5A5]/10 text-[#00B5A5] dark:bg-[#00B5A5]/20 dark:text-[#00B5A5]"
+                  : "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400"
+              }`}
+            >
+              {count}
+            </span>
+          </div>
+        );
+      },
+      exportRender: (field) => `${field.total_members || 0}`,
     },
     {
       key: "sub_fields",
@@ -276,8 +301,12 @@ export default function FieldsOfPracticeClient() {
       (acc, f) => acc + (f.total_applications || 0),
       0
     ),
-    fieldsWithApplications: fields.filter(
-      (f) => (f.total_applications || 0) > 0
+    totalMembers: fields.reduce(
+      (acc, f) => acc + (f.total_members || 0),
+      0
+    ),
+    fieldsWithMembers: fields.filter(
+      (f) => (f.total_members || 0) > 0
     ).length,
   };
 
@@ -547,18 +576,18 @@ export default function FieldsOfPracticeClient() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Active Fields
+                  Total Members
                 </p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-                  {stats.fieldsWithApplications}
+                  {stats.totalMembers}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                  with applications
+                  across {stats.fieldsWithMembers} fields
                 </p>
               </div>
-              <div className="h-10 w-10 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+              <div className="h-10 w-10 rounded-lg bg-[#00B5A5]/10 dark:bg-[#00B5A5]/20 flex items-center justify-center">
                 <svg
-                  className="w-5 h-5 text-amber-600 dark:text-amber-400"
+                  className="w-5 h-5 text-[#00B5A5]"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -567,7 +596,7 @@ export default function FieldsOfPracticeClient() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
                   />
                 </svg>
               </div>

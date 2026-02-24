@@ -8,7 +8,9 @@ export interface SubField {
   id: number;
   field: string;
   code: string;
-  description?:string;
+  description?: string;
+  total_applications?: number | null;
+  total_members?: number | null;
 }
 
 export interface FieldOfPractice {
@@ -18,6 +20,7 @@ export interface FieldOfPractice {
   description?: string;
   sub_fields: SubField[];
   total_applications?: number;
+  total_members?: number;
   main_field?: number;
 }
 
