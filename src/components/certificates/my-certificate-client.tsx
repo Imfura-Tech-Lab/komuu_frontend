@@ -32,6 +32,9 @@ import {
   showSuccessToast,
 } from "@/components/layouts/auth-layer-out";
 import { useCertificates } from "@/lib/hooks/useCertificates";
+import { useFileViewer } from "@/lib/hooks/useFileViewer";
+import { FileViewer } from "@/components/ui/FileViwer";
+import { generateCertificatePDF } from "@/lib/utils/certificateGenerator";
 
 // Types matching API response
 interface MemberDetails {
@@ -320,26 +323,20 @@ function CertificateRow({
             </span>
           </span>
 
-          {/* Download Button */}
+          {/* View Certificate Button */}
           <button
             onClick={(e) => {
               e.stopPropagation();
               onDownload();
             }}
-            disabled={!certificate.certificate || downloading}
-            className={`p-2 rounded-lg transition-colors ${
-              certificate.certificate
-                ? "text-[#00B5A5] hover:bg-[#00B5A5]/10"
-                : "text-gray-300 dark:text-gray-600 cursor-not-allowed"
-            }`}
-            title={
-              certificate.certificate ? "Download Certificate" : "Not Available"
-            }
+            disabled={downloading}
+            className="p-2 rounded-lg transition-colors text-[#00B5A5] hover:bg-[#00B5A5]/10"
+            title="View Certificate"
           >
             {downloading ? (
               <ArrowPathIcon className="w-5 h-5 animate-spin" />
             ) : (
-              <ArrowDownTrayIcon className="w-5 h-5" />
+              <EyeIcon className="w-5 h-5" />
             )}
           </button>
         </div>
@@ -664,19 +661,15 @@ function CertificateDetailsSheet({
                         </button>
                         <button
                           onClick={onDownload}
-                          disabled={!certificate.certificate || downloading}
-                          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
-                            certificate.certificate
-                              ? "bg-[#00B5A5] hover:bg-[#009985] text-white"
-                              : "bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed"
-                          }`}
+                          disabled={downloading}
+                          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors bg-[#00B5A5] hover:bg-[#009985] text-white disabled:opacity-50"
                         >
                           {downloading ? (
                             <ArrowPathIcon className="w-4 h-4 animate-spin" />
                           ) : (
-                            <ArrowDownTrayIcon className="w-4 h-4" />
+                            <EyeIcon className="w-4 h-4" />
                           )}
-                          Download Certificate
+                          View Certificate
                         </button>
                       </div>
                     </div>
@@ -792,7 +785,8 @@ export default function MyCertificatesClient() {
   const [currentPage, setCurrentPage] = useState(1);
 
   const router = useRouter();
-  const { getCertificateData } = useCertificates();
+  const { getCertificateData, fetchingCertificate } = useCertificates();
+  const { isOpen: fileViewerOpen, fileUrl, fileName, openFile, closeFile } = useFileViewer();
 
   useEffect(() => {
     fetchCertificates(currentPage);
@@ -833,7 +827,8 @@ export default function MyCertificatesClient() {
 
       const responseData = await response.json();
       if (responseData.status === "success") {
-        setCertificatesData(responseData.data);
+        // API returns data.certificates for the paginated list
+        setCertificatesData(responseData.data.certificates);
       } else {
         throw new Error(responseData.message || "Failed to fetch certificates");
       }
@@ -852,22 +847,28 @@ export default function MyCertificatesClient() {
     setSideSheetOpen(true);
   };
 
-  const handleDownload = async (certificate: Certificate) => {
-    if (!certificate.certificate && !certificate.token) {
-      showErrorToast("Certificate not available for download");
-      return;
-    }
-
+  const handleViewCertificate = async (certificate: Certificate) => {
     try {
       setDownloadingId(certificate.id);
 
-      // Use the useCertificates hook to get certificate data and generate PDF
-      const certData = await getCertificateData(certificate.id);
-      if (certData) {
-        showSuccessToast("Certificate downloaded successfully");
+      // Get certificate data from backend
+      const certificateData = await getCertificateData(certificate.id);
+
+      if (!certificateData) {
+        showErrorToast("Failed to load certificate data");
+        return;
       }
+
+      // Generate PDF blob from the data
+      const pdfBlob = await generateCertificatePDF(certificateData);
+
+      // Create blob URL
+      const blobUrl = URL.createObjectURL(pdfBlob);
+
+      // Open in file viewer
+      openFile(blobUrl, `Certificate-${certificate.member_number}.pdf`, "pdf");
     } catch {
-      showErrorToast("Failed to download certificate");
+      showErrorToast("Failed to generate certificate preview");
     } finally {
       setDownloadingId(null);
     }
@@ -1000,7 +1001,7 @@ export default function MyCertificatesClient() {
                   key={certificate.id}
                   certificate={certificate}
                   onViewDetails={() => handleViewDetails(certificate)}
-                  onDownload={() => handleDownload(certificate)}
+                  onDownload={() => handleViewCertificate(certificate)}
                   downloading={downloadingId === certificate.id}
                 />
               ))}
@@ -1056,11 +1057,20 @@ export default function MyCertificatesClient() {
         isOpen={sideSheetOpen}
         onClose={() => setSideSheetOpen(false)}
         onDownload={() =>
-          selectedCertificate && handleDownload(selectedCertificate)
+          selectedCertificate && handleViewCertificate(selectedCertificate)
         }
         downloading={
           selectedCertificate ? downloadingId === selectedCertificate.id : false
         }
+      />
+
+      {/* File Viewer Modal for Certificate PDF */}
+      <FileViewer
+        fileUrl={fileUrl}
+        fileName={fileName}
+        fileType="pdf"
+        isOpen={fileViewerOpen}
+        onClose={closeFile}
       />
     </div>
   );
