@@ -12,6 +12,7 @@ import {
   Building,
 } from "lucide-react";
 import MembershipLayout from "@/components/layouts/membership-layout";
+import { PhoneInput } from "@/components/ui/PhoneInput";
 import { authService } from "@/services/auth-service";
 import { membershipService, Organization } from "@/services/membership-service";
 import { ApiError } from "@/lib/api-client";
@@ -420,47 +421,26 @@ const PersonalInformationStep: React.FC<{
           </p>
         )}
       </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Phone Number <span className="text-red-500">*</span>
-        </label>
-        <input
-          type="tel"
-          value={formData.phone_number}
-          onChange={(e) => onInputChange("phone_number", e.target.value)}
-          className={inputStyles}
-          placeholder="+250790340400"
-        />
-        {errors.phone_number && (
-          <p className="text-red-500 dark:text-red-400 text-sm mt-1">
-            {errors.phone_number}
-          </p>
-        )}
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Alternative Phone
-        </label>
-        <input
-          type="tel"
-          value={formData.alternative_phone}
-          onChange={(e) => onInputChange("alternative_phone", e.target.value)}
-          className={inputStyles}
-          placeholder="Alternative phone number"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          WhatsApp Number
-        </label>
-        <input
-          type="tel"
-          value={formData.whatsapp_number}
-          onChange={(e) => onInputChange("whatsapp_number", e.target.value)}
-          className={inputStyles}
-          placeholder="+250780343405"
-        />
-      </div>
+      <PhoneInput
+        value={formData.phone_number}
+        onChange={(value) => onInputChange("phone_number", value)}
+        label="Phone Number"
+        required
+        error={errors.phone_number}
+        placeholder="Enter phone number"
+      />
+      <PhoneInput
+        value={formData.alternative_phone}
+        onChange={(value) => onInputChange("alternative_phone", value)}
+        label="Alternative Phone"
+        placeholder="Alternative phone number"
+      />
+      <PhoneInput
+        value={formData.whatsapp_number}
+        onChange={(value) => onInputChange("whatsapp_number", value)}
+        label="WhatsApp Number"
+        placeholder="WhatsApp number"
+      />
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Passport Number

@@ -49,6 +49,12 @@ interface ApiResponse<T> {
   message?: string;
   data?: T;
   types?: string[];
+  errors?: Record<string, string[]>;
+}
+
+interface ResourceResult {
+  success: boolean;
+  errors?: Record<string, string[]>;
 }
 
 interface UseResourcesReturn {
@@ -59,8 +65,8 @@ interface UseResourcesReturn {
   fetchResources: () => Promise<void>;
   fetchResourceTypes: () => Promise<void>;
   fetchResource: (id: number) => Promise<Resource | null>;
-  createResource: (params: CreateResourceParams) => Promise<boolean>;
-  updateResource: (params: UpdateResourceParams) => Promise<boolean>;
+  createResource: (params: CreateResourceParams) => Promise<ResourceResult>;
+  updateResource: (params: UpdateResourceParams) => Promise<ResourceResult>;
   deleteResource: (id: number) => Promise<boolean>;
 }
 
@@ -192,7 +198,7 @@ export function useResources(): UseResourcesReturn {
   }, []);
 
   const createResource = useCallback(
-    async (params: CreateResourceParams): Promise<boolean> => {
+    async (params: CreateResourceParams): Promise<ResourceResult> => {
       try {
         setLoading(true);
         setError(null);
@@ -219,14 +225,24 @@ export function useResources(): UseResourcesReturn {
         if (data.status === "success" || data.status === true) {
           showSuccessToast(data.message || "Resource created successfully");
           await fetchResources();
-          return true;
+          return { success: true };
+        }
+
+        if (data.status === "error" && data.errors) {
+          return { success: false, errors: data.errors };
         }
 
         throw new Error(data.message || "Failed to create resource");
       } catch (err) {
         const apiError = err as ApiError;
+
+        // Check if it's a validation error with field errors
+        if (apiError.errors && Object.keys(apiError.errors).length > 0) {
+          return { success: false, errors: apiError.errors };
+        }
+
         showErrorToast(apiError.message || "Failed to create resource");
-        return false;
+        return { success: false };
       } finally {
         setLoading(false);
       }
@@ -235,7 +251,7 @@ export function useResources(): UseResourcesReturn {
   );
 
   const updateResource = useCallback(
-    async (params: UpdateResourceParams): Promise<boolean> => {
+    async (params: UpdateResourceParams): Promise<ResourceResult> => {
       try {
         setLoading(true);
         setError(null);
@@ -263,14 +279,24 @@ export function useResources(): UseResourcesReturn {
         if (data.status === "success" || data.status === true) {
           showSuccessToast(data.message || "Resource updated successfully");
           await fetchResources();
-          return true;
+          return { success: true };
+        }
+
+        if (data.status === "error" && data.errors) {
+          return { success: false, errors: data.errors };
         }
 
         throw new Error(data.message || "Failed to update resource");
       } catch (err) {
         const apiError = err as ApiError;
+
+        // Check if it's a validation error with field errors
+        if (apiError.errors && Object.keys(apiError.errors).length > 0) {
+          return { success: false, errors: apiError.errors };
+        }
+
         showErrorToast(apiError.message || "Failed to update resource");
-        return false;
+        return { success: false };
       } finally {
         setLoading(false);
       }

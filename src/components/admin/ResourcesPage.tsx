@@ -502,9 +502,9 @@ export default function ResourcesPage() {
     setIsRefreshing(false);
   };
 
-  const handleCreateResource = async (formData: ResourceFormData) => {
+  const handleCreateResource = async (formData: ResourceFormData): Promise<{ success: boolean; errors?: Record<string, string[]> }> => {
     setModalLoading(true);
-    const success = await createResource({
+    const result = await createResource({
       title: formData.title,
       description: formData.description,
       link: formData.link,
@@ -516,16 +516,17 @@ export default function ResourcesPage() {
     });
     setModalLoading(false);
 
-    if (success) {
+    if (result.success) {
       setShowCreateModal(false);
     }
+    return result;
   };
 
-  const handleUpdateResource = async (formData: ResourceFormData) => {
-    if (!selectedResource) return;
+  const handleUpdateResource = async (formData: ResourceFormData): Promise<{ success: boolean; errors?: Record<string, string[]> }> => {
+    if (!selectedResource) return { success: false };
 
     setModalLoading(true);
-    const success = await updateResource({
+    const result = await updateResource({
       id: selectedResource.id,
       title: formData.title,
       description: formData.description,
@@ -538,10 +539,11 @@ export default function ResourcesPage() {
     });
     setModalLoading(false);
 
-    if (success) {
+    if (result.success) {
       setShowEditModal(false);
       setSelectedResource(null);
     }
+    return result;
   };
 
   const handleDeleteClick = (resource: Resource) => {

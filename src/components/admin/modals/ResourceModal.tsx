@@ -7,6 +7,7 @@ import {
   DocumentIcon,
   ChevronUpDownIcon,
   CheckIcon,
+  ExclamationCircleIcon,
 } from "@heroicons/react/24/outline";
 import { Resource } from "@/lib/hooks/useResources";
 import { useGroups } from "@/lib/hooks/useGroups";
@@ -25,7 +26,7 @@ export interface ResourceFormData {
 interface ResourceModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: ResourceFormData) => Promise<void>;
+  onSubmit: (data: ResourceFormData) => Promise<{ success: boolean; errors?: Record<string, string[]> }>;
   resource?: Resource | null;
   loading: boolean;
 }
@@ -50,8 +51,22 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
   const [tagInput, setTagInput] = useState("");
   const [fileName, setFileName] = useState("");
   const [groupQuery, setGroupQuery] = useState("");
+  const [errors, setErrors] = useState<Record<string, string[]>>({});
 
   const { groups, loading: groupsLoading, fetchGroups } = useGroups();
+
+  // Helper to get error message for a field
+  const getFieldError = (fieldName: string): string | null => {
+    if (errors[fieldName] && errors[fieldName].length > 0) {
+      return errors[fieldName][0];
+    }
+    return null;
+  };
+
+  // Helper to check if field has error
+  const hasError = (fieldName: string): boolean => {
+    return !!(errors[fieldName] && errors[fieldName].length > 0);
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -86,6 +101,7 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
       setFileName("");
     }
     setGroupQuery("");
+    setErrors({});
   }, [resource, isOpen]);
 
   const filteredGroups =
@@ -125,9 +141,18 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Clear previous errors
+    setErrors({});
+
     const { group, ...rest } = formData;
     const submitData = group !== null ? { ...rest, group } : rest;
-    await onSubmit(submitData as ResourceFormData);
+    const result = await onSubmit(submitData as ResourceFormData);
+
+    // If there are backend validation errors, display them
+    if (result.errors) {
+      setErrors(result.errors);
+    }
   };
 
   return (
@@ -177,6 +202,28 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
                   </button>
                 </div>
 
+                {/* Global Error Message */}
+                {Object.keys(errors).length > 0 && (
+                  <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg mb-4">
+                    <div className="flex">
+                      <ExclamationCircleIcon className="h-5 w-5 text-red-400 mr-2 flex-shrink-0" />
+                      <div className="flex-1">
+                        <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
+                          Please fix the following errors:
+                        </h3>
+                        <ul className="mt-2 text-sm text-red-700 dark:text-red-300 list-disc list-inside space-y-1">
+                          {Object.entries(errors).map(([field, messages]) => (
+                            <li key={field}>
+                              <span className="font-medium capitalize">{field.replace(/_/g, ' ')}:</span>{' '}
+                              {messages[0]}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
                     <label
@@ -193,9 +240,19 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
                       onChange={(e) =>
                         setFormData({ ...formData, title: e.target.value })
                       }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent dark:bg-gray-700 dark:text-white"
+                      className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent dark:bg-gray-700 dark:text-white ${
+                        hasError('title')
+                          ? "border-red-500 dark:border-red-500"
+                          : "border-gray-300 dark:border-gray-600"
+                      }`}
                       placeholder="Enter resource title"
                     />
+                    {getFieldError('title') && (
+                      <p className="mt-1 text-sm text-red-600 dark:text-red-400 flex items-center">
+                        <ExclamationCircleIcon className="h-4 w-4 mr-1" />
+                        {getFieldError('title')}
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -215,9 +272,19 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
                           description: e.target.value,
                         })
                       }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent dark:bg-gray-700 dark:text-white"
+                      className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent dark:bg-gray-700 dark:text-white ${
+                        hasError('description')
+                          ? "border-red-500 dark:border-red-500"
+                          : "border-gray-300 dark:border-gray-600"
+                      }`}
                       placeholder="Enter resource description"
                     />
+                    {getFieldError('description') && (
+                      <p className="mt-1 text-sm text-red-600 dark:text-red-400 flex items-center">
+                        <ExclamationCircleIcon className="h-4 w-4 mr-1" />
+                        {getFieldError('description')}
+                      </p>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
@@ -235,7 +302,11 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
                         onChange={(e) =>
                           setFormData({ ...formData, type: e.target.value })
                         }
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent dark:bg-gray-700 dark:text-white"
+                        className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent dark:bg-gray-700 dark:text-white ${
+                          hasError('type')
+                            ? "border-red-500 dark:border-red-500"
+                            : "border-gray-300 dark:border-gray-600"
+                        }`}
                       >
                         <option value="Document">Document</option>
                         <option value="PDF">PDF</option>
@@ -243,6 +314,12 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
                         <option value="Image">Image</option>
                         <option value="Link">Link</option>
                       </select>
+                      {getFieldError('type') && (
+                        <p className="mt-1 text-sm text-red-600 dark:text-red-400 flex items-center">
+                          <ExclamationCircleIcon className="h-4 w-4 mr-1" />
+                          {getFieldError('type')}
+                        </p>
+                      )}
                     </div>
 
                     <div>
@@ -262,11 +339,21 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
                             visibility: e.target.value,
                           })
                         }
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent dark:bg-gray-700 dark:text-white"
+                        className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent dark:bg-gray-700 dark:text-white ${
+                          hasError('visibility')
+                            ? "border-red-500 dark:border-red-500"
+                            : "border-gray-300 dark:border-gray-600"
+                        }`}
                       >
                         <option value="Public">Public</option>
                         <option value="Members only">Members Only</option>
                       </select>
+                      {getFieldError('visibility') && (
+                        <p className="mt-1 text-sm text-red-600 dark:text-red-400 flex items-center">
+                          <ExclamationCircleIcon className="h-4 w-4 mr-1" />
+                          {getFieldError('visibility')}
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -284,9 +371,19 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
                       onChange={(e) =>
                         setFormData({ ...formData, link: e.target.value })
                       }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent dark:bg-gray-700 dark:text-white"
+                      className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent dark:bg-gray-700 dark:text-white ${
+                        hasError('link')
+                          ? "border-red-500 dark:border-red-500"
+                          : "border-gray-300 dark:border-gray-600"
+                      }`}
                       placeholder="https://example.com/document"
                     />
+                    {getFieldError('link') && (
+                      <p className="mt-1 text-sm text-red-600 dark:text-red-400 flex items-center">
+                        <ExclamationCircleIcon className="h-4 w-4 mr-1" />
+                        {getFieldError('link')}
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -302,7 +399,11 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
                       />
                       <label
                         htmlFor="file-upload"
-                        className="cursor-pointer inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                        className={`cursor-pointer inline-flex items-center px-4 py-2 border rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors ${
+                          hasError('file')
+                            ? "border-red-500 dark:border-red-500"
+                            : "border-gray-300 dark:border-gray-600"
+                        }`}
                       >
                         <DocumentIcon className="h-5 w-5 mr-2" />
                         Choose File
@@ -313,6 +414,12 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
                         </span>
                       )}
                     </div>
+                    {getFieldError('file') && (
+                      <p className="mt-1 text-sm text-red-600 dark:text-red-400 flex items-center">
+                        <ExclamationCircleIcon className="h-4 w-4 mr-1" />
+                        {getFieldError('file')}
+                      </p>
+                    )}
                   </div>
 
                   <div>

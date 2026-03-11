@@ -3,6 +3,7 @@
 import { useState, useRef, Fragment } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import { XMarkIcon, PhotoIcon } from "@heroicons/react/24/outline";
+import { PhoneInput } from "@/components/ui/PhoneInput";
 
 interface CreateMemberModalProps {
   isOpen: boolean;
@@ -259,16 +260,12 @@ export function CreateMemberModal({
 
                         {/* Phone Number */}
                         <div className="md:col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Phone Number *
-                          </label>
-                          <input
-                            type="tel"
-                            name="phone_number"
+                          <PhoneInput
                             value={formData.phone_number}
-                            onChange={handleInputChange}
+                            onChange={(value) => setFormData(prev => ({ ...prev, phone_number: value }))}
+                            label="Phone Number"
                             required
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent"
+                            placeholder="Enter phone number"
                           />
                         </div>
                       </div>

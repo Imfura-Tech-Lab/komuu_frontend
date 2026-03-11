@@ -5,6 +5,7 @@ import {
   showErrorToast,
   showSuccessToast,
 } from "@/components/layouts/auth-layer-out";
+import { PhoneInput, isValidPhoneNumber } from "@/components/ui/PhoneInput";
 
 interface UserData {
   id: number;
@@ -181,7 +182,7 @@ export default function ProfilePage() {
 
     if (!formData.phone_number.trim()) {
       newErrors.phone_number = "Phone number is required";
-    } else if (!/^\+?[\d\s\-\(\)]+$/.test(formData.phone_number)) {
+    } else if (!isValidPhoneNumber(formData.phone_number)) {
       newErrors.phone_number = "Please enter a valid phone number";
     }
 
@@ -208,11 +209,11 @@ export default function ProfilePage() {
       }
     }
 
-    if (formData.alternative_phone?.trim() && !/^\+?[\d\s\-\(\)]+$/.test(formData.alternative_phone)) {
+    if (formData.alternative_phone?.trim() && !isValidPhoneNumber(formData.alternative_phone)) {
       newErrors.alternative_phone = "Please enter a valid phone number";
     }
 
-    if (formData.whatsapp_number?.trim() && !/^\+?[\d\s\-\(\)]+$/.test(formData.whatsapp_number)) {
+    if (formData.whatsapp_number?.trim() && !isValidPhoneNumber(formData.whatsapp_number)) {
       newErrors.whatsapp_number = "Please enter a valid WhatsApp number";
     }
 
@@ -983,24 +984,12 @@ export default function ProfilePage() {
                 </label>
                 <div className="flex-1">
                   {isEditing ? (
-                    <>
-                      <input
-                        type="tel"
-                        value={formData.phone_number}
-                        onChange={(e) => handleInputChange("phone_number", e.target.value)}
-                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent transition-colors duration-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
-                          errors.phone_number
-                            ? "border-red-300 dark:border-red-600"
-                            : "border-gray-300 dark:border-gray-600"
-                        }`}
-                        placeholder="Enter your phone number"
-                      />
-                      {errors.phone_number && (
-                        <p className="mt-1 text-sm text-red-600 dark:text-red-400 transition-colors duration-200">
-                          {errors.phone_number}
-                        </p>
-                      )}
-                    </>
+                    <PhoneInput
+                      value={formData.phone_number}
+                      onChange={(value) => handleInputChange("phone_number", value)}
+                      error={errors.phone_number}
+                      placeholder="Enter your phone number"
+                    />
                   ) : (
                     <p className="py-2 text-gray-900 dark:text-white transition-colors duration-200">
                       {formData.phone_number}
@@ -1016,24 +1005,12 @@ export default function ProfilePage() {
                 </label>
                 <div className="flex-1">
                   {isEditing ? (
-                    <>
-                      <input
-                        type="tel"
-                        value={formData.alternative_phone}
-                        onChange={(e) => handleInputChange("alternative_phone", e.target.value)}
-                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent transition-colors duration-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
-                          errors.alternative_phone
-                            ? "border-red-300 dark:border-red-600"
-                            : "border-gray-300 dark:border-gray-600"
-                        }`}
-                        placeholder="Enter alternative phone (optional)"
-                      />
-                      {errors.alternative_phone && (
-                        <p className="mt-1 text-sm text-red-600 dark:text-red-400 transition-colors duration-200">
-                          {errors.alternative_phone}
-                        </p>
-                      )}
-                    </>
+                    <PhoneInput
+                      value={formData.alternative_phone}
+                      onChange={(value) => handleInputChange("alternative_phone", value)}
+                      error={errors.alternative_phone}
+                      placeholder="Enter alternative phone (optional)"
+                    />
                   ) : (
                     <p className="py-2 text-gray-900 dark:text-white transition-colors duration-200">
                       {formData.alternative_phone || "Not specified"}
@@ -1049,24 +1026,12 @@ export default function ProfilePage() {
                 </label>
                 <div className="flex-1">
                   {isEditing ? (
-                    <>
-                      <input
-                        type="tel"
-                        value={formData.whatsapp_number}
-                        onChange={(e) => handleInputChange("whatsapp_number", e.target.value)}
-                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent transition-colors duration-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
-                          errors.whatsapp_number
-                            ? "border-red-300 dark:border-red-600"
-                            : "border-gray-300 dark:border-gray-600"
-                        }`}
-                        placeholder="Enter WhatsApp number (optional)"
-                      />
-                      {errors.whatsapp_number && (
-                        <p className="mt-1 text-sm text-red-600 dark:text-red-400 transition-colors duration-200">
-                          {errors.whatsapp_number}
-                        </p>
-                      )}
-                    </>
+                    <PhoneInput
+                      value={formData.whatsapp_number}
+                      onChange={(value) => handleInputChange("whatsapp_number", value)}
+                      error={errors.whatsapp_number}
+                      placeholder="Enter WhatsApp number (optional)"
+                    />
                   ) : (
                     <p className="py-2 text-gray-900 dark:text-white transition-colors duration-200">
                       {formData.whatsapp_number || "Not specified"}

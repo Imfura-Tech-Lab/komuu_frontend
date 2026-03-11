@@ -200,6 +200,13 @@ export function useEvents(): UseEventsReturn {
         throw new Error(data.message || "Failed to create event");
       } catch (err) {
         const apiError = err as ApiError;
+
+        // Check if it's a validation error with field errors
+        if (apiError.errors && Object.keys(apiError.errors).length > 0) {
+          // Don't show generic toast, let the form display field-level errors
+          return { success: false, errors: apiError.errors };
+        }
+
         showErrorToast(apiError.message || "Failed to create event");
         return { success: false };
       } finally {
@@ -252,6 +259,13 @@ export function useEvents(): UseEventsReturn {
         throw new Error(data.message || "Failed to update event");
       } catch (err) {
         const apiError = err as ApiError;
+
+        // Check if it's a validation error with field errors
+        if (apiError.errors && Object.keys(apiError.errors).length > 0) {
+          // Don't show generic toast, let the form display field-level errors
+          return { success: false, errors: apiError.errors };
+        }
+
         showErrorToast(apiError.message || "Failed to update event");
         return { success: false };
       } finally {
