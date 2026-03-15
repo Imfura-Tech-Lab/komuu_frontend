@@ -8,6 +8,7 @@ export interface FormatDateOptions {
   style?: DateFormatStyle;
   includeTime?: boolean;
   locale?: string;
+  timezone?: string;
 }
 
 // ============================================================================
@@ -18,7 +19,7 @@ export function formatDate(
   date: string | Date | null | undefined,
   options: FormatDateOptions = {}
 ): string {
-  const { style = "medium", includeTime = false, locale = "en-US" } = options;
+  const { style = "medium", includeTime = false, locale = "en-US", timezone } = options;
 
   if (!date) return "N/A";
 
@@ -40,6 +41,11 @@ export function formatDate(
     if (includeTime) {
       dateOptions.hour = "2-digit";
       dateOptions.minute = "2-digit";
+    }
+
+    // Add timezone if specified
+    if (timezone) {
+      dateOptions.timeZone = timezone;
     }
 
     return new Intl.DateTimeFormat(locale, dateOptions).format(dateObj);
@@ -151,9 +157,9 @@ export function formatFullDate(date: string | Date | null | undefined): string {
 
 export function formatTime(
   date: string | Date | null | undefined,
-  options: { hour12?: boolean } = {}
+  options: { hour12?: boolean; timezone?: string } = {}
 ): string {
-  const { hour12 = true } = options;
+  const { hour12 = true, timezone } = options;
 
   if (!date) return "N/A";
 
@@ -164,11 +170,17 @@ export function formatTime(
       return "Invalid Time";
     }
 
-    return new Intl.DateTimeFormat("en-US", {
+    const formatOptions: Intl.DateTimeFormatOptions = {
       hour: "2-digit",
       minute: "2-digit",
       hour12,
-    }).format(dateObj);
+    };
+
+    if (timezone) {
+      formatOptions.timeZone = timezone;
+    }
+
+    return new Intl.DateTimeFormat("en-US", formatOptions).format(dateObj);
   } catch {
     return "Invalid Time";
   }
@@ -233,4 +245,107 @@ export function getDaysUntil(date: string | Date): number {
 
 export function getDaysSince(date: string | Date): number {
   return -getDaysUntil(date);
+}
+
+// ============================================================================
+// Timezone-Aware Formatting
+// ============================================================================
+
+/**
+ * Format date with timezone indicator
+ */
+export function formatDateWithTimezone(
+  date: string | Date | null | undefined,
+  timezone: string,
+  options: Omit<FormatDateOptions, "timezone"> = {}
+): string {
+  const formatted = formatDate(date, { ...options, timezone });
+  if (formatted === "N/A" || formatted === "Invalid Date") {
+    return formatted;
+  }
+
+  // Get short timezone name
+  try {
+    const dateObj = typeof date === "string" ? new Date(date!) : date!;
+    const tzName = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      timeZoneName: "short",
+    })
+      .formatToParts(dateObj)
+      .find((p) => p.type === "timeZoneName")?.value;
+
+    return tzName ? `${formatted} (${tzName})` : formatted;
+  } catch {
+    return formatted;
+  }
+}
+
+/**
+ * Format time with timezone indicator
+ */
+export function formatTimeWithTimezone(
+  date: string | Date | null | undefined,
+  timezone: string,
+  options: { hour12?: boolean } = {}
+): string {
+  const formatted = formatTime(date, { ...options, timezone });
+  if (formatted === "N/A" || formatted === "Invalid Time") {
+    return formatted;
+  }
+
+  // Get short timezone name
+  try {
+    const dateObj = typeof date === "string" ? new Date(date!) : date!;
+    const tzName = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      timeZoneName: "short",
+    })
+      .formatToParts(dateObj)
+      .find((p) => p.type === "timeZoneName")?.value;
+
+    return tzName ? `${formatted} ${tzName}` : formatted;
+  } catch {
+    return formatted;
+  }
+}
+
+/**
+ * Get current time in a specific timezone
+ */
+export function getCurrentTimeInTimezone(timezone: string): string {
+  return formatTime(new Date(), { timezone });
+}
+
+/**
+ * Get current date in a specific timezone
+ */
+export function getCurrentDateInTimezone(
+  timezone: string,
+  style: DateFormatStyle = "medium"
+): string {
+  return formatDate(new Date(), { timezone, style });
+}
+
+/**
+ * Convert a date to a specific timezone and return ISO string representation
+ */
+export function toTimezoneISO(date: Date | string, timezone: string): string {
+  const dateObj = typeof date === "string" ? new Date(date) : date;
+
+  // Format in target timezone
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+
+  const parts = formatter.formatToParts(dateObj);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value || "00";
+
+  return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}:${get("second")}`;
 }
