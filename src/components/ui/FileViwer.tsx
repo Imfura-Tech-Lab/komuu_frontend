@@ -55,8 +55,7 @@ export function FileViewer({
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-    } catch (err) {
-      console.error("Download failed:", err);
+    } catch {
       setError("Failed to download file");
     }
   };
@@ -213,8 +212,8 @@ export function FileViewer({
   };
 
   return (
-    <div 
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm"
       onClick={onClose}
     >
       <div 

@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import {
   UserCircleIcon,
   MagnifyingGlassIcon,
-  EllipsisVerticalIcon,
   ArrowPathIcon,
   UserPlusIcon,
   CheckCircleIcon,
@@ -13,7 +12,7 @@ import {
 import { BaseTable } from "../ui/BaseTable";
 import { useTeams } from "@/lib/hooks/useTeams";
 import { CreateMemberModal } from "./modals/CreateMemberModal";
-import { TeamActionsModal } from "./modals/TeamActionsModal";
+import { TeamActionsDropdown } from "./TeamActionsDropdown";
 
 // ============================================================================
 // SKELETON LOADER COMPONENTS
@@ -147,8 +146,6 @@ export default function TeamsPage() {
   const [roleFilter, setRoleFilter] = useState("all");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showActionsModal, setShowActionsModal] = useState(false);
-  const [selectedMember, setSelectedMember] = useState<any>(null);
 
   const {
     teams,
@@ -179,11 +176,6 @@ export default function TeamsPage() {
 
     return matchesSearch && matchesStatus && matchesRole;
   });
-
-  const handleMemberActions = (member: any) => {
-    setSelectedMember(member);
-    setShowActionsModal(true);
-  };
 
   const columns = [
     {
@@ -270,16 +262,13 @@ export default function TeamsPage() {
       label: "Actions",
       render: (item: any) => (
         <div className="flex justify-end">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleMemberActions(item);
-            }}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
-            title="More Actions"
-          >
-            <EllipsisVerticalIcon className="h-5 w-5" />
-          </button>
+          <TeamActionsDropdown
+            member={item}
+            onDelete={handleDeleteMember}
+            onBlockAccess={handleBlockAccess}
+            onActivateAccess={handleActivateAccess}
+            onSendPasswordReset={handleSendPasswordReset}
+          />
         </div>
       ),
     },
@@ -343,8 +332,7 @@ export default function TeamsPage() {
       setShowCreateModal(false);
       await fetchTeams(pagination?.currentPage || 1);
       return true;
-    } catch (error) {
-      console.error("Failed to add member:", error);
+    } catch {
       return false;
     }
   };
@@ -650,19 +638,6 @@ export default function TeamsPage() {
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onSubmit={handleCreateMemberSubmit}
-      />
-
-      <TeamActionsModal
-        isOpen={showActionsModal}
-        onClose={() => {
-          setShowActionsModal(false);
-          setSelectedMember(null);
-        }}
-        team={selectedMember}
-        onDelete={handleDeleteMember}
-        onBlockAccess={handleBlockAccess}
-        onActivateAccess={handleActivateAccess}
-        onSendPasswordReset={handleSendPasswordReset}
       />
     </>
   );

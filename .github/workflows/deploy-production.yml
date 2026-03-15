@@ -1,4 +1,4 @@
-name: 🚀 Deploy to Production
+name: Deploy to Production
 
 on:
   push:
@@ -6,11 +6,11 @@ on:
   workflow_dispatch:
 
 env:
-  DOCKER_IMAGE: ${{ secrets.DOCKER_USERNAME }}/komuu-frontend
+  IMAGE_NAME: komuu-frontend
+  IMAGE_TAG: production-${{ github.sha }}
   DROPLET_HOST: ${{ secrets.DROPLET_HOST }}
   DROPLET_USER: ${{ secrets.DROPLET_USER }}
   CONTAINER_NAME: nextjs-production
-  INTERNAL_PORT: 3000
   BACKEND_URL: https://api.komuu.com/api/v1/
   SSH_PORT: 2222
   DOCKER_NETWORK: komuu
@@ -18,46 +18,54 @@ env:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
-      - name: 📦 Checkout code
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: 🔍 Verify Next.js version (CVE-2025-55182 mitigation)
+      - name: Verify Next.js version (CVE-2025-55182 mitigation)
         run: |
           NEXT_VERSION=$(node -p "require('./package-lock.json').packages['node_modules/next'].version" 2>/dev/null || echo "unknown")
           echo "Next.js version: $NEXT_VERSION"
           if [[ "$NEXT_VERSION" =~ ^15\.[0-4]\. ]] || [[ "$NEXT_VERSION" =~ ^15\.5\.[0-6]$ ]]; then
-            echo "❌ VULNERABLE Next.js version detected: $NEXT_VERSION"
+            echo "VULNERABLE Next.js version detected: $NEXT_VERSION"
             exit 1
           fi
-          echo "✅ Next.js version $NEXT_VERSION is patched"
+          echo "Next.js version $NEXT_VERSION is patched"
 
-      - name: 🔧 Set up Docker Buildx
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: 🔑 Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: 🏗️ Build and push Docker image
+      - name: Build Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
-          push: true
-          tags: |
-            ${{ env.DOCKER_IMAGE }}:production-${{ github.sha }}
-            ${{ env.DOCKER_IMAGE }}:production-latest
+          push: false
+          load: true
+          tags: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
             NEXT_PUBLIC_BACKEND_API_URL=${{ env.BACKEND_URL }}
             NODE_ENV=production
 
-      - name: 🚀 Deploy to Production
+      - name: Save Docker image
+        run: |
+          docker save ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} | gzip > image.tar.gz
+          ls -lh image.tar.gz
+
+      - name: Transfer image to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ env.DROPLET_HOST }}
+          username: ${{ env.DROPLET_USER }}
+          key: ${{ secrets.DROPLET_SSH_PRIVATE_KEY }}
+          port: ${{ env.SSH_PORT }}
+          source: "image.tar.gz"
+          target: "/tmp"
+
+      - name: Deploy to Production
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ env.DROPLET_HOST }}
@@ -67,27 +75,28 @@ jobs:
           script_stop: true
           script: |
             set -euo pipefail
-            
-            IMAGE="${{ env.DOCKER_IMAGE }}:production-latest"
+
+            IMAGE="${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
             CONTAINER="${{ env.CONTAINER_NAME }}"
             PREVIOUS_IMAGE=""
-            
-            echo "🚀 Starting production deployment..."
-            
+
+            echo "Starting production deployment..."
+
             if docker inspect "$CONTAINER" &>/dev/null; then
               PREVIOUS_IMAGE=$(docker inspect --format='{{.Config.Image}}' "$CONTAINER" 2>/dev/null || true)
-              echo "📌 Previous image: $PREVIOUS_IMAGE"
+              echo "Previous image: $PREVIOUS_IMAGE"
             fi
-            
-            echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
-            docker pull "$IMAGE"
-            
+
+            echo "Loading Docker image..."
+            gunzip -c /tmp/image.tar.gz | docker load
+            rm -f /tmp/image.tar.gz
+
             docker network create ${{ env.DOCKER_NETWORK }} 2>/dev/null || true
-            
+
             docker stop "$CONTAINER" 2>/dev/null || true
             docker rm "$CONTAINER" 2>/dev/null || true
-            
-            echo "→ Starting new container (network-only, no port exposure)..."
+
+            echo "Starting new container..."
             docker run -d \
               --name "$CONTAINER" \
               --network ${{ env.DOCKER_NETWORK }} \
@@ -99,23 +108,23 @@ jobs:
               --memory=512m \
               --cpus=1 \
               "$IMAGE"
-            
-            echo "⏳ Waiting for Next.js to be ready..."
+
+            echo "Waiting for Next.js to be ready..."
             MAX_RETRIES=24
             RETRY_INTERVAL=5
-            
+
             for i in $(seq 1 $MAX_RETRIES); do
               if docker logs "$CONTAINER" 2>&1 | grep -q "Ready in"; then
-                echo "✅ Health check passed on attempt $i"
+                echo "Health check passed on attempt $i"
                 break
               fi
-              
+
               if [ $i -eq $MAX_RETRIES ]; then
-                echo "❌ Health check failed after $MAX_RETRIES attempts"
+                echo "Health check failed after $MAX_RETRIES attempts"
                 docker logs --tail 100 "$CONTAINER"
-                
+
                 if [ -n "$PREVIOUS_IMAGE" ] && [ "$PREVIOUS_IMAGE" != "$IMAGE" ]; then
-                  echo "🔄 Rolling back to $PREVIOUS_IMAGE"
+                  echo "Rolling back to $PREVIOUS_IMAGE"
                   docker stop "$CONTAINER" 2>/dev/null || true
                   docker rm "$CONTAINER" 2>/dev/null || true
                   docker run -d \
@@ -124,23 +133,24 @@ jobs:
                     -e NODE_ENV=production \
                     --restart unless-stopped \
                     "$PREVIOUS_IMAGE"
-                  echo "⚠️ Rolled back to previous version"
+                  echo "Rolled back to previous version"
                 fi
                 exit 1
               fi
-              
+
               echo "Attempt $i/$MAX_RETRIES: Next.js not ready yet, retrying in ${RETRY_INTERVAL}s..."
               sleep $RETRY_INTERVAL
             done
-            
-            docker image prune -f
-            echo "🎉 Production deployment completed successfully"
 
-      - name: 📊 Deployment Summary
+            docker image prune -f
+            echo "Production deployment completed successfully"
+
+      - name: Deployment Summary
         if: always()
         run: |
           echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "- **Environment:** Production" >> $GITHUB_STEP_SUMMARY
           echo "- **Network:** komuu (internal only)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Image:** \`${{ env.DOCKER_IMAGE }}:production-latest\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image:** \`${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Transfer:** Direct (no registry)" >> $GITHUB_STEP_SUMMARY

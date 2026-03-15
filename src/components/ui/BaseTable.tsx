@@ -63,6 +63,7 @@ export interface BaseTableProps<T = any> {
   exportFileName?: string;
   searchable?: boolean;
   searchFields?: string[];
+  initialSearchTerm?: string;
   pagination?: boolean;
   pageSize?: number;
   onRowClick?: (item: T) => void;
@@ -152,6 +153,7 @@ export function BaseTable<T extends Record<string, any>>({
   exportFileName = "export",
   searchable = true,
   searchFields = [],
+  initialSearchTerm = "",
   pagination = true,
   pageSize = 10,
   onRowClick,
@@ -172,7 +174,7 @@ export function BaseTable<T extends Record<string, any>>({
 }: BaseTableProps<T>) {
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
   const [filterConfig, setFilterConfig] = useState<FilterConfig>({});
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [columnWidths, setColumnWidths] = useState<ColumnWidths>(() =>
@@ -245,6 +247,22 @@ export function BaseTable<T extends Record<string, any>>({
       if (filterValue) {
         filtered = filtered.filter((item) => {
           const value = getNestedValue(item, key);
+          // Handle array fields (e.g., fields_of_practice)
+          if (Array.isArray(value)) {
+            return value.some((arrayItem) => {
+              if (typeof arrayItem === "object" && arrayItem !== null) {
+                // Search in object properties like { field: "Biology", code: "BIOLOGY" }
+                return Object.values(arrayItem).some((v) =>
+                  String(v || "")
+                    .toLowerCase()
+                    .includes(filterValue.toLowerCase())
+                );
+              }
+              return String(arrayItem || "")
+                .toLowerCase()
+                .includes(filterValue.toLowerCase());
+            });
+          }
           return String(value || "")
             .toLowerCase()
             .includes(filterValue.toLowerCase());

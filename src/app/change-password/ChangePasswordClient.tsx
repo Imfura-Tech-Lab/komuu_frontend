@@ -48,8 +48,7 @@ export default function ChangePasswordClient() {
       if (parsedUserData.has_changed_password && !fromProfile && !optional) {
         router.push("/dashboard");
       }
-    } catch (error) {
-      console.error("Error parsing user data:", error);
+    } catch {
       showErrorToast("Invalid session data. Please login again.");
       router.push("/login");
     }
@@ -164,8 +163,7 @@ export default function ChangePasswordClient() {
           setErrors(apiErrors);
         }
       }
-    } catch (error) {
-      console.error("Password change error:", error);
+    } catch {
       showErrorToast("An unexpected error occurred. Please try again.");
     } finally {
       setIsChanging(false);

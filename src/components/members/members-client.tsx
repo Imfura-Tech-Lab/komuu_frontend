@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   showErrorToast,
   showSuccessToast,
@@ -20,6 +20,15 @@ import {
   Mail
 } from "lucide-react";
 
+interface FieldOfPractice {
+  id: number;
+  field: string;
+  code: string;
+  description?: string | null;
+  total_applications?: number | null;
+  total_members?: number | null;
+}
+
 interface Member {
   id: string;
   title?: string;
@@ -36,6 +45,7 @@ interface Member {
   valid_from?: string;
   valid_until?: string;
   valid_next_payment?: string;
+  fields_of_practice?: FieldOfPractice[];
   email?: string;
   phone_number?: string;
   role?: string;
@@ -59,6 +69,8 @@ export default function MembersClient() {
   const [error, setError] = useState<string | null>(null);
 
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialSearch = searchParams.get("search") || "";
 
   useEffect(() => {
     fetchMembers();
@@ -96,7 +108,6 @@ export default function MembersClient() {
         throw new Error(data.message || "Failed to fetch members");
       }
     } catch (err) {
-      console.error("Failed to fetch members:", err);
       setError(err instanceof Error ? err.message : "Failed to fetch members");
       showErrorToast("Failed to load members");
     } finally {
@@ -150,6 +161,23 @@ export default function MembersClient() {
       .substring(0, 2)
       .toUpperCase();
   };
+
+  // Extract unique fields of practice for filter dropdown
+  const fieldsOfPracticeOptions = useMemo(() => {
+    const allFields = new Map<string, string>();
+    members.forEach((member) => {
+      if (member.fields_of_practice) {
+        member.fields_of_practice.forEach((field) => {
+          if (field.field && !allFields.has(field.field)) {
+            allFields.set(field.field, field.field);
+          }
+        });
+      }
+    });
+    return Array.from(allFields.values())
+      .sort()
+      .map((field) => ({ label: field, value: field }));
+  }, [members]);
 
   // Enhanced data processing for table
   const processedMembers = useMemo(() => {
@@ -367,6 +395,76 @@ export default function MembersClient() {
       ),
       exportRender: (member, value) => formatDate(value),
     },
+    {
+      key: "valid_from",
+      label: "Valid From",
+      sortable: true,
+      filterable: true,
+      filterComponent: { type: "date" },
+      width: 120,
+      render: (member, value) => (
+        <span className="text-sm text-gray-600 dark:text-gray-400">
+          {formatDate(value)}
+        </span>
+      ),
+      exportRender: (member, value) => formatDate(value),
+    },
+    {
+      key: "valid_next_payment",
+      label: "Next Payment",
+      sortable: true,
+      filterable: true,
+      filterComponent: { type: "date" },
+      width: 130,
+      render: (member, value) => (
+        <span className="text-sm text-gray-600 dark:text-gray-400">
+          {formatDate(value)}
+        </span>
+      ),
+      exportRender: (member, value) => formatDate(value),
+    },
+    {
+      key: "fields_of_practice",
+      label: "Fields of Practice",
+      sortable: false,
+      filterable: true,
+      filterComponent: {
+        type: "select",
+        options: fieldsOfPracticeOptions,
+      },
+      width: 200,
+      render: (member) => {
+        const fields = member.fields_of_practice;
+        if (!fields || fields.length === 0) {
+          return <span className="text-sm text-gray-400">-</span>;
+        }
+        // Get unique fields by field name
+        const uniqueFields = [...new Map(fields.map(f => [f.field, f])).values()];
+        return (
+          <div className="flex flex-wrap gap-1">
+            {uniqueFields.slice(0, 2).map((field, index) => (
+              <span
+                key={`${field.id}-${index}`}
+                className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300"
+              >
+                {field.field}
+              </span>
+            ))}
+            {uniqueFields.length > 2 && (
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                +{uniqueFields.length - 2} more
+              </span>
+            )}
+          </div>
+        );
+      },
+      exportRender: (member) => {
+        const fields = member.fields_of_practice;
+        if (!fields || fields.length === 0) return "-";
+        const uniqueFields = [...new Map(fields.map(f => [f.field, f])).values()];
+        return uniqueFields.map(f => f.field).join(", ");
+      },
+    },
   ];
 
   // Statistics
@@ -404,7 +502,6 @@ export default function MembersClient() {
     {
       label: "Export Selected",
       action: (selectedMembers: Member[]) => {
-        console.log("Exporting selected members:", selectedMembers);
         showSuccessToast(`Exporting ${selectedMembers.length} members`);
       },
       icon: <Download className="h-4 w-4" />,
@@ -412,7 +509,6 @@ export default function MembersClient() {
     {
       label: "Send Email",
       action: (selectedMembers: Member[]) => {
-        console.log("Sending email to:", selectedMembers);
         showSuccessToast(`Email sent to ${selectedMembers.length} members`);
       },
       icon: <Mail className="h-4 w-4" />,
@@ -654,6 +750,7 @@ export default function MembersClient() {
             "membership_number",
             "country_of_residency",
           ]}
+          initialSearchTerm={initialSearch}
           pagination={true}
           pageSize={25}
           onRowClick={(member) => router.push(`/members/${member.id}`)}

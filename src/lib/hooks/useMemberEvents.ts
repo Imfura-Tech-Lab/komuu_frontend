@@ -3,6 +3,7 @@ import {
   showSuccessToast,
   showErrorToast,
 } from "@/components/layouts/auth-layer-out";
+import { getAuthenticatedClient, getCompanyHeaders, ApiError } from "@/lib/api-client";
 
 export interface Event {
   id: string;
@@ -49,7 +50,7 @@ export interface RegisterEventParams {
   status?: "pending" | "confirmed" | "cancelled" | "failed";
 }
 
-interface ApiResponse<T = any> {
+interface ApiResponse<T> {
   status: "success" | "error" | boolean;
   message: string;
   data?: T;
@@ -81,35 +82,35 @@ interface UseMemberEventsReturn {
   cancelRegistration: (eventId: string) => Promise<boolean>;
 }
 
-const normalizeEvent = (event: any): Event => {
-  const capacity = event.capacity || 0;
-  const registrations = event.registrations || 0;
+function normalizeEvent(event: Record<string, unknown>): Event {
+  const capacity = (event.capacity as number) || 0;
+  const registrations = (event.registrations as number) || 0;
   const availableSlots = capacity > 0 ? Math.max(capacity - registrations, 0) : 0;
 
   return {
-    id: event.id,
-    title: event.title,
-    description: event.description,
-    type: event.type || "Other",
-    location: event.location,
-    attendance_link: event.attendance_link,
-    event_link: event.event_link,
-    event_mode: event.event_mode || "In-Person",
-    start_time: event.start_time,
-    start_end: event.start_end,
+    id: event.id as string,
+    title: event.title as string,
+    description: event.description as string | undefined,
+    type: (event.type as string) || "Other",
+    location: event.location as string | undefined,
+    attendance_link: event.attendance_link as string | undefined,
+    event_link: event.event_link as string | undefined,
+    event_mode: (event.event_mode as "Online" | "In-Person" | "Hybrid") || "In-Person",
+    start_time: event.start_time as string,
+    start_end: event.start_end as string | undefined,
     is_paid: Boolean(event.is_paid),
-    price: event.price,
-    capacity: event.capacity,
-    status: event.status || "Scheduled",
-    thumbnail: event.thumbnail,
-    organizer: event.organizer,
-    registrations: event.registrations || 0,
+    price: event.price as string | undefined,
+    capacity: event.capacity as number | undefined,
+    status: (event.status as Event["status"]) || "Scheduled",
+    thumbnail: event.thumbnail as string | undefined,
+    organizer: event.organizer as string | undefined,
+    registrations: (event.registrations as number) || 0,
     available_slots: availableSlots,
     is_registered: Boolean(event.is_registered),
-    created_at: event.created_at,
-    updated_at: event.updated_at,
+    created_at: event.created_at as string | undefined,
+    updated_at: event.updated_at as string | undefined,
   };
-};
+}
 
 export function useMemberEvents(): UseMemberEventsReturn {
   const [events, setEvents] = useState<Event[]>([]);
@@ -117,127 +118,75 @@ export function useMemberEvents(): UseMemberEventsReturn {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
-
-  const getAuthHeaders = useCallback(() => {
-    if (typeof window === "undefined") {
-      return {
-        Accept: "application/json",
-        Authorization: "",
-        "X-Company-ID": "",
-      };
-    }
-
-    const authToken = localStorage.getItem("auth_token");
-    const companyId = localStorage.getItem("company_id");
-
-    return {
-      Accept: "application/json",
-      Authorization: `Bearer ${authToken}`,
-      "X-Company-ID": companyId || "",
-    };
-  }, []);
-
   const fetchEvents = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      if (!apiUrl) {
-        showErrorToast("Backend API URL is not configured.");
-        setError("Configuration error: Backend API URL missing.");
-        return;
-      }
+      const client = getAuthenticatedClient();
+      const response = await client.get<ApiResponse<PaginatedResponse<Record<string, unknown>>>>(
+        "events/all",
+        { headers: getCompanyHeaders() }
+      );
 
-      const response = await fetch(`${apiUrl}events/all`, {
-        method: "GET",
-        headers: getAuthHeaders(),
-      });
-
-      if (!response.ok) {
-        if (response.status === 401 || response.status === 403) {
-          showErrorToast("Unauthorized. Please log in again.");
-          return;
-        }
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data: ApiResponse<PaginatedResponse<any>> = await response.json();
-
-      if (data.status === "success" && data.data) {
+      const data = response.data;
+      if ((data.status === "success" || data.status === true) && data.data) {
         const eventsData = data.data.data || [];
         setEvents(
           Array.isArray(eventsData) ? eventsData.map(normalizeEvent) : []
         );
-      } else {
-        throw new Error(data.message || "Failed to fetch events");
       }
     } catch (err) {
-      console.error("Failed to fetch events:", err);
-      const errorMessage =
-        err instanceof Error ? err.message : "Failed to fetch events";
+      const apiError = err as ApiError;
+      if (apiError.status === 401 || apiError.status === 403) {
+        showErrorToast("Unauthorized. Please log in again.");
+        return;
+      }
+      const errorMessage = apiError.message || "Failed to fetch events";
       setError(errorMessage);
       showErrorToast(errorMessage);
     } finally {
       setLoading(false);
     }
-  }, [apiUrl, getAuthHeaders]);
+  }, []);
 
-  const fetchEvent = useCallback(
-    async (id: string): Promise<Event | null> => {
-      try {
-        setLoading(true);
-        setError(null);
+  const fetchEvent = useCallback(async (id: string): Promise<Event | null> => {
+    try {
+      setLoading(true);
+      setError(null);
 
-        if (!apiUrl) {
-          showErrorToast("Configuration error");
-          return null;
-        }
+      const client = getAuthenticatedClient();
+      const response = await client.get<ApiResponse<Record<string, unknown>>>(
+        `events/all/${id}`,
+        { headers: getCompanyHeaders() }
+      );
 
-        const response = await fetch(`${apiUrl}events/all/${id}`, {
-          method: "GET",
-          headers: getAuthHeaders(),
-        });
-
-        if (!response.ok) {
-          if (response.status === 404) {
-            showErrorToast("Event not found");
-          } else if (response.status === 403) {
-            showErrorToast("You don't have permission to view this event");
-          } else {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-          return null;
-        }
-
-        const data: ApiResponse<any> = await response.json();
-
-        if (data.status === "success" && data.data) {
-          return normalizeEvent(data.data);
-        }
-
-        return null;
-      } catch (err) {
-        console.error("Failed to fetch event:", err);
-        showErrorToast("Failed to load event details");
-        return null;
-      } finally {
-        setLoading(false);
+      const data = response.data;
+      if ((data.status === "success" || data.status === true) && data.data) {
+        return normalizeEvent(data.data);
       }
-    },
-    [apiUrl, getAuthHeaders]
-  );
+
+      return null;
+    } catch (err) {
+      const apiError = err as ApiError;
+      if (apiError.status === 404) {
+        showErrorToast("Event not found");
+      } else if (apiError.status === 403) {
+        showErrorToast("You don't have permission to view this event");
+      } else {
+        showErrorToast("Failed to load event details");
+      }
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const registerForEvent = useCallback(
     async (params: RegisterEventParams): Promise<boolean> => {
       try {
         setLoading(true);
         setError(null);
-
-        if (!apiUrl) {
-          showErrorToast("Configuration error");
-          return false;
-        }
 
         if (params.is_paid && !params.amount_paid) {
           showErrorToast("Amount paid is required for paid events");
@@ -268,27 +217,14 @@ export function useMemberEvents(): UseMemberEventsReturn {
           formData.append("status", params.status);
         }
 
-        const headers = getAuthHeaders();
-        delete (headers as any).Accept;
-
-        const response = await fetch(
-          `${apiUrl}events/register/${params.event_id}`,
-          {
-            method: "POST",
-            headers,
-            body: formData,
-          }
+        const client = getAuthenticatedClient();
+        const response = await client.postFormData<ApiResponse<EventRegistration>>(
+          `events/register/${params.event_id}`,
+          formData,
+          { headers: getCompanyHeaders() }
         );
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(
-            errorData.message || `HTTP error! status: ${response.status}`
-          );
-        }
-
-        const data: ApiResponse<EventRegistration> = await response.json();
-
+        const data = response.data;
         if (data.status === "success" || data.status === true) {
           showSuccessToast(
             params.is_paid
@@ -320,16 +256,14 @@ export function useMemberEvents(): UseMemberEventsReturn {
 
         throw new Error(data.message || "Failed to register for event");
       } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : "Failed to register for event";
-        console.error("Failed to register for event:", err);
-        showErrorToast(errorMessage);
+        const apiError = err as ApiError;
+        showErrorToast(apiError.message || "Failed to register for event");
         return false;
       } finally {
         setLoading(false);
       }
     },
-    [apiUrl, getAuthHeaders]
+    []
   );
 
   const cancelRegistration = useCallback(
@@ -338,28 +272,14 @@ export function useMemberEvents(): UseMemberEventsReturn {
         setLoading(true);
         setError(null);
 
-        if (!apiUrl) {
-          showErrorToast("Configuration error");
-          return false;
-        }
-
-        const response = await fetch(
-          `${apiUrl}events/register/${eventId}/cancel`,
-          {
-            method: "POST",
-            headers: getAuthHeaders(),
-          }
+        const client = getAuthenticatedClient();
+        const response = await client.post<ApiResponse<void>>(
+          `events/register/${eventId}/cancel`,
+          undefined,
+          { headers: getCompanyHeaders() }
         );
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(
-            errorData.message || `HTTP error! status: ${response.status}`
-          );
-        }
-
-        const data: ApiResponse<void> = await response.json();
-
+        const data = response.data;
         if (data.status === "success" || data.status === true) {
           showSuccessToast("Registration cancelled successfully");
 
@@ -390,18 +310,14 @@ export function useMemberEvents(): UseMemberEventsReturn {
 
         throw new Error(data.message || "Failed to cancel registration");
       } catch (err) {
-        const errorMessage =
-          err instanceof Error
-            ? err.message
-            : "Failed to cancel registration";
-        console.error("Failed to cancel registration:", err);
-        showErrorToast(errorMessage);
+        const apiError = err as ApiError;
+        showErrorToast(apiError.message || "Failed to cancel registration");
         return false;
       } finally {
         setLoading(false);
       }
     },
-    [apiUrl, getAuthHeaders]
+    []
   );
 
   return {

@@ -1,8 +1,9 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import {
   showErrorToast,
   showSuccessToast,
 } from "@/components/layouts/auth-layer-out";
+import { getAuthenticatedClient, getCompanyHeaders, ApiError } from "@/lib/api-client";
 
 export interface Conversation {
   id: number;
@@ -58,7 +59,7 @@ export interface CreateConversationParams {
   attachment?: File;
 }
 
-interface ApiResponse<T = any> {
+interface ApiResponse<T> {
   status: "success" | "error" | boolean;
   message: string;
   data?: T;
@@ -115,153 +116,87 @@ export function useConversations(): UseConversationsReturn {
   const [typesLoading, setTypesLoading] = useState(false);
   const [typesError, setTypesError] = useState(false);
 
-  const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
+  const fetchConversations = useCallback(async (groupSlug?: string) => {
+    try {
+      setLoading(true);
+      setError(null);
 
-  const getAuthHeaders = useCallback(() => {
-    if (typeof window === "undefined") {
-      return {
-        Accept: "application/json",
-        Authorization: "",
-        "X-Company-ID": "",
-      };
+      const endpoint = groupSlug
+        ? `community/conversations?group=${groupSlug}`
+        : `community/conversations`;
+
+      const client = getAuthenticatedClient();
+      const response = await client.get<ApiResponse<PaginatedResponse<Conversation>>>(
+        endpoint,
+        { headers: getCompanyHeaders() }
+      );
+
+      const result = response.data;
+      if ((result.status === "success" || result.status === true) && result.data) {
+        const conversationsData = result.data.data || [];
+
+        const transformedConversations = conversationsData.map((conv) => ({
+          ...conv,
+          author: conv.sender?.name || conv.author || "Unknown",
+          author_id: conv.sender?.id?.toString() || conv.author_id,
+          replies: conv.replies || 0,
+          views: conv.views || 0,
+          last_activity: conv.updated_at || conv.created_at,
+          category: conv.type || conv.category || "General",
+          status: (conv.status || "open") as "open" | "closed",
+          is_pinned: conv.is_pinned || false,
+        }));
+
+        setConversations(transformedConversations);
+
+        if (result.data.total !== undefined) {
+          setStats({
+            total_topics: result.data.total,
+            total_replies: 0,
+            total_views: 0,
+            active_today: 0,
+          });
+        }
+      }
+    } catch (err) {
+      const apiError = err as ApiError;
+      setError(apiError.message || "Failed to load conversations");
+      showErrorToast("Failed to load conversations");
+    } finally {
+      setLoading(false);
     }
-
-    const authToken = localStorage.getItem("auth_token");
-    const companyId = localStorage.getItem("company_id");
-
-    return {
-      Accept: "application/json",
-      Authorization: `Bearer ${authToken}`,
-      "X-Company-ID": companyId || "",
-    };
   }, []);
 
-  const apiCall = useCallback(
-    async <T>(
-      endpoint: string,
-      options: RequestInit = {}
-    ): Promise<T | null> => {
-      try {
-        const response = await fetch(`${apiUrl}${endpoint}`, {
-          ...options,
-          headers: {
-            ...getAuthHeaders(),
-            ...options.headers,
-          },
-        });
+  const fetchConversation = useCallback(async (id: number): Promise<Conversation | null> => {
+    try {
+      setLoading(true);
+      setError(null);
 
-        const data: ApiResponse<T> = await response.json();
+      const client = getAuthenticatedClient();
+      const response = await client.get<ApiResponse<Conversation>>(
+        `community/conversations/${id}`,
+        { headers: getCompanyHeaders() }
+      );
 
-        if (!response.ok) {
-          throw new Error(
-            data.message ||
-              `API error: ${response.status} ${response.statusText}`
-          );
-        }
-
-        if (data.status === "success" || data.status === true) {
-          return data.data || (data as any);
-        } else {
-          throw new Error(data.message || "API request failed");
-        }
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : "Unknown error occurred";
-        throw new Error(errorMessage);
+      const data = response.data;
+      if ((data.status === "success" || data.status === true) && data.data) {
+        return {
+          ...data.data,
+          author: data.data.sender?.name || data.data.author || "Unknown",
+          author_id: data.data.sender?.id?.toString() || data.data.author_id,
+          last_activity: data.data.updated_at || data.data.created_at,
+          category: data.data.type || data.data.category || "General",
+        };
       }
-    },
-    [apiUrl, getAuthHeaders]
-  );
 
-  const fetchConversations = useCallback(
-    async (groupSlug?: string) => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const endpoint = groupSlug
-          ? `community/conversations?group=${groupSlug}`
-          : `community/conversations`;
-
-        const response = await fetch(`${apiUrl}${endpoint}`, {
-          headers: getAuthHeaders(),
-        });
-
-        const result: ApiResponse<PaginatedResponse<Conversation>> =
-          await response.json();
-
-        if (!response.ok) {
-          throw new Error(result.message || "Failed to fetch conversations");
-        }
-
-        if (result.status === "success" && result.data) {
-          const conversationsData = result.data.data || [];
-
-          const transformedConversations = conversationsData.map((conv) => ({
-            ...conv,
-            author: conv.sender?.name || conv.author || "Unknown",
-            author_id: conv.sender?.id?.toString() || conv.author_id,
-            replies: conv.replies || 0,
-            views: conv.views || 0,
-            last_activity: conv.updated_at || conv.created_at,
-            category: conv.type || conv.category || "General",
-            status: (conv.status || "open") as "open" | "closed",
-            is_pinned: conv.is_pinned || false,
-          }));
-
-          setConversations(transformedConversations);
-
-          if (result.data.total !== undefined) {
-            setStats({
-              total_topics: result.data.total,
-              total_replies: 0,
-              total_views: 0,
-              active_today: 0,
-            });
-          }
-        }
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to load conversations"
-        );
-        showErrorToast("Failed to load conversations");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [apiUrl, getAuthHeaders]
-  );
-
-  const fetchConversation = useCallback(
-    async (id: number): Promise<Conversation | null> => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const data = await apiCall<Conversation>(
-          `community/conversations/${id}`
-        );
-
-        if (data) {
-          return {
-            ...data,
-            author: data.sender?.name || data.author || "Unknown",
-            author_id: data.sender?.id?.toString() || data.author_id,
-            last_activity: data.updated_at || data.created_at,
-            category: data.type || data.category || "General",
-          };
-        }
-
-        return null;
-      } catch (err) {
-        showErrorToast("Failed to load conversation details");
-        return null;
-      } finally {
-        setLoading(false);
-      }
-    },
-    [apiCall]
-  );
+      return null;
+    } catch {
+      showErrorToast("Failed to load conversation details");
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const fetchConversationTypes = useCallback(async () => {
     if (typeof window === "undefined") {
@@ -272,25 +207,15 @@ export function useConversations(): UseConversationsReturn {
       setTypesLoading(true);
       setTypesError(false);
 
-      const authToken = localStorage.getItem("auth_token");
-      const companyId = localStorage.getItem("company_id");
+      const client = getAuthenticatedClient();
+      const response = await client.get<ApiResponse<string[]>>(
+        "conversation-types",
+        { headers: getCompanyHeaders() }
+      );
 
-      const response = await fetch(`${apiUrl}conversation-types`, {
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${authToken}`,
-          "X-Company-ID": companyId || "",
-        },
-      });
-
-      const result: ApiResponse = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || "Failed to fetch types");
-      }
-
+      const result = response.data;
       if (
-        result.status === "success" &&
+        (result.status === "success" || result.status === true) &&
         result.types &&
         Array.isArray(result.types)
       ) {
@@ -308,32 +233,37 @@ export function useConversations(): UseConversationsReturn {
         setConversationTypes([]);
         setTypesError(true);
       }
-    } catch (err) {
+    } catch {
       setTypesError(true);
       setConversationTypes([]);
       showErrorToast("Failed to load conversation types");
     } finally {
       setTypesLoading(false);
     }
-  }, [apiUrl]);
+  }, []);
 
   const fetchConversationGroups = useCallback(async () => {
     try {
-      const data = await apiCall<{ data: ConversationGroup[] }>(
-        "community/groups"
+      const client = getAuthenticatedClient();
+      const response = await client.get<ApiResponse<{ data: ConversationGroup[] }>>(
+        "community/groups",
+        { headers: getCompanyHeaders() }
       );
 
-      if (data && data.data && Array.isArray(data.data)) {
-        setConversationGroups(data.data);
-      } else if (data && Array.isArray(data)) {
-        setConversationGroups(data as any);
-      } else {
-        setConversationGroups([]);
+      const data = response.data;
+      if ((data.status === "success" || data.status === true) && data.data) {
+        if (Array.isArray((data.data as { data?: ConversationGroup[] }).data)) {
+          setConversationGroups((data.data as { data: ConversationGroup[] }).data);
+        } else if (Array.isArray(data.data)) {
+          setConversationGroups(data.data as unknown as ConversationGroup[]);
+        } else {
+          setConversationGroups([]);
+        }
       }
-    } catch (err) {
+    } catch {
       setConversationGroups([]);
     }
-  }, [apiCall]);
+  }, []);
 
   const createConversation = useCallback(
     async (params: CreateConversationParams): Promise<Conversation | null> => {
@@ -355,32 +285,30 @@ export function useConversations(): UseConversationsReturn {
           formData.append("attachment", params.attachment);
         }
 
-        const headers = getAuthHeaders();
-        delete (headers as any).Accept;
+        const client = getAuthenticatedClient();
+        const response = await client.postFormData<ApiResponse<Conversation>>(
+          "community/conversations",
+          formData,
+          { headers: getCompanyHeaders() }
+        );
 
-        const data = await apiCall<Conversation>("community/conversations", {
-          method: "POST",
-          body: formData,
-          headers,
-        });
-
-        if (data) {
+        const data = response.data;
+        if ((data.status === "success" || data.status === true) && data.data) {
           showSuccessToast("Conversation created successfully");
           await fetchConversations();
-          return data;
+          return data.data;
         }
 
         return null;
       } catch (err) {
-        showErrorToast(
-          err instanceof Error ? err.message : "Failed to create conversation"
-        );
+        const apiError = err as ApiError;
+        showErrorToast(apiError.message || "Failed to create conversation");
         return null;
       } finally {
         setLoading(false);
       }
     },
-    [apiCall, fetchConversations, getAuthHeaders]
+    [fetchConversations]
   );
 
   const deleteConversation = useCallback(
@@ -389,32 +317,38 @@ export function useConversations(): UseConversationsReturn {
         setLoading(true);
         setError(null);
 
-        await apiCall<void>(`community/conversations/${id}`, {
-          method: "DELETE",
-        });
+        const client = getAuthenticatedClient();
+        const response = await client.delete<ApiResponse<void>>(
+          `community/conversations/${id}`,
+          { headers: getCompanyHeaders() }
+        );
 
-        showSuccessToast("Conversation deleted successfully");
+        const data = response.data;
+        if (data.status === "success" || data.status === true) {
+          showSuccessToast("Conversation deleted successfully");
 
-        setConversations((prev) => prev.filter((conv) => conv.id !== id));
+          setConversations((prev) => prev.filter((conv) => conv.id !== id));
 
-        if (stats) {
-          setStats({
-            ...stats,
-            total_topics: stats.total_topics - 1,
-          });
+          if (stats) {
+            setStats({
+              ...stats,
+              total_topics: stats.total_topics - 1,
+            });
+          }
+
+          return true;
         }
 
-        return true;
+        return false;
       } catch (err) {
-        showErrorToast(
-          err instanceof Error ? err.message : "Failed to delete conversation"
-        );
+        const apiError = err as ApiError;
+        showErrorToast(apiError.message || "Failed to delete conversation");
         return false;
       } finally {
         setLoading(false);
       }
     },
-    [apiCall, stats]
+    [stats]
   );
 
   return {

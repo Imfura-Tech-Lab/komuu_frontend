@@ -47,8 +47,7 @@ export function useAuth(): UseAuthReturn {
         setRole(null);
         setToken(null);
       }
-    } catch (error) {
-      console.error("Failed to initialize auth state:", error);
+    } catch {
       setUser(null);
       setRole(null);
       setToken(null);

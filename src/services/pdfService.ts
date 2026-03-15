@@ -72,7 +72,7 @@ export class PDFService {
     pdf.setTextColor(0, 0, 0);
     pdf.setFontSize(12);
     pdf.setFont("helvetica", "bold");
-    pdf.text(`Application ID: ${application.id}`, 25, yPosition + 8);
+    pdf.text(`Application Date: ${this.formatDate(application.application_date)}`, 25, yPosition + 8);
     
     // Status with color coding
     const status = application.application_status;
@@ -253,12 +253,12 @@ export class PDFService {
 
       // Save the PDF
       const applicantName = application.member || application.member_details?.name || "member";
-      const fileName = `application_${application.id}_${applicantName.replace(/\s+/g, "_")}.pdf`;
+      const dateStr = new Date(application.application_date).toISOString().split("T")[0];
+      const fileName = `application_${dateStr}_${applicantName.replace(/\s+/g, "_")}.pdf`;
       pdf.save(fileName);
 
       showSuccessToast("PDF generated successfully!");
     } catch (error) {
-      console.error("Error generating PDF:", error);
       showErrorToast("Failed to generate PDF");
       throw error;
     }
@@ -313,7 +313,6 @@ export class PDFService {
 
       showSuccessToast("Comprehensive applications report generated successfully!");
     } catch (error) {
-      console.error("Error generating applications PDF:", error);
       showErrorToast("Failed to generate applications report");
       throw error;
     }

@@ -97,8 +97,7 @@ export default function PasswordResetFlow() {
           });
         }
       }
-    } catch (error) {
-      console.error("Send code error:", error);
+    } catch {
       showErrorToast(
         "Network error. Please check your connection and try again."
       );
@@ -213,8 +212,7 @@ export default function PasswordResetFlow() {
           setErrors(apiErrors);
         }
       }
-    } catch (error) {
-      console.error("Reset password error:", error);
+    } catch {
       showErrorToast(
         "Network error. Please check your connection and try again."
       );

@@ -206,8 +206,7 @@ export default function CertificatesClient() {
       
       // Open in file viewer
       openFile(blobUrl, `Certificate-${memberNumber || certificateId}.pdf`, "pdf");
-    } catch (error) {
-      console.error("Error viewing certificate:", error);
+    } catch {
       showErrorToast("Failed to generate certificate preview");
     }
   };

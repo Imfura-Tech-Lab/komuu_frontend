@@ -149,8 +149,8 @@ export default function MemberGroupChatPage() {
         try {
           const userData = JSON.parse(userDataString);
           setCurrentUserId(userData.id);
-        } catch (error) {
-          console.error("Error parsing user_data:", error);
+        } catch {
+          // Invalid JSON in localStorage
         }
       }
     }
@@ -190,8 +190,7 @@ export default function MemberGroupChatPage() {
       }
 
       await fetchConversations(slug);
-    } catch (error) {
-      console.error("Error loading group data:", error);
+    } catch {
       showErrorToast("Failed to load group data");
     } finally {
       setIsLoadingGroup(false);
@@ -294,8 +293,7 @@ export default function MemberGroupChatPage() {
 
     try {
       await fetchMessages(conversation.id);
-    } catch (error) {
-      console.error("Error loading messages:", error);
+    } catch {
       showErrorToast("Failed to load messages");
     }
   };
@@ -325,8 +323,7 @@ export default function MemberGroupChatPage() {
         setMessageText("");
         handleRemoveFile();
       }
-    } catch (error) {
-      console.error("Error sending message:", error);
+    } catch {
       showErrorToast("Failed to send message");
     }
   };

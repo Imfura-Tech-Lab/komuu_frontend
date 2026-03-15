@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   showErrorToast,
   showSuccessToast,
 } from "@/components/layouts/auth-layer-out";
+import { getAuthenticatedClient, getCompanyHeaders, ApiError } from "@/lib/api-client";
 
 export interface TeamMember {
   id: number;
@@ -46,10 +47,20 @@ export interface Pagination {
   to: number;
 }
 
-export interface ApiResponse<T = any> {
+interface ApiResponse<T> {
   status: "success" | "error" | boolean;
-  message: string;
+  message?: string;
   data: T;
+}
+
+interface PaginatedResponse {
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+  from: number;
+  to: number;
+  data: TeamMember[];
 }
 
 export function useTeams() {
@@ -65,46 +76,26 @@ export function useTeams() {
     to: 0,
   });
 
-  const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
-  const companyId =
-    typeof window !== "undefined" ? localStorage.getItem("company_id") : null;
-
-  const getAuthHeaders = () => {
-    const token =
-      typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
-    return {
-      Accept: "application/json",
-      Authorization: `Bearer ${token}`,
-      "X-Company-ID": companyId || "",
-    };
-  };
-
-  // Fetch all team members
-  const fetchTeams = async (page: number = 1) => {
+  const fetchTeams = useCallback(async (page: number = 1) => {
     try {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`${apiUrl}team-management?page=${page}`, {
-        method: "GET",
-        headers: getAuthHeaders(),
-      });
+      const client = getAuthenticatedClient();
+      const response = await client.get<ApiResponse<PaginatedResponse>>(
+        `team-management?page=${page}`,
+        { headers: getCompanyHeaders() }
+      );
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data: ApiResponse = await response.json();
-
-      if (data.status === "success") {
-        // Transform API data to match component expectations
+      const data = response.data;
+      if (data.status === "success" || data.status === true) {
         const transformedTeams: Team[] = data.data.data.map(
           (member: TeamMember) => ({
             id: member.id,
             name: member.name,
             description: member.role,
             lead: member.email,
-            members: 1, // Individual member count
+            members: 1,
             status: member.active ? "active" : "inactive",
             createdAt: member.date_of_birth || new Date().toISOString(),
             email: member.email,
@@ -117,7 +108,6 @@ export function useTeams() {
 
         setTeams(transformedTeams);
 
-        // Update pagination with actual API structure
         setPagination({
           currentPage: data.data.current_page,
           lastPage: data.data.last_page,
@@ -126,36 +116,27 @@ export function useTeams() {
           from: data.data.from,
           to: data.data.to,
         });
-      } else {
-        throw new Error(data.message || "Failed to fetch teams");
       }
     } catch (err) {
-      console.error("Failed to fetch teams:", err);
-      setError(err instanceof Error ? err.message : "Failed to fetch teams");
+      const apiError = err as ApiError;
+      setError(apiError.message || "Failed to fetch teams");
       showErrorToast("Failed to load team members");
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  // Add team member
-  const addTeamMember = async (formData: FormData): Promise<boolean> => {
+  const addTeamMember = useCallback(async (formData: FormData): Promise<boolean> => {
     try {
-      const token = localStorage.getItem("auth_token");
+      const client = getAuthenticatedClient();
+      const response = await client.postFormData<ApiResponse<TeamMember>>(
+        "team-management/add-member",
+        formData,
+        { headers: getCompanyHeaders() }
+      );
 
-      const response = await fetch(`${apiUrl}team-management/add-member`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "X-Company-ID": companyId || "",
-        },
-        body: formData,
-      });
-
-      const data: ApiResponse = await response.json();
-
-      // Check both response.ok and data.status for comprehensive error handling
-      if (response.ok && (data.status === "success" || data.status === true)) {
+      const data = response.data;
+      if (data.status === "success" || data.status === true) {
         showSuccessToast(data.message || "Team member added successfully");
         await fetchTeams(pagination.currentPage);
         return true;
@@ -163,50 +144,43 @@ export function useTeams() {
         throw new Error(data.message || "Failed to add team member");
       }
     } catch (err) {
-      console.error("Failed to add team member:", err);
-      showErrorToast(
-        err instanceof Error ? err.message : "Failed to add team member"
-      );
+      const apiError = err as ApiError;
+      showErrorToast(apiError.message || "Failed to add team member");
       return false;
     }
-  };
+  }, [fetchTeams, pagination.currentPage]);
 
-  // Get single team member details
-  const getTeamMember = async (memberId: number) => {
+  const getTeamMember = useCallback(async (memberId: number) => {
     try {
-      const response = await fetch(`${apiUrl}team-management/${memberId}`, {
-        method: "GET",
-        headers: getAuthHeaders(),
-      });
+      const client = getAuthenticatedClient();
+      const response = await client.get<ApiResponse<TeamMember>>(
+        `team-management/${memberId}`,
+        { headers: getCompanyHeaders() }
+      );
 
-      const data: ApiResponse = await response.json();
-
-      if (response.ok && (data.status === "success" || data.status === true)) {
+      const data = response.data;
+      if (data.status === "success" || data.status === true) {
         return data.data;
       } else {
         throw new Error(data.message || "Failed to fetch team member");
       }
-    } catch (err) {
-      console.error("Failed to fetch team member:", err);
+    } catch {
       showErrorToast("Failed to load team member details");
       return null;
     }
-  };
+  }, []);
 
-  // Block member access
-  const blockMemberAccess = async (memberId: number): Promise<boolean> => {
+  const blockMemberAccess = useCallback(async (memberId: number): Promise<boolean> => {
     try {
-      const response = await fetch(
-        `${apiUrl}team-management/${memberId}/block-access`,
-        {
-          method: "POST",
-          headers: getAuthHeaders(),
-        }
+      const client = getAuthenticatedClient();
+      const response = await client.post<ApiResponse<void>>(
+        `team-management/${memberId}/block-access`,
+        undefined,
+        { headers: getCompanyHeaders() }
       );
 
-      const data: ApiResponse = await response.json();
-
-      if (response.ok && (data.status === "success" || data.status === true)) {
+      const data = response.data;
+      if (data.status === "success" || data.status === true) {
         showSuccessToast(data.message || "Member access blocked successfully");
         await fetchTeams(pagination.currentPage);
         return true;
@@ -214,91 +188,69 @@ export function useTeams() {
         throw new Error(data.message || "Failed to block member access");
       }
     } catch (err) {
-      console.error("Failed to block member access:", err);
-      showErrorToast(
-        err instanceof Error ? err.message : "Failed to block member access"
-      );
+      const apiError = err as ApiError;
+      showErrorToast(apiError.message || "Failed to block member access");
       return false;
     }
-  };
+  }, [fetchTeams, pagination.currentPage]);
 
-  // Activate member access
-  const activateMemberAccess = async (memberId: number): Promise<boolean> => {
+  const activateMemberAccess = useCallback(async (memberId: number): Promise<boolean> => {
     try {
-      const response = await fetch(
-        `${apiUrl}team-management/${memberId}/activate-access`,
-        {
-          method: "POST",
-          headers: getAuthHeaders(),
-        }
+      const client = getAuthenticatedClient();
+      const response = await client.post<ApiResponse<void>>(
+        `team-management/${memberId}/activate-access`,
+        undefined,
+        { headers: getCompanyHeaders() }
       );
 
-      const data: ApiResponse = await response.json();
-
-      if (response.ok && (data.status === "success" || data.status === true)) {
-        showSuccessToast(
-          data.message || "Member access activated successfully"
-        );
+      const data = response.data;
+      if (data.status === "success" || data.status === true) {
+        showSuccessToast(data.message || "Member access activated successfully");
         await fetchTeams(pagination.currentPage);
         return true;
       } else {
         throw new Error(data.message || "Failed to activate member access");
       }
     } catch (err) {
-      console.error("Failed to activate member access:", err);
-      showErrorToast(
-        err instanceof Error ? err.message : "Failed to activate member access"
-      );
+      const apiError = err as ApiError;
+      showErrorToast(apiError.message || "Failed to activate member access");
       return false;
     }
-  };
+  }, [fetchTeams, pagination.currentPage]);
 
-  // Send password reset link
-  const sendPasswordResetLink = async (memberId: number): Promise<boolean> => {
+  const sendPasswordResetLink = useCallback(async (memberId: number): Promise<boolean> => {
     try {
-      const response = await fetch(
-        `${apiUrl}team-management/${memberId}/password-reset-link`,
-        {
-          method: "PUT",
-          headers: getAuthHeaders(),
-        }
+      const client = getAuthenticatedClient();
+      const response = await client.put<ApiResponse<void>>(
+        `team-management/${memberId}/password-reset-link`,
+        undefined,
+        { headers: getCompanyHeaders() }
       );
 
-      const data: ApiResponse = await response.json();
-
-      if (response.ok && (data.status === "success" || data.status === true)) {
-        showSuccessToast(
-          data.message || "Password reset link sent successfully"
-        );
+      const data = response.data;
+      if (data.status === "success" || data.status === true) {
+        showSuccessToast(data.message || "Password reset link sent successfully");
         return true;
       } else {
         throw new Error(data.message || "Failed to send password reset link");
       }
     } catch (err) {
-      console.error("Failed to send password reset link:", err);
-      showErrorToast(
-        err instanceof Error
-          ? err.message
-          : "Failed to send password reset link"
-      );
+      const apiError = err as ApiError;
+      showErrorToast(apiError.message || "Failed to send password reset link");
       return false;
     }
-  };
+  }, []);
 
-  // Delete team member (permanent)
-  const deleteTeamMember = async (memberId: number): Promise<boolean> => {
+  const deleteTeamMember = useCallback(async (memberId: number): Promise<boolean> => {
     try {
-      const response = await fetch(
-        `${apiUrl}team-management/${memberId}/destroy`,
-        {
-          method: "DELETE",
-          headers: getAuthHeaders(),
-        }
+      const client = getAuthenticatedClient();
+      const response = await client.delete<ApiResponse<void>>(
+        `team-management/${memberId}/destroy`,
+        { headers: getCompanyHeaders() }
       );
 
-      const data: ApiResponse = await response.json();
-
-      if (response.ok && (data.status === "success" || data.status === true)) {
+      const data = response.data;
+      if (data.status === "success" || data.status === true) {
         showSuccessToast(data.message || "Team member deleted successfully");
         await fetchTeams(pagination.currentPage);
         return true;
@@ -306,36 +258,32 @@ export function useTeams() {
         throw new Error(data.message || "Failed to delete team member");
       }
     } catch (err) {
-      console.error("Failed to delete team member:", err);
-      showErrorToast(
-        err instanceof Error ? err.message : "Failed to delete team member"
-      );
+      const apiError = err as ApiError;
+      showErrorToast(apiError.message || "Failed to delete team member");
       return false;
     }
-  };
+  }, [fetchTeams, pagination.currentPage]);
 
-  // Placeholder functions for team operations (not in API)
-  const createTeam = async (teamData: any): Promise<boolean> => {
+  const createTeam = useCallback(async (_teamData: Record<string, unknown>): Promise<boolean> => {
     showErrorToast("Team creation not implemented in API");
     return false;
-  };
+  }, []);
 
-  const updateTeam = async (
-    teamId: number,
-    teamData: any
+  const updateTeam = useCallback(async (
+    _teamId: number,
+    _teamData: Record<string, unknown>
   ): Promise<boolean> => {
     showErrorToast("Team update not implemented in API");
     return false;
-  };
+  }, []);
 
-  const deleteTeam = async (teamId: number): Promise<boolean> => {
-    // Use deleteTeamMember for individual members
+  const deleteTeam = useCallback(async (teamId: number): Promise<boolean> => {
     return await deleteTeamMember(teamId);
-  };
+  }, [deleteTeamMember]);
 
   useEffect(() => {
     fetchTeams(1);
-  }, []);
+  }, [fetchTeams]);
 
   return {
     teams,

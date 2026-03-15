@@ -149,21 +149,13 @@ export default function GroupChatPage() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       const userDataString = localStorage.getItem("user_data");
-      
-      console.log("🔍 Raw user_data from localStorage:", userDataString);
-      
       if (userDataString) {
         try {
           const userData = JSON.parse(userDataString);
-          console.log("✅ Parsed user_data:", userData);
-          console.log("✅ Setting currentUserId to:", userData.id);
           setCurrentUserId(userData.id);
-        } catch (error) {
-          console.error("❌ Error parsing user_data:", error);
+        } catch {
+          // Failed to parse user data
         }
-      } else {
-        console.error("❌ No user_data found in localStorage");
-        console.log("Available localStorage keys:", Object.keys(localStorage));
       }
     }
   }, []);
@@ -202,8 +194,7 @@ export default function GroupChatPage() {
 
       await fetchConversations(slug);
       await loadTypesAndGroups();
-    } catch (error) {
-      console.error("Error loading group data:", error);
+    } catch {
       showErrorToast("Failed to load group data");
     } finally {
       setIsLoadingGroup(false);
@@ -215,8 +206,7 @@ export default function GroupChatPage() {
     setTypesError(false);
     try {
       await Promise.all([fetchConversationTypes(), fetchConversationGroups()]);
-    } catch (err) {
-      console.error("Failed to load types/groups:", err);
+    } catch {
       setTypesError(true);
     } finally {
       setTypesLoading(false);
@@ -230,26 +220,14 @@ export default function GroupChatPage() {
   const isOwnMessage = useCallback(
     (message: any) => {
       if (currentUserId === null) {
-        console.log("⚠️ currentUserId is null");
         return false;
       }
-      
-      const senderId = typeof message.sender.id === 'string' 
-        ? parseInt(message.sender.id) 
+
+      const senderId = typeof message.sender.id === 'string'
+        ? parseInt(message.sender.id)
         : message.sender.id;
-      
-      const isOwn = senderId === currentUserId;
-      
-      console.log(`Message ${message.id} check:`, {
-        senderId,
-        senderIdType: typeof message.sender.id,
-        currentUserId,
-        currentUserIdType: typeof currentUserId,
-        isOwn,
-        senderName: message.sender.name,
-      });
-      
-      return isOwn;
+
+      return senderId === currentUserId;
     },
     [currentUserId]
   );
@@ -305,8 +283,6 @@ export default function GroupChatPage() {
   };
 
   const handleConversationClick = async (conversation: Conversation) => {
-    console.log("Selecting conversation:", conversation.id, conversation.title);
-
     if (selectedConversation?.id !== conversation.id) {
       clearMessages();
       handleRemoveFile();
@@ -316,8 +292,7 @@ export default function GroupChatPage() {
 
     try {
       await fetchMessages(conversation.id);
-    } catch (error) {
-      console.error("Error loading messages:", error);
+    } catch {
       showErrorToast("Failed to load messages");
     }
   };
@@ -347,8 +322,7 @@ export default function GroupChatPage() {
         setMessageText("");
         handleRemoveFile();
       }
-    } catch (error) {
-      console.error("Error sending message:", error);
+    } catch {
       showErrorToast("Failed to send message");
     }
   };

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { Toaster } from "react-hot-toast";
 import {
   showErrorToast,
   showSuccessToast,
@@ -123,8 +124,8 @@ export default function SecureDashboardLayout({
   const hasPermission = useCallback(
     (permission: Permission): boolean => {
       if (!userData) return false;
-      //@ts-ignore
-      return ROLE_PERMISSIONS[userData.role]?.includes(permission) ?? false;
+      const permissions = ROLE_PERMISSIONS[userData.role] as readonly string[];
+      return permissions?.includes(permission) ?? false;
     },
     [userData]
   );
@@ -157,13 +158,9 @@ export default function SecureDashboardLayout({
 
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
-          console.warn("Token validation failed - authentication error");
           throw new Error("Authentication failed");
         }
 
-        console.warn(
-          `Profile fetch failed with status ${response.status}, but continuing with stored data`
-        );
         return false;
       }
 
@@ -184,7 +181,6 @@ export default function SecureDashboardLayout({
         throw error;
       }
 
-      console.warn("Token validation failed due to network error:", error);
       return false;
     }
   }, []);
@@ -217,8 +213,7 @@ export default function SecureDashboardLayout({
             });
 
             clearTimeout(timeoutId);
-          } catch (error) {
-            console.warn("Logout API call failed:", error);
+          } catch {
             // Continue with client-side cleanup even if API fails
           }
         }
@@ -282,9 +277,9 @@ export default function SecureDashboardLayout({
         }
 
         if (requiredPermissions.length > 0) {
+          const userPermissions = ROLE_PERMISSIONS[parsedUserData.role as keyof typeof ROLE_PERMISSIONS] as readonly string[];
           const hasRequiredPermissions = requiredPermissions.every((permission) =>
-            //@ts-ignore
-            ROLE_PERMISSIONS[parsedUserData.role]?.includes(permission)
+            userPermissions?.includes(permission)
           );
           if (!hasRequiredPermissions) {
             showErrorToast("Access denied. Missing required permissions.");
@@ -321,8 +316,6 @@ export default function SecureDashboardLayout({
 
         // Background token validation - don't block UI
         validateTokenWithBackend(token).catch((error) => {
-          console.error("Background token validation failed:", error);
-          
           // Only force logout for authentication failures (revoked tokens, disabled accounts)
           // Let useImprovedAutoLogout handle timeout-based expiration with modal
           if (error instanceof Error && error.message === "Authentication failed") {
@@ -332,8 +325,7 @@ export default function SecureDashboardLayout({
           }
           // Network errors and timeouts don't force logout - the auto-logout hook handles those
         });
-      } catch (error) {
-        console.error("Authentication check failed:", error);
+      } catch {
         showErrorToast("Session validation failed. Please login again.");
         router.push("/login");
       }
@@ -409,15 +401,11 @@ export default function SecureDashboardLayout({
           handleProfileClick={handleProfileClick}
           handleSettingsClick={handleSettingsClick}
           setSidebarOpen={setSidebarOpen}
-          // @ts-ignore
           dropdownRef={dropdownRef}
         />
 
         {/* Account Status Alerts */}
-        <StatusAlerts 
-        userData={userData} 
-         // @ts-ignore
-        router={router} />
+        <StatusAlerts userData={userData} router={router} />
 
         {/* Main content area */}
         <main className="flex-1 py-6">
@@ -518,6 +506,38 @@ export default function SecureDashboardLayout({
           )}
         </div>
       )}
+
+      {/* Toast notifications */}
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: "var(--toast-bg, #333)",
+            color: "var(--toast-color, #fff)",
+          },
+          success: {
+            style: {
+              background: "#10B981",
+              color: "#fff",
+            },
+            iconTheme: {
+              primary: "#fff",
+              secondary: "#10B981",
+            },
+          },
+          error: {
+            style: {
+              background: "#EF4444",
+              color: "#fff",
+            },
+            iconTheme: {
+              primary: "#fff",
+              secondary: "#EF4444",
+            },
+          },
+        }}
+      />
     </div>
   );
 }

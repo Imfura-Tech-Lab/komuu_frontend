@@ -1,9 +1,7 @@
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import {
-  showErrorToast,
-  showSuccessToast,
-} from "@/components/layouts/auth-layer-out";
+import { showErrorToast } from "@/components/layouts/auth-layer-out";
+import { getAuthenticatedClient, getCompanyHeaders, ApiError } from "@/lib/api-client";
 
 interface PaymentInfo {
   id: number;
@@ -86,21 +84,60 @@ interface CertificatesPagination {
   total: number;
 }
 
-interface CertificatesResponse {
-  certificates: CertificatesPagination;
-  institution: InstitutionInfo;
+interface CertificatesApiResponse {
+  status: string;
+  message?: string;
+  data?: {
+    certificates: CertificatesPagination;
+    institution: InstitutionInfo;
+  };
+}
+
+interface CertificateDataApiResponse {
+  status: string;
+  message?: string;
+  data?: CertificateData;
 }
 
 // Helper function to clean malformed URLs
 function cleanCertificateUrl(url: string | null | undefined): string | null {
   if (!url) return null;
-  
+
   if (url.includes('/storage/https://') || url.includes('/storage/http://')) {
     const match = url.match(/\/storage\/(https?:\/\/.+)/);
     return match ? match[1] : url;
   }
-  
+
   return url;
+}
+
+function mapCertificateData(cert: Record<string, unknown>): Certificate {
+  const payment = cert.payment as Record<string, unknown> | undefined;
+  return {
+    id: cert.id as number,
+    name: cert.name as string,
+    member_number: cert.member_number as string,
+    certificate: cleanCertificateUrl(cert.certificate as string | null),
+    status: cert.status as string,
+    valid_from: cert.valid_from as string,
+    valid_until: cert.valid_until as string,
+    membership_term: cert.membership_term as string,
+    signed_date: cert.signed_date as string,
+    next_payment_date: cert.next_payment_date as string,
+    created_at: cert.created_at as string,
+    token: cert.token as string,
+    payment: {
+      id: payment?.id as number,
+      member: payment?.member as string,
+      amount_paid: payment?.amount_paid as string,
+      payment_method: payment?.payment_method as string,
+      transaction_number: payment?.transaction_number as string,
+      gateway: payment?.gateway as string,
+      status: payment?.status as string,
+      is_certificate_generated: payment?.is_certificate_generated as boolean,
+      payment_date: payment?.payment_date as string,
+    },
+  };
 }
 
 export function useCertificates() {
@@ -117,90 +154,36 @@ export function useCertificates() {
       setLoading(true);
       setError(null);
 
-      const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
       const token = localStorage.getItem("auth_token");
-
       if (!token) {
         showErrorToast("Please login to view certificates");
         router.push("/login");
         return;
       }
 
-      if (!apiUrl) {
-        showErrorToast("Backend API URL is not configured.");
-        setError("Configuration error: Backend API URL missing.");
-        return;
-      }
+      const endpoint = role === "Member"
+        ? `membership/certificates?page=${page}`
+        : `certificates?page=${page}`;
 
-      const endpoint =
-        role === "Member"
-          ? `${apiUrl}membership/certificates?page=${page}`
-          : `${apiUrl}certificates?page=${page}`;
-
-      const response = await fetch(endpoint, {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        if (response.status === 401 || response.status === 403) {
-          showErrorToast("Unauthorized. Please log in again.");
-          localStorage.removeItem("auth_token");
-          localStorage.removeItem("user_data");
-          router.push("/login");
-          return;
-        }
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
+      const client = getAuthenticatedClient();
+      const response = await client.get<CertificatesApiResponse>(endpoint);
+      const data = response.data;
 
       if (data.status === "success" && data.data) {
-        // Extract from nested structure: data.data.certificates.data
         const certificatesData = data.data.certificates?.data || [];
         const institutionData = data.data.institution;
         const paginationData = data.data.certificates;
 
-        // Set certificates
         setCertificates(
           Array.isArray(certificatesData)
-            ? certificatesData.map((cert: any) => ({
-                id: cert.id,
-                name: cert.name,
-                member_number: cert.member_number,
-                certificate: cleanCertificateUrl(cert.certificate),
-                status: cert.status,
-                valid_from: cert.valid_from,
-                valid_until: cert.valid_until,
-                membership_term: cert.membership_term,
-                signed_date: cert.signed_date,
-                next_payment_date: cert.next_payment_date,
-                created_at: cert.created_at,
-                token: cert.token,
-                payment: {
-                  id: cert.payment.id,
-                  member: cert.payment.member,
-                  amount_paid: cert.payment.amount_paid,
-                  payment_method: cert.payment.payment_method,
-                  transaction_number: cert.payment.transaction_number,
-                  gateway: cert.payment.gateway,
-                  status: cert.payment.status,
-                  is_certificate_generated: cert.payment.is_certificate_generated,
-                  payment_date: cert.payment.payment_date,
-                },
-              }))
+            ? certificatesData.map((cert) => mapCertificateData(cert as unknown as Record<string, unknown>))
             : []
         );
 
-        // Set institution data
         if (institutionData) {
           setInstitution(institutionData);
         }
 
-        // Set pagination metadata (excluding data array)
         if (paginationData) {
           const { data: _, ...paginationMeta } = paginationData;
           setPagination(paginationMeta);
@@ -209,10 +192,17 @@ export function useCertificates() {
         throw new Error(data.message || "Failed to fetch certificates");
       }
     } catch (err) {
-      console.error("Failed to fetch certificates:", err);
-      setError(
-        err instanceof Error ? err.message : "Failed to fetch certificates"
-      );
+      const apiError = err as ApiError;
+
+      if (apiError.status === 401 || apiError.status === 403) {
+        showErrorToast("Unauthorized. Please log in again.");
+        localStorage.removeItem("auth_token");
+        localStorage.removeItem("user_data");
+        router.push("/login");
+        return;
+      }
+
+      setError(apiError.message || "Failed to fetch certificates");
       showErrorToast("Failed to load certificates");
     } finally {
       setLoading(false);
@@ -223,61 +213,36 @@ export function useCertificates() {
     try {
       setFetchingCertificate(true);
 
-      const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
       const token = localStorage.getItem("auth_token");
-      const companyId = localStorage.getItem("company_id") || "";
-
       if (!token) {
         showErrorToast("Please login to view certificate");
         return null;
       }
 
-      if (!apiUrl) {
-        showErrorToast("Backend API URL is not configured.");
-        return null;
-      }
+      const client = getAuthenticatedClient();
+      const response = await client.get<CertificateDataApiResponse>(
+        `membership/certificate/${certificateId}/download`,
+        { headers: getCompanyHeaders() }
+      );
 
-      const endpoint = `${apiUrl}membership/certificate/${certificateId}/download`;
-
-      const headers: HeadersInit = {
-        Accept: "application/json",
-        Authorization: `Bearer ${token}`,
-      };
-
-      // Add X-Company-ID header if available
-      if (companyId) {
-        headers["X-Company-ID"] = companyId;
-      }
-
-      const response = await fetch(endpoint, {
-        method: "GET",
-        headers,
-      });
-
-      if (!response.ok) {
-        if (response.status === 401 || response.status === 403) {
-          showErrorToast("Unauthorized. Please log in again.");
-          localStorage.removeItem("auth_token");
-          localStorage.removeItem("user_data");
-          router.push("/login");
-          return null;
-        }
-        throw new Error(`Failed to fetch certificate data: ${response.status}`);
-      }
-
-      const responseData = await response.json();
-
+      const responseData = response.data;
       if (responseData.status === "success" && responseData.data) {
-        // Return the complete data structure with certificate and institution
         return responseData.data;
       } else {
         throw new Error(responseData.message || "Failed to fetch certificate data");
       }
     } catch (err) {
-      console.error("Failed to fetch certificate data:", err);
-      showErrorToast(
-        err instanceof Error ? err.message : "Failed to fetch certificate data"
-      );
+      const apiError = err as ApiError;
+
+      if (apiError.status === 401 || apiError.status === 403) {
+        showErrorToast("Unauthorized. Please log in again.");
+        localStorage.removeItem("auth_token");
+        localStorage.removeItem("user_data");
+        router.push("/login");
+        return null;
+      }
+
+      showErrorToast(apiError.message || "Failed to fetch certificate data");
       return null;
     } finally {
       setFetchingCertificate(false);

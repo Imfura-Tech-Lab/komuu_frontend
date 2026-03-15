@@ -29,9 +29,11 @@ interface EventModalProps {
   onSubmit: (data: EventFormData) => Promise<{ success: boolean; errors?: Record<string, string[]> }>;
   event?: Event | null;
   loading?: boolean;
+  eventTypes?: string[];
+  eventStatuses?: string[];
 }
 
-const EVENT_TYPES = [
+const DEFAULT_EVENT_TYPES = [
   "Conference",
   "Workshop",
   "Training",
@@ -43,13 +45,13 @@ const EVENT_TYPES = [
 
 const EVENT_MODES = ["In-Person", "Online","Hybrid"] as const;
 
-const EVENT_STATUSES = [
+const DEFAULT_EVENT_STATUSES = [
  "Draft",
  "Scheduled",
  "Ongoing",
  "Completed",
  "Cancelled"
-] as const;
+];
 
 export function EventModal({
   isOpen,
@@ -57,6 +59,8 @@ export function EventModal({
   onSubmit,
   event,
   loading = false,
+  eventTypes = DEFAULT_EVENT_TYPES,
+  eventStatuses = DEFAULT_EVENT_STATUSES,
 }: EventModalProps) {
   const [formData, setFormData] = useState<EventFormData>({
     title: "",
@@ -141,6 +145,13 @@ export function EventModal({
 
     if (!formData.description?.trim()) {
       newErrors.description = "Description is required";
+    } else if (formData.description.trim().length < 50) {
+      newErrors.description = "Description must be at least 50 characters";
+    }
+
+    // Thumbnail is required for new events (not editing)
+    if (!event && !formData.thumbnail && !thumbnailPreview) {
+      newErrors.thumbnail = "Thumbnail image is required";
     }
 
     // Location is only required for In-Person and Hybrid events
@@ -232,8 +243,6 @@ export function EventModal({
       registration_deadline: formatForAPI(formData.registration_deadline),
     };
 
-    console.log("Submission data:", submissionData);
-
     const result = await onSubmit(submissionData);
     
     // If there are backend validation errors, display them
@@ -295,7 +304,8 @@ export function EventModal({
 
   return (
     <Transition appear show={isOpen} as={Fragment}>
-      <Dialog as="div" className="relative z-50" onClose={loading ? () => {} : onClose}>
+      <Dialog as="div" className="relative z-50" onClose={() => {}}>
+        {/* Backdrop */}
         <Transition.Child
           as={Fragment}
           enter="ease-out duration-300"
@@ -305,21 +315,24 @@ export function EventModal({
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <div className="fixed inset-0 bg-black bg-opacity-25 dark:bg-opacity-75" />
+          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" />
         </Transition.Child>
 
-        <div className="fixed inset-0 overflow-y-auto">
-          <div className="flex min-h-full items-center justify-center p-4">
-            <Transition.Child
-              as={Fragment}
-              enter="ease-out duration-300"
-              enterFrom="opacity-0 scale-95"
-              enterTo="opacity-100 scale-100"
-              leave="ease-in duration-200"
-              leaveFrom="opacity-100 scale-100"
-              leaveTo="opacity-0 scale-95"
-            >
-              <Dialog.Panel className="w-full max-w-4xl transform overflow-hidden rounded-2xl bg-white dark:bg-gray-800 shadow-xl transition-all max-h-[90vh] flex flex-col">
+        {/* Sheet Container */}
+        <div className="fixed inset-0 overflow-hidden">
+          <div className="absolute inset-0 overflow-hidden">
+            <div className="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10">
+              <Transition.Child
+                as={Fragment}
+                enter="transform transition ease-in-out duration-300"
+                enterFrom="translate-x-full"
+                enterTo="translate-x-0"
+                leave="transform transition ease-in-out duration-300"
+                leaveFrom="translate-x-0"
+                leaveTo="translate-x-full"
+              >
+                <Dialog.Panel className="pointer-events-auto w-screen max-w-full sm:max-w-2xl md:max-w-3xl lg:max-w-4xl">
+                  <div className="flex h-full flex-col bg-white dark:bg-gray-800 shadow-xl">
                 {/* Header */}
                 <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between z-10">
                   <div>
@@ -374,7 +387,7 @@ export function EventModal({
                   {/* Thumbnail Upload */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                      Event Thumbnail
+                      Event Thumbnail <span className="text-red-500">*</span>
                     </label>
                     {thumbnailPreview ? (
                       <div className="relative group">
@@ -466,6 +479,7 @@ export function EventModal({
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Description <span className="text-red-500">*</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">(min 50 characters)</span>
                     </label>
                     <textarea
                       value={formData.description}
@@ -478,15 +492,26 @@ export function EventModal({
                           ? "border-red-500 dark:border-red-500"
                           : "border-gray-300 dark:border-gray-600"
                       }`}
-                      placeholder="Describe your event..."
+                      placeholder="Describe your event in detail (minimum 50 characters)..."
                       disabled={loading}
                     />
-                    {getFieldError('description') && (
-                      <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center">
-                        <ExclamationCircleIcon className="h-4 w-4 mr-1" />
-                        {getFieldError('description')}
-                      </p>
-                    )}
+                    <div className="mt-1 flex justify-between items-center">
+                      {getFieldError('description') ? (
+                        <p className="text-sm text-red-600 dark:text-red-400 flex items-center">
+                          <ExclamationCircleIcon className="h-4 w-4 mr-1" />
+                          {getFieldError('description')}
+                        </p>
+                      ) : (
+                        <span />
+                      )}
+                      <span className={`text-xs ${
+                        (formData.description?.length || 0) < 50
+                          ? "text-orange-500"
+                          : "text-green-500"
+                      }`}>
+                        {formData.description?.length || 0}/50 characters
+                      </span>
+                    </div>
                   </div>
 
                   {/* Type and Mode */}
@@ -504,7 +529,7 @@ export function EventModal({
                         className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent dark:bg-gray-700 dark:text-white transition-colors"
                         disabled={loading}
                       >
-                        {EVENT_TYPES.map((type) => (
+                        {eventTypes.map((type) => (
                           <option key={type} value={type}>
                             {type}
                           </option>
@@ -809,13 +834,13 @@ export function EventModal({
                         onChange={(e) =>
                           setFormData({
                             ...formData,
-                            status: e.target.value as typeof EVENT_STATUSES[number],
+                            status: e.target.value as EventFormData["status"],
                           })
                         }
                         className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent dark:bg-gray-700 dark:text-white transition-colors"
                         disabled={loading}
                       >
-                        {EVENT_STATUSES.map((status) => (
+                        {eventStatuses.map((status) => (
                           <option key={status} value={status}>
                             {status}
                           </option>
@@ -850,11 +875,13 @@ export function EventModal({
                     )}
                   </button>
                 </div>
-              </Dialog.Panel>
-            </Transition.Child>
-          </div>
+              </div>
+            </Dialog.Panel>
+          </Transition.Child>
         </div>
-      </Dialog>
-    </Transition>
+      </div>
+    </div>
+  </Dialog>
+</Transition>
   );
 }

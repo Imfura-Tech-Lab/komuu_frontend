@@ -8,15 +8,20 @@ export interface SubField {
   id: number;
   field: string;
   code: string;
-  description?:string;
+  description?: string;
+  total_applications?: number | null;
+  total_members?: number | null;
 }
 
 export interface FieldOfPractice {
   id: number;
   field: string;
   code: string;
-  description?:string;
+  description?: string;
   sub_fields: SubField[];
+  total_applications?: number;
+  total_members?: number;
+  main_field?: number;
 }
 
 export interface CreateFieldOfPractice {
@@ -76,7 +81,6 @@ export function useFieldsOfPractice() {
         throw new Error(data.message || "Failed to fetch fields of practice");
       }
     } catch (err) {
-      console.error("Failed to fetch fields of practice:", err);
       const errorMessage =
         err instanceof Error
           ? err.message
@@ -155,8 +159,6 @@ export function useFieldsOfPractice() {
           throw new Error(data.message || "Failed to create field of practice");
         }
       } catch (err) {
-        console.error("Failed to create field of practice:", err);
-        
         if (err instanceof Error && !err.message.includes("HTTP error")) {
           showErrorToast("Network error. Please check your connection.");
         }
@@ -233,8 +235,6 @@ export function useFieldsOfPractice() {
           throw new Error(data.message || "Failed to update field of practice");
         }
       } catch (err) {
-        console.error("Failed to update field of practice:", err);
-        
         if (err instanceof Error && !err.message.includes("HTTP error")) {
           showErrorToast("Network error. Please check your connection.");
         }
@@ -293,8 +293,6 @@ export function useFieldsOfPractice() {
           throw new Error(data.message || "Failed to delete field of practice");
         }
       } catch (err) {
-        console.error("Failed to delete field of practice:", err);
-        
         if (err instanceof Error && !err.message.includes("HTTP error")) {
           showErrorToast("Network error. Please check your connection.");
         }

@@ -68,11 +68,16 @@ export function AddMemberModal({
   };
 
   return (
-    <Dialog open={isOpen} onClose={handleClose} className="relative z-50">
-      <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+    <Dialog open={isOpen} onClose={() => {}} className="relative z-50">
+      {/* Backdrop */}
+      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" aria-hidden="true" />
 
-      <div className="fixed inset-0 flex items-center justify-center p-4">
-        <Dialog.Panel className="mx-auto max-w-2xl w-full bg-white dark:bg-gray-800 rounded-lg shadow-xl">
+      {/* Sheet Container */}
+      <div className="fixed inset-0 overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10">
+            <Dialog.Panel className="pointer-events-auto w-screen max-w-full sm:max-w-xl md:max-w-2xl">
+              <div className="flex h-full flex-col bg-white dark:bg-gray-800 shadow-xl">
           <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
             <Dialog.Title className="text-lg font-semibold text-gray-900 dark:text-white">
               Add Members to Group
@@ -175,8 +180,11 @@ export function AddMemberModal({
                 : `Add ${selectedMembers.length} Member(s)`}
             </button>
           </div>
-        </Dialog.Panel>
-      </div>
+        </div>
+      </Dialog.Panel>
+    </div>
+  </div>
+</div>
     </Dialog>
   );
 }

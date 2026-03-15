@@ -1,5 +1,6 @@
 {
-    "gitConfigUser.selectedProfile": "mobile",
-    "eslint.enable": false,
-    "typescript.tsdk": "node_modules\\typescript\\lib"
+  "gitConfigUser.selectedProfile": "mobile",
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "eslint.enable": true,
+  "typescript.validate.enable": true
 }

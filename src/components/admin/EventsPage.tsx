@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   VideoCameraIcon,
   PlusIcon,
@@ -16,6 +17,7 @@ import {
   CurrencyDollarIcon,
   GlobeAltIcon,
   BuildingOfficeIcon,
+  EyeIcon,
 } from "@heroicons/react/24/outline";
 import { useEvents, Event } from "@/lib/hooks/useEvents";
 import { EventFormData, EventModal } from "./modals/EventModal";
@@ -66,11 +68,12 @@ const EventsGridSkeleton = () => (
 
 interface EventCardProps {
   event: Event;
+  onView: (event: Event) => void;
   onEdit: (event: Event) => void;
   onDelete: (event: Event) => void;
 }
 
-const EventCard: React.FC<EventCardProps> = ({ event, onEdit, onDelete }) => {
+const EventCard: React.FC<EventCardProps> = ({ event, onView, onEdit, onDelete }) => {
   const [showActions, setShowActions] = useState(false);
 
   const getEventColor = (type: string) => {
@@ -221,6 +224,16 @@ const EventCard: React.FC<EventCardProps> = ({ event, onEdit, onDelete }) => {
                 <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 z-20">
                   <button
                     onClick={() => {
+                      onView(event);
+                      setShowActions(false);
+                    }}
+                    className="w-full flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <EyeIcon className="h-4 w-4 mr-3" />
+                    View Details
+                  </button>
+                  <button
+                    onClick={() => {
                       onEdit(event);
                       setShowActions(false);
                     }}
@@ -304,7 +317,10 @@ const EventCard: React.FC<EventCardProps> = ({ event, onEdit, onDelete }) => {
           <span className="text-xs text-gray-500 dark:text-gray-400">
             {event.organizer && `By ${event.organizer}`}
           </span>
-          <button className="text-[#00B5A5] hover:text-[#008F82] text-sm font-medium transition-colors">
+          <button
+            onClick={() => onView(event)}
+            className="text-[#00B5A5] hover:text-[#008F82] text-sm font-medium transition-colors"
+          >
             View Details →
           </button>
         </div>
@@ -318,6 +334,7 @@ const EventCard: React.FC<EventCardProps> = ({ event, onEdit, onDelete }) => {
 // ============================================================================
 
 export default function EventsPage() {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("upcoming");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -332,9 +349,13 @@ export default function EventsPage() {
 
   const {
     events,
+    eventTypes,
+    eventStatuses,
     loading,
     error,
     fetchEvents,
+    fetchEventTypes,
+    fetchEventStatuses,
     createEvent,
     updateEvent,
     deleteEvent,
@@ -342,7 +363,9 @@ export default function EventsPage() {
 
   useEffect(() => {
     fetchEvents();
-  }, [fetchEvents]);
+    fetchEventTypes();
+    fetchEventStatuses();
+  }, [fetchEvents, fetchEventTypes, fetchEventStatuses]);
 
   // ============================================================================
   // HANDLERS
@@ -423,6 +446,10 @@ export default function EventsPage() {
     setShowDeleteModal(true);
   };
 
+  const handleViewClick = (event: Event) => {
+    router.push(`/events/${event.id}`);
+  };
+
   const handleDeleteConfirm = async () => {
     if (!selectedEvent) return;
 
@@ -486,7 +513,7 @@ export default function EventsPage() {
     0
   );
 
-  const eventTypes = Array.from(new Set(events.map((e) => e.type))).sort();
+  const filterEventTypes = Array.from(new Set(events.map((e) => e.type))).sort();
 
   // ============================================================================
   // RENDER
@@ -597,7 +624,7 @@ export default function EventsPage() {
               className="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#00B5A5] dark:bg-gray-700 dark:text-white w-full md:w-auto transition-colors"
             >
               <option value="all">All Types</option>
-              {eventTypes.map((type) => (
+              {filterEventTypes.map((type) => (
                 <option key={type} value={type}>
                   {type}
                 </option>
@@ -636,6 +663,7 @@ export default function EventsPage() {
                 <EventCard
                   key={event.id}
                   event={event}
+                  onView={handleViewClick}
                   onEdit={handleEditClick}
                   onDelete={handleDeleteClick}
                 />
@@ -675,6 +703,8 @@ export default function EventsPage() {
         onClose={() => setShowCreateModal(false)}
         onSubmit={handleCreateEvent}
         loading={modalLoading}
+        eventTypes={eventTypes}
+        eventStatuses={eventStatuses}
       />
 
       <EventModal
@@ -686,6 +716,8 @@ export default function EventsPage() {
         onSubmit={handleUpdateEvent}
         event={selectedEvent}
         loading={modalLoading}
+        eventTypes={eventTypes}
+        eventStatuses={eventStatuses}
       />
 
       <DeleteConfirmModal
