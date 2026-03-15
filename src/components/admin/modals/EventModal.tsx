@@ -29,9 +29,11 @@ interface EventModalProps {
   onSubmit: (data: EventFormData) => Promise<{ success: boolean; errors?: Record<string, string[]> }>;
   event?: Event | null;
   loading?: boolean;
+  eventTypes?: string[];
+  eventStatuses?: string[];
 }
 
-const EVENT_TYPES = [
+const DEFAULT_EVENT_TYPES = [
   "Conference",
   "Workshop",
   "Training",
@@ -43,13 +45,13 @@ const EVENT_TYPES = [
 
 const EVENT_MODES = ["In-Person", "Online","Hybrid"] as const;
 
-const EVENT_STATUSES = [
+const DEFAULT_EVENT_STATUSES = [
  "Draft",
  "Scheduled",
  "Ongoing",
  "Completed",
  "Cancelled"
-] as const;
+];
 
 export function EventModal({
   isOpen,
@@ -57,6 +59,8 @@ export function EventModal({
   onSubmit,
   event,
   loading = false,
+  eventTypes = DEFAULT_EVENT_TYPES,
+  eventStatuses = DEFAULT_EVENT_STATUSES,
 }: EventModalProps) {
   const [formData, setFormData] = useState<EventFormData>({
     title: "",
@@ -525,7 +529,7 @@ export function EventModal({
                         className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent dark:bg-gray-700 dark:text-white transition-colors"
                         disabled={loading}
                       >
-                        {EVENT_TYPES.map((type) => (
+                        {eventTypes.map((type) => (
                           <option key={type} value={type}>
                             {type}
                           </option>
@@ -830,13 +834,13 @@ export function EventModal({
                         onChange={(e) =>
                           setFormData({
                             ...formData,
-                            status: e.target.value as typeof EVENT_STATUSES[number],
+                            status: e.target.value as EventFormData["status"],
                           })
                         }
                         className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent dark:bg-gray-700 dark:text-white transition-colors"
                         disabled={loading}
                       >
-                        {EVENT_STATUSES.map((status) => (
+                        {eventStatuses.map((status) => (
                           <option key={status} value={status}>
                             {status}
                           </option>

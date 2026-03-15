@@ -59,10 +59,14 @@ interface EventApiResponse {
 
 interface UseEventsReturn {
   events: Event[];
+  eventTypes: string[];
+  eventStatuses: string[];
   loading: boolean;
   error: string | null;
   fetchEvents: () => Promise<void>;
   fetchEvent: (id: string) => Promise<Event | null>;
+  fetchEventTypes: () => Promise<void>;
+  fetchEventStatuses: () => Promise<void>;
   createEvent: (params: CreateEventParams) => Promise<{ success: boolean; errors?: Record<string, string[]> }>;
   updateEvent: (params: UpdateEventParams) => Promise<{ success: boolean; errors?: Record<string, string[]> }>;
   deleteEvent: (id: string) => Promise<boolean>;
@@ -95,6 +99,8 @@ function mapEventData(event: Record<string, unknown>): Event {
 
 export function useEvents(): UseEventsReturn {
   const [events, setEvents] = useState<Event[]>([]);
+  const [eventTypes, setEventTypes] = useState<string[]>([]);
+  const [eventStatuses, setEventStatuses] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -156,6 +162,40 @@ export function useEvents(): UseEventsReturn {
       return null;
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  const fetchEventTypes = useCallback(async () => {
+    try {
+      const client = getAuthenticatedClient();
+      const response = await client.get<{ status: string; types?: string[] }>(
+        "event-types",
+        { headers: getCompanyHeaders() }
+      );
+
+      const data = response.data;
+      if (data.status === "success" && data.types) {
+        setEventTypes(data.types);
+      }
+    } catch {
+      // Silent fail - use defaults in component
+    }
+  }, []);
+
+  const fetchEventStatuses = useCallback(async () => {
+    try {
+      const client = getAuthenticatedClient();
+      const response = await client.get<{ status: string; types?: string[] }>(
+        "event-status",
+        { headers: getCompanyHeaders() }
+      );
+
+      const data = response.data;
+      if (data.status === "success" && data.types) {
+        setEventStatuses(data.types);
+      }
+    } catch {
+      // Silent fail - use defaults in component
     }
   }, []);
 
@@ -307,10 +347,14 @@ export function useEvents(): UseEventsReturn {
 
   return {
     events,
+    eventTypes,
+    eventStatuses,
     loading,
     error,
     fetchEvents,
     fetchEvent,
+    fetchEventTypes,
+    fetchEventStatuses,
     createEvent,
     updateEvent,
     deleteEvent,

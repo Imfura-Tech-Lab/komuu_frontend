@@ -332,9 +332,13 @@ export default function EventsPage() {
 
   const {
     events,
+    eventTypes,
+    eventStatuses,
     loading,
     error,
     fetchEvents,
+    fetchEventTypes,
+    fetchEventStatuses,
     createEvent,
     updateEvent,
     deleteEvent,
@@ -342,7 +346,9 @@ export default function EventsPage() {
 
   useEffect(() => {
     fetchEvents();
-  }, [fetchEvents]);
+    fetchEventTypes();
+    fetchEventStatuses();
+  }, [fetchEvents, fetchEventTypes, fetchEventStatuses]);
 
   // ============================================================================
   // HANDLERS
@@ -486,7 +492,7 @@ export default function EventsPage() {
     0
   );
 
-  const eventTypes = Array.from(new Set(events.map((e) => e.type))).sort();
+  const filterEventTypes = Array.from(new Set(events.map((e) => e.type))).sort();
 
   // ============================================================================
   // RENDER
@@ -597,7 +603,7 @@ export default function EventsPage() {
               className="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#00B5A5] dark:bg-gray-700 dark:text-white w-full md:w-auto transition-colors"
             >
               <option value="all">All Types</option>
-              {eventTypes.map((type) => (
+              {filterEventTypes.map((type) => (
                 <option key={type} value={type}>
                   {type}
                 </option>
@@ -675,6 +681,8 @@ export default function EventsPage() {
         onClose={() => setShowCreateModal(false)}
         onSubmit={handleCreateEvent}
         loading={modalLoading}
+        eventTypes={eventTypes}
+        eventStatuses={eventStatuses}
       />
 
       <EventModal
@@ -686,6 +694,8 @@ export default function EventsPage() {
         onSubmit={handleUpdateEvent}
         event={selectedEvent}
         loading={modalLoading}
+        eventTypes={eventTypes}
+        eventStatuses={eventStatuses}
       />
 
       <DeleteConfirmModal
