@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { Toaster } from "react-hot-toast";
 import {
   showErrorToast,
   showSuccessToast,
@@ -505,6 +506,38 @@ export default function SecureDashboardLayout({
           )}
         </div>
       )}
+
+      {/* Toast notifications */}
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: "var(--toast-bg, #333)",
+            color: "var(--toast-color, #fff)",
+          },
+          success: {
+            style: {
+              background: "#10B981",
+              color: "#fff",
+            },
+            iconTheme: {
+              primary: "#fff",
+              secondary: "#10B981",
+            },
+          },
+          error: {
+            style: {
+              background: "#EF4444",
+              color: "#fff",
+            },
+            iconTheme: {
+              primary: "#fff",
+              secondary: "#EF4444",
+            },
+          },
+        }}
+      />
     </div>
   );
 }
