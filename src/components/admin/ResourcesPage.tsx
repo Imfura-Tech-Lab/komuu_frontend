@@ -27,6 +27,7 @@ import { useResources, Resource } from "@/lib/hooks/useResources";
 import { FileViewer } from "@/components/ui/FileViwer";
 import { ResourceFormData, ResourceModal } from "./modals/ResourceModal";
 import { DeleteConfirmModal } from "./modals/DeleteConfirmModal";
+import { ResourceDetailSheet } from "./modals/ResourceDetailSheet";
 
 // ============================================================================
 // SKELETON LOADERS
@@ -81,6 +82,7 @@ interface ResourceCardProps {
   onDownload: (fileUrl: string, fileName: string) => void;
   onEdit: (resource: Resource) => void;
   onDelete: (resource: Resource) => void;
+  onCardClick: (resource: Resource) => void;
 }
 
 const ResourceCard: React.FC<ResourceCardProps> = ({
@@ -89,6 +91,7 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
   onDownload,
   onEdit,
   onDelete,
+  onCardClick,
 }) => {
   const [showActions, setShowActions] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
@@ -350,8 +353,11 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
         )}
       </div>
 
-      {/* Content Section */}
-      <div className="flex flex-col flex-1 p-6">
+      {/* Content Section - Clickable */}
+      <div
+        className="flex flex-col flex-1 p-6 cursor-pointer"
+        onClick={() => onCardClick(resource)}
+      >
         {/* Title */}
         <h3 className="mb-2 text-xl font-bold leading-tight text-gray-900 dark:text-white line-clamp-2">
           {resource.title}
@@ -468,9 +474,11 @@ export default function ResourcesPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showDetailSheet, setShowDetailSheet] = useState(false);
   const [selectedResource, setSelectedResource] = useState<Resource | null>(
     null
   );
+  const [detailResource, setDetailResource] = useState<Resource | null>(null);
   const [modalLoading, setModalLoading] = useState(false);
 
   // File Viewer State
@@ -480,9 +488,12 @@ export default function ResourcesPage() {
 
   const {
     resources,
+    resourceTypes,
     loading,
     error,
     fetchResources,
+    fetchResourceTypes,
+    fetchResource,
     createResource,
     updateResource,
     deleteResource,
@@ -490,7 +501,8 @@ export default function ResourcesPage() {
 
   useEffect(() => {
     fetchResources();
-  }, [fetchResources]);
+    fetchResourceTypes();
+  }, [fetchResources, fetchResourceTypes]);
 
   // ============================================================================
   // HANDLERS
@@ -564,9 +576,48 @@ export default function ResourcesPage() {
     }
   };
 
-  const handleEditClick = (resource: Resource) => {
+  const handleEditClick = async (resource: Resource) => {
+    setModalLoading(true);
+    // Fetch full resource details to get tags and group
+    const fullResource = await fetchResource(resource.id);
+    setModalLoading(false);
+
+    if (fullResource) {
+      setSelectedResource(fullResource);
+      setShowEditModal(true);
+    } else {
+      // Fallback to partial resource if fetch fails
+      setSelectedResource(resource);
+      setShowEditModal(true);
+    }
+  };
+
+  const handleCardClick = (resource: Resource) => {
+    setDetailResource(resource);
+    setShowDetailSheet(true);
+  };
+
+  const handleDetailEdit = async (resource: Resource) => {
+    setShowDetailSheet(false);
+    setModalLoading(true);
+    // Fetch full resource details to get tags and group
+    const fullResource = await fetchResource(resource.id);
+    setModalLoading(false);
+
+    if (fullResource) {
+      setSelectedResource(fullResource);
+      setShowEditModal(true);
+    } else {
+      // Fallback to partial resource if fetch fails
+      setSelectedResource(resource);
+      setShowEditModal(true);
+    }
+  };
+
+  const handleDetailDelete = (resource: Resource) => {
+    setShowDetailSheet(false);
     setSelectedResource(resource);
-    setShowEditModal(true);
+    setShowDeleteModal(true);
   };
 
   const handleViewFile = (fileUrl: string, fileName: string) => {
@@ -839,6 +890,7 @@ export default function ResourcesPage() {
               onDownload={handleDownload}
               onEdit={handleEditClick}
               onDelete={handleDeleteClick}
+              onCardClick={handleCardClick}
             />
           ))}
         </div>
@@ -881,9 +933,11 @@ export default function ResourcesPage() {
         onClose={() => setShowCreateModal(false)}
         onSubmit={handleCreateResource}
         loading={modalLoading}
+        resourceTypes={resourceTypes}
       />
 
       <ResourceModal
+        key={selectedResource?.id ?? "new"}
         isOpen={showEditModal}
         onClose={() => {
           setShowEditModal(false);
@@ -892,6 +946,7 @@ export default function ResourcesPage() {
         onSubmit={handleUpdateResource}
         resource={selectedResource}
         loading={modalLoading}
+        resourceTypes={resourceTypes}
       />
 
       <DeleteConfirmModal
@@ -903,6 +958,19 @@ export default function ResourcesPage() {
         onConfirm={handleDeleteConfirm}
         eventTitle={selectedResource?.title || ""}
         loading={modalLoading}
+      />
+
+      <ResourceDetailSheet
+        isOpen={showDetailSheet}
+        onClose={() => {
+          setShowDetailSheet(false);
+          setDetailResource(null);
+        }}
+        resource={detailResource}
+        onView={handleViewFile}
+        onDownload={handleDownload}
+        onEdit={handleDetailEdit}
+        onDelete={handleDetailDelete}
       />
     </div>
   );

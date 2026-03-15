@@ -90,7 +90,33 @@ function normalizeResource(resource: Record<string, unknown>): Resource {
     }
   }
 
-  const group = resource.group as { name?: string; id?: number } | string | undefined;
+  const group = resource.group as { name?: string; id?: number } | string | number | undefined;
+
+  // Extract group name and ID from various API response formats
+  let groupName: string | undefined;
+  let groupId: number | undefined;
+
+  if (typeof group === "object" && group !== null) {
+    // Group is an object like { id: 1, name: "Test" }
+    groupName = group.name;
+    groupId = group.id;
+  } else if (typeof group === "number") {
+    // Group is just the ID as a number
+    groupId = group;
+  } else if (typeof group === "string") {
+    // Group might be a name or a numeric string
+    const parsed = parseInt(group, 10);
+    if (!isNaN(parsed)) {
+      groupId = parsed;
+    } else {
+      groupName = group;
+    }
+  }
+
+  // Also check for group_id field directly
+  if (!groupId && resource.group_id) {
+    groupId = resource.group_id as number;
+  }
 
   return {
     id: resource.id as number,
@@ -107,8 +133,8 @@ function normalizeResource(resource: Record<string, unknown>): Resource {
     dislikes_count: (resource.dislikes_count as number) || 0,
     comments_count: (resource.comments_count as number) || 0,
     tags: parsedTags,
-    group: typeof group === "object" ? group?.name : group,
-    groupId: typeof group === "object" ? group?.id : (resource.group_id as number | undefined),
+    group: groupName,
+    groupId: groupId,
     uploaded_by: resource.uploaded_by as string | undefined,
     created_at: resource.created_at as string,
     updated_at: resource.updated_at as string | undefined,

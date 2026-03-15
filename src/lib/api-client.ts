@@ -79,17 +79,24 @@ export class ApiClient {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
 
+        // Build headers - skip Content-Type for FormData (browser sets it with boundary)
+        const isFormData = options.body instanceof FormData;
+        const mergedHeaders: Record<string, string> = {
+          ...this.defaultHeaders,
+          ...config.headers,
+          ...(options.headers as Record<string, string>),
+        };
+        if (isFormData) {
+          delete mergedHeaders["Content-Type"];
+        }
+
         const response = await fetch(url, {
           ...options,
           signal: controller.signal,
           // Add CORS mode for external APIs
           mode: this.isExternalAPI ? "cors" : "same-origin",
           credentials: this.isExternalAPI ? "omit" : "same-origin",
-          headers: {
-            ...this.defaultHeaders,
-            ...config.headers,
-            ...options.headers,
-          },
+          headers: mergedHeaders,
         });
 
         clearTimeout(timeoutId);
@@ -199,19 +206,11 @@ export class ApiClient {
     config?: RequestConfig
   ): Promise<ApiResponse<T>> {
     const url = this.buildURL(endpoint);
-    const formDataHeaders = {
-      ...(this.defaultHeaders["Authorization"] && {
-        Authorization: this.defaultHeaders["Authorization"],
-      }),
-      Accept: "application/json",
-    };
-
     return this.makeRequest<T>(
       url,
       {
         method: "POST",
         body: formData,
-        headers: formDataHeaders,
       },
       config
     );
@@ -280,15 +279,11 @@ export class ApiClient {
       });
     }
 
-    const headers = { ...this.defaultHeaders };
-    delete headers["Content-Type"]; 
-
     return this.makeRequest<T>(
       url,
       {
         method: "POST",
         body: formData,
-        headers,
       },
       config
     );

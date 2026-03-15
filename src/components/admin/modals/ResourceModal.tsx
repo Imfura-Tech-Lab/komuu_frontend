@@ -8,6 +8,12 @@ import {
   ChevronUpDownIcon,
   CheckIcon,
   ExclamationCircleIcon,
+  DocumentTextIcon,
+  PhotoIcon,
+  VideoCameraIcon,
+  MusicalNoteIcon,
+  LinkIcon,
+  TrashIcon,
 } from "@heroicons/react/24/outline";
 import { Resource } from "@/lib/hooks/useResources";
 import { useGroups } from "@/lib/hooks/useGroups";
@@ -29,7 +35,10 @@ interface ResourceModalProps {
   onSubmit: (data: ResourceFormData) => Promise<{ success: boolean; errors?: Record<string, string[]> }>;
   resource?: Resource | null;
   loading: boolean;
+  resourceTypes?: string[];
 }
+
+const DEFAULT_RESOURCE_TYPES = ["Document", "Video", "Audio", "Image", "Link"];
 
 export const ResourceModal: React.FC<ResourceModalProps> = ({
   isOpen,
@@ -37,6 +46,7 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
   onSubmit,
   resource,
   loading,
+  resourceTypes = DEFAULT_RESOURCE_TYPES,
 }) => {
   const [formData, setFormData] = useState<ResourceFormData>({
     title: "",
@@ -50,6 +60,7 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
   });
   const [tagInput, setTagInput] = useState("");
   const [fileName, setFileName] = useState("");
+  const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
   const [groupQuery, setGroupQuery] = useState("");
   const [errors, setErrors] = useState<Record<string, string[]>>({});
 
@@ -74,7 +85,16 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
     }
   }, [isOpen, fetchGroups]);
 
+  // Reset form when modal opens/closes or resource changes
   useEffect(() => {
+    if (!isOpen) {
+      // Clean up preview URL when closing
+      if (filePreviewUrl && !resource?.file_url) {
+        URL.revokeObjectURL(filePreviewUrl);
+      }
+      return;
+    }
+
     if (resource) {
       setFormData({
         title: resource.title,
@@ -87,22 +107,33 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
         file: undefined,
       });
       setFileName("");
+      setFilePreviewUrl(resource.file_url || null);
     } else {
       setFormData({
         title: "",
         description: "",
         link: "",
-        type: "Document",
+        type: resourceTypes.length > 0 ? resourceTypes[0] : "Document",
         visibility: "Public",
         group: null,
         tags: [],
         file: undefined,
       });
       setFileName("");
+      setFilePreviewUrl(null);
     }
     setGroupQuery("");
     setErrors({});
-  }, [resource, isOpen]);
+  }, [resource, isOpen, resourceTypes]);
+
+  // Clean up blob URLs on unmount
+  useEffect(() => {
+    return () => {
+      if (filePreviewUrl && !resource?.file_url) {
+        URL.revokeObjectURL(filePreviewUrl);
+      }
+    };
+  }, [filePreviewUrl, resource?.file_url]);
 
   const filteredGroups =
     groupQuery === ""
@@ -117,9 +148,128 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Clean up previous blob URL if exists
+      if (filePreviewUrl && !resource?.file_url) {
+        URL.revokeObjectURL(filePreviewUrl);
+      }
+
       setFormData({ ...formData, file });
       setFileName(file.name);
+
+      // Create preview URL for supported file types
+      const previewableTypes = ['image/', 'video/', 'audio/'];
+      if (previewableTypes.some(type => file.type.startsWith(type))) {
+        setFilePreviewUrl(URL.createObjectURL(file));
+      } else {
+        setFilePreviewUrl(null);
+      }
     }
+  };
+
+  const handleRemoveFile = () => {
+    if (filePreviewUrl && !resource?.file_url) {
+      URL.revokeObjectURL(filePreviewUrl);
+    }
+    setFormData({ ...formData, file: undefined });
+    setFileName("");
+    setFilePreviewUrl(resource?.file_url || null);
+  };
+
+  const getFileTypeFromName = (name: string): string => {
+    const ext = name.split('.').pop()?.toLowerCase() || '';
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)) return 'image';
+    if (['mp4', 'webm', 'mov', 'avi'].includes(ext)) return 'video';
+    if (['mp3', 'wav', 'ogg', 'aac'].includes(ext)) return 'audio';
+    if (ext === 'pdf') return 'pdf';
+    if (['doc', 'docx'].includes(ext)) return 'document';
+    return 'file';
+  };
+
+  const renderFilePreview = () => {
+    const fileType = fileName ? getFileTypeFromName(fileName) : formData.type.toLowerCase();
+    const previewUrl = filePreviewUrl;
+    const isNewFile = !!formData.file;
+
+    if (!previewUrl && !fileName && !resource?.file_url) {
+      return null;
+    }
+
+    return (
+      <div className="mt-3 relative">
+        <div className="rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+          {/* Image Preview */}
+          {fileType === 'image' && previewUrl && (
+            <div className="relative aspect-video flex items-center justify-center bg-gray-100 dark:bg-gray-800">
+              <img
+                src={previewUrl}
+                alt="Preview"
+                className="max-h-48 max-w-full object-contain"
+              />
+            </div>
+          )}
+
+          {/* Video Preview */}
+          {fileType === 'video' && previewUrl && (
+            <div className="relative aspect-video bg-black">
+              <video
+                src={previewUrl}
+                controls
+                className="w-full h-48 object-contain"
+                preload="metadata"
+              />
+            </div>
+          )}
+
+          {/* Audio Preview */}
+          {fileType === 'audio' && previewUrl && (
+            <div className="p-4 flex flex-col items-center justify-center bg-gradient-to-br from-amber-500 to-yellow-500">
+              <MusicalNoteIcon className="w-12 h-12 text-white mb-3" />
+              <audio src={previewUrl} controls className="w-full max-w-xs" />
+            </div>
+          )}
+
+          {/* PDF/Document Preview */}
+          {(fileType === 'pdf' || fileType === 'document' || (!previewUrl && fileName)) && (
+            <div className={`p-6 flex flex-col items-center justify-center ${
+              fileType === 'pdf'
+                ? 'bg-gradient-to-br from-red-500 to-orange-500'
+                : 'bg-gradient-to-br from-blue-500 to-cyan-500'
+            }`}>
+              {fileType === 'pdf' ? (
+                <DocumentTextIcon className="w-12 h-12 text-white mb-2" />
+              ) : (
+                <DocumentIcon className="w-12 h-12 text-white mb-2" />
+              )}
+              <p className="text-white text-sm font-medium text-center truncate max-w-full px-4">
+                {fileName || 'Document'}
+              </p>
+            </div>
+          )}
+
+          {/* File Info Bar */}
+          <div className="px-3 py-2 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <div className="flex items-center min-w-0">
+              <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mr-2">
+                {isNewFile ? 'New File' : 'Current File'}
+              </span>
+              <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
+                {fileName || (resource?.file_url ? 'Existing file' : '')}
+              </span>
+            </div>
+            {isNewFile && (
+              <button
+                type="button"
+                onClick={handleRemoveFile}
+                className="p-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors"
+                title="Remove file"
+              >
+                <TrashIcon className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const handleAddTag = () => {
@@ -308,11 +458,11 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
                             : "border-gray-300 dark:border-gray-600"
                         }`}
                       >
-                        <option value="Document">Document</option>
-                        <option value="PDF">PDF</option>
-                        <option value="Video">Video</option>
-                        <option value="Image">Image</option>
-                        <option value="Link">Link</option>
+                        {resourceTypes.map((type) => (
+                          <option key={type} value={type}>
+                            {type}
+                          </option>
+                        ))}
                       </select>
                       {getFieldError('type') && (
                         <p className="mt-1 text-sm text-red-600 dark:text-red-400 flex items-center">
@@ -406,13 +556,8 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
                         }`}
                       >
                         <DocumentIcon className="h-5 w-5 mr-2" />
-                        Choose File
+                        {formData.file ? "Change File" : "Choose File"}
                       </label>
-                      {fileName && (
-                        <span className="ml-3 text-sm text-gray-600 dark:text-gray-400">
-                          {fileName}
-                        </span>
-                      )}
                     </div>
                     {getFieldError('file') && (
                       <p className="mt-1 text-sm text-red-600 dark:text-red-400 flex items-center">
@@ -420,6 +565,8 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
                         {getFieldError('file')}
                       </p>
                     )}
+                    {/* File Preview */}
+                    {renderFilePreview()}
                   </div>
 
                   <div>
