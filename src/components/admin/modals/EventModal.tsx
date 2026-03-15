@@ -141,6 +141,13 @@ export function EventModal({
 
     if (!formData.description?.trim()) {
       newErrors.description = "Description is required";
+    } else if (formData.description.trim().length < 50) {
+      newErrors.description = "Description must be at least 50 characters";
+    }
+
+    // Thumbnail is required for new events (not editing)
+    if (!event && !formData.thumbnail && !thumbnailPreview) {
+      newErrors.thumbnail = "Thumbnail image is required";
     }
 
     // Location is only required for In-Person and Hybrid events
@@ -376,7 +383,7 @@ export function EventModal({
                   {/* Thumbnail Upload */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                      Event Thumbnail
+                      Event Thumbnail <span className="text-red-500">*</span>
                     </label>
                     {thumbnailPreview ? (
                       <div className="relative group">
@@ -468,6 +475,7 @@ export function EventModal({
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Description <span className="text-red-500">*</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">(min 50 characters)</span>
                     </label>
                     <textarea
                       value={formData.description}
@@ -480,15 +488,26 @@ export function EventModal({
                           ? "border-red-500 dark:border-red-500"
                           : "border-gray-300 dark:border-gray-600"
                       }`}
-                      placeholder="Describe your event..."
+                      placeholder="Describe your event in detail (minimum 50 characters)..."
                       disabled={loading}
                     />
-                    {getFieldError('description') && (
-                      <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center">
-                        <ExclamationCircleIcon className="h-4 w-4 mr-1" />
-                        {getFieldError('description')}
-                      </p>
-                    )}
+                    <div className="mt-1 flex justify-between items-center">
+                      {getFieldError('description') ? (
+                        <p className="text-sm text-red-600 dark:text-red-400 flex items-center">
+                          <ExclamationCircleIcon className="h-4 w-4 mr-1" />
+                          {getFieldError('description')}
+                        </p>
+                      ) : (
+                        <span />
+                      )}
+                      <span className={`text-xs ${
+                        (formData.description?.length || 0) < 50
+                          ? "text-orange-500"
+                          : "text-green-500"
+                      }`}>
+                        {formData.description?.length || 0}/50 characters
+                      </span>
+                    </div>
                   </div>
 
                   {/* Type and Mode */}
