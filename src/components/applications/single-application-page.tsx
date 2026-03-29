@@ -19,6 +19,8 @@ import {
 } from "lucide-react";
 
 import { DeleteModal } from "../admin/modals/Deletemodal";
+import RecordPaymentModal from "../admin/modals/RecordPaymentModal";
+import AIAnalysisModal from "../admin/modals/AIAnalysisModal";
 import { ActionsButtons } from "../admin/ActionsDropdown";
 import { CollapsibleSection } from "../admin/CollapsibleSection";
 import { InfoRow } from "../admin/InfoRow";
@@ -61,6 +63,8 @@ export default function SingleApplicationPage({
     approveApplication,
     signCertificate,
     deleteApplication,
+    recordPayment,
+    analyzeDocuments,
   } = useApplicationManager({ applicationId });
 
   const {
@@ -74,6 +78,10 @@ export default function SingleApplicationPage({
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteType, setDeleteType] = useState<"soft" | "force">("soft");
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showAnalysisModal, setShowAnalysisModal] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<string | null>(null);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
 
   const isApproved =
     application?.application_status?.toLowerCase() === "approved";
@@ -110,6 +118,24 @@ export default function SingleApplicationPage({
     if (success) {
       setShowDeleteModal(false);
     }
+  };
+
+  const handleRecordPayment = async (data: {
+    amount_paid: number;
+    currency: string;
+    payment_method: string;
+    payment_gateway?: string;
+  }) => {
+    return await recordPayment(data);
+  };
+
+  const handleAnalyzeDocuments = async () => {
+    setShowAnalysisModal(true);
+    setAnalysisLoading(true);
+    setAnalysisResult(null);
+    const result = await analyzeDocuments();
+    setAnalysisResult(result);
+    setAnalysisLoading(false);
   };
 
   const getFileType = (path: string): "pdf" | "image" | "document" => {
@@ -247,6 +273,8 @@ export default function SingleApplicationPage({
               onApprove={handleApprove}
               onSign={handleSign}
               onDelete={handleDeleteClick}
+              onRecordPayment={() => setShowPaymentModal(true)}
+              onAnalyzeDocuments={handleAnalyzeDocuments}
             />
           </div>
         </div>
@@ -638,6 +666,20 @@ export default function SingleApplicationPage({
           isDeleting={isDeleting}
           deleteType={deleteType}
           onDeleteTypeChange={setDeleteType}
+        />
+
+        <RecordPaymentModal
+          isOpen={showPaymentModal}
+          onClose={() => setShowPaymentModal(false)}
+          onSubmit={handleRecordPayment}
+          loading={isUpdating}
+        />
+
+        <AIAnalysisModal
+          isOpen={showAnalysisModal}
+          onClose={() => setShowAnalysisModal(false)}
+          analysis={analysisResult}
+          loading={analysisLoading}
         />
 
         <FileViewer

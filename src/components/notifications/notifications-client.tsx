@@ -1,350 +1,230 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect } from "react";
 import {
   BellIcon,
-  PaperAirplaneIcon,
-  UsersIcon,
-  UserGroupIcon,
-  EnvelopeIcon,
-  DevicePhoneMobileIcon,
-  CheckCircleIcon,
-  ClockIcon,
-  XCircleIcon,
+  TrashIcon,
+  CheckIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
 } from "@heroicons/react/24/outline";
+import { useNotifications } from "@/lib/hooks/useNotifications";
 
-interface Notification {
-  id: string;
-  title: string;
-  message: string;
-  recipients: string;
-  sentAt: string;
-  status: "sent" | "pending" | "failed";
-  type: "email" | "sms" | "push";
+function formatDate(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function getNotificationContent(data: Record<string, unknown>): { title: string; message: string } {
+  const title = (data.title || data.subject || data.type || "Notification") as string;
+  const message = (data.message || data.body || data.description || "") as string;
+  return { title, message };
 }
 
 export default function NotificationsClient() {
-  const [activeTab, setActiveTab] = useState<"compose" | "history">("compose");
-  const [formData, setFormData] = useState({
-    title: "",
-    message: "",
-    recipients: "all",
-    channels: [] as string[],
-  });
+  const {
+    notifications,
+    unreadCount,
+    loading,
+    currentPage,
+    lastPage,
+    total,
+    fetchNotifications,
+    markAllAsRead,
+    deleteAll,
+    deleteNotification,
+    handlePageChange,
+  } = useNotifications();
 
-  const recentNotifications: Notification[] = [
-    {
-      id: "1",
-      title: "Annual Membership Renewal Reminder",
-      message: "Your membership is due for renewal...",
-      recipients: "All Members",
-      sentAt: "2024-01-15 10:30 AM",
-      status: "sent",
-      type: "email",
-    },
-    {
-      id: "2",
-      title: "Upcoming Conference Registration",
-      message: "Register now for the 2024 Annual Conference...",
-      recipients: "Active Members",
-      sentAt: "2024-01-14 02:00 PM",
-      status: "sent",
-      type: "email",
-    },
-    {
-      id: "3",
-      title: "Payment Confirmation",
-      message: "Your payment has been received...",
-      recipients: "John Doe",
-      sentAt: "2024-01-13 09:15 AM",
-      status: "sent",
-      type: "sms",
-    },
-  ];
-
-  const handleChannelToggle = (channel: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      channels: prev.channels.includes(channel)
-        ? prev.channels.filter((c) => c !== channel)
-        : [...prev.channels, channel],
-    }));
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Handle notification send
-    alert("Notification functionality coming soon!");
-  };
-
-  const getStatusIcon = (status: Notification["status"]) => {
-    switch (status) {
-      case "sent":
-        return <CheckCircleIcon className="h-5 w-5 text-green-500" />;
-      case "pending":
-        return <ClockIcon className="h-5 w-5 text-yellow-500" />;
-      case "failed":
-        return <XCircleIcon className="h-5 w-5 text-red-500" />;
-    }
-  };
-
-  const getTypeIcon = (type: Notification["type"]) => {
-    switch (type) {
-      case "email":
-        return <EnvelopeIcon className="h-5 w-5 text-blue-500" />;
-      case "sms":
-        return <DevicePhoneMobileIcon className="h-5 w-5 text-purple-500" />;
-      case "push":
-        return <BellIcon className="h-5 w-5 text-orange-500" />;
-    }
-  };
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
 
   return (
     <div className="p-6 space-y-6 bg-gray-50 dark:bg-gray-900 min-h-screen">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            Notifications
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+              Notifications
+            </h1>
+            {unreadCount > 0 && (
+              <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#00B5A5] text-white">
+                {unreadCount} unread
+              </span>
+            )}
+          </div>
           <p className="mt-1 text-gray-600 dark:text-gray-400">
-            Send notifications to members via email, SMS, or push notifications
+            Stay up to date with your latest notifications
           </p>
         </div>
+        <div className="flex items-center gap-2">
+          {unreadCount > 0 && (
+            <button
+              onClick={markAllAsRead}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-[#00B5A5] bg-[#00B5A5]/10 border border-[#00B5A5]/20 rounded-lg hover:bg-[#00B5A5]/20 transition-colors"
+            >
+              <CheckIcon className="h-4 w-4" />
+              Mark All Read
+            </button>
+          )}
+          {total > 0 && (
+            <button
+              onClick={() => {
+                if (confirm("Are you sure you want to delete all notifications?")) {
+                  deleteAll();
+                }
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+            >
+              <TrashIcon className="h-4 w-4" />
+              Delete All
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Tabs */}
-      <div className="border-b border-gray-200 dark:border-gray-700">
-        <nav className="flex space-x-8">
-          <button
-            onClick={() => setActiveTab("compose")}
-            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-              activeTab === "compose"
-                ? "border-[#00B5A5] text-[#00B5A5]"
-                : "border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-            }`}
-          >
-            Compose New
-          </button>
-          <button
-            onClick={() => setActiveTab("history")}
-            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-              activeTab === "history"
-                ? "border-[#00B5A5] text-[#00B5A5]"
-                : "border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-            }`}
-          >
-            History
-          </button>
-        </nav>
+      {/* Stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+          <p className="text-sm text-gray-500 dark:text-gray-400">Total</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-white">{total}</p>
+        </div>
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+          <p className="text-sm text-gray-500 dark:text-gray-400">Unread</p>
+          <p className="text-2xl font-bold text-[#00B5A5]">{unreadCount}</p>
+        </div>
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+          <p className="text-sm text-gray-500 dark:text-gray-400">Read</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-white">{total - unreadCount}</p>
+        </div>
       </div>
 
-      {activeTab === "compose" ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Compose Form */}
-          <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Notification Title
-                </label>
-                <input
-                  type="text"
-                  value={formData.title}
-                  onChange={(e) =>
-                    setFormData({ ...formData, title: e.target.value })
-                  }
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent"
-                  placeholder="Enter notification title"
-                />
+      {/* Notification List */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+        {loading ? (
+          <div className="divide-y divide-gray-200 dark:divide-gray-700">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="p-4 animate-pulse">
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
+                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-2/3" />
+                  </div>
+                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16" />
+                </div>
               </div>
+            ))}
+          </div>
+        ) : notifications.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 px-4">
+            <BellIcon className="h-16 w-16 text-gray-300 dark:text-gray-600 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">
+              No notifications
+            </h3>
+            <p className="text-gray-500 dark:text-gray-400 text-center">
+              You&apos;re all caught up! New notifications will appear here.
+            </p>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-200 dark:divide-gray-700">
+            {notifications.map((notification) => {
+              const { title, message } = getNotificationContent(notification.data);
+              const isUnread = !notification.read_at;
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Message
-                </label>
-                <textarea
-                  rows={6}
-                  value={formData.message}
-                  onChange={(e) =>
-                    setFormData({ ...formData, message: e.target.value })
-                  }
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent resize-none"
-                  placeholder="Enter your message..."
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Recipients
-                </label>
-                <select
-                  value={formData.recipients}
-                  onChange={(e) =>
-                    setFormData({ ...formData, recipients: e.target.value })
-                  }
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent"
+              return (
+                <div
+                  key={notification.id}
+                  className={`flex items-start gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${
+                    isUnread ? "border-l-4 border-l-[#00B5A5] bg-[#00B5A5]/5 dark:bg-[#00B5A5]/10" : ""
+                  }`}
                 >
-                  <option value="all">All Members</option>
-                  <option value="active">Active Members Only</option>
-                  <option value="pending">Pending Applications</option>
-                  <option value="board">Board Members</option>
-                </select>
-              </div>
+                  <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
+                    isUnread
+                      ? "bg-[#00B5A5]/10 text-[#00B5A5]"
+                      : "bg-gray-100 dark:bg-gray-700 text-gray-400"
+                  }`}>
+                    <BellIcon className="h-5 w-5" />
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Delivery Channels
-                </label>
-                <div className="flex flex-wrap gap-4">
-                  {[
-                    { id: "email", label: "Email", icon: <EnvelopeIcon className="h-5 w-5" /> },
-                    { id: "sms", label: "SMS", icon: <DevicePhoneMobileIcon className="h-5 w-5" /> },
-                    { id: "push", label: "Push", icon: <BellIcon className="h-5 w-5" /> },
-                  ].map((channel) => (
-                    <button
-                      key={channel.id}
-                      type="button"
-                      onClick={() => handleChannelToggle(channel.id)}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
-                        formData.channels.includes(channel.id)
-                          ? "border-[#00B5A5] bg-[#00B5A5]/10 text-[#00B5A5]"
-                          : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300"
-                      }`}
-                    >
-                      {channel.icon}
-                      {channel.label}
-                    </button>
-                  ))}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className={`text-sm font-medium truncate ${
+                        isUnread
+                          ? "text-gray-900 dark:text-white"
+                          : "text-gray-600 dark:text-gray-400"
+                      }`}>
+                        {title}
+                      </p>
+                      {isUnread && (
+                        <span className="flex-shrink-0 w-2 h-2 rounded-full bg-[#00B5A5]" />
+                      )}
+                    </div>
+                    {message && (
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">
+                        {message}
+                      </p>
+                    )}
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                      {formatDate(notification.created_at)}
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteNotification(notification.id);
+                    }}
+                    className="flex-shrink-0 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                    title="Delete notification"
+                  >
+                    <TrashIcon className="h-4 w-4" />
+                  </button>
                 </div>
-              </div>
+              );
+            })}
+          </div>
+        )}
 
+        {/* Pagination */}
+        {lastPage > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Page {currentPage} of {lastPage}
+            </p>
+            <div className="flex items-center gap-2">
               <button
-                type="submit"
-                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-[#00B5A5] text-white rounded-lg hover:bg-[#008F82] transition-colors font-medium"
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage <= 1}
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                <PaperAirplaneIcon className="h-5 w-5" />
-                Send Notification
+                <ChevronLeftIcon className="h-4 w-4" />
+                Previous
               </button>
-            </form>
-          </div>
-
-          {/* Quick Stats */}
-          <div className="space-y-6">
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Quick Stats
-              </h3>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <UsersIcon className="h-5 w-5 text-gray-400" />
-                    <span className="text-gray-600 dark:text-gray-400">Total Recipients</span>
-                  </div>
-                  <span className="font-semibold text-gray-900 dark:text-white">1,234</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <UserGroupIcon className="h-5 w-5 text-gray-400" />
-                    <span className="text-gray-600 dark:text-gray-400">Active Members</span>
-                  </div>
-                  <span className="font-semibold text-gray-900 dark:text-white">987</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <EnvelopeIcon className="h-5 w-5 text-gray-400" />
-                    <span className="text-gray-600 dark:text-gray-400">Emails Sent Today</span>
-                  </div>
-                  <span className="font-semibold text-gray-900 dark:text-white">45</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Templates
-              </h3>
-              <div className="space-y-2">
-                {["Welcome Email", "Payment Reminder", "Event Invitation", "Renewal Notice"].map(
-                  (template) => (
-                    <button
-                      key={template}
-                      className="w-full text-left px-4 py-2 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                    >
-                      {template}
-                    </button>
-                  )
-                )}
-              </div>
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage >= lastPage}
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+                <ChevronRightIcon className="h-4 w-4" />
+              </button>
             </div>
           </div>
-        </div>
-      ) : (
-        /* History Tab */
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-900">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Notification
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Recipients
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Type
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Sent At
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {recentNotifications.map((notification) => (
-                  <tr key={notification.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <td className="px-6 py-4">
-                      <div>
-                        <p className="font-medium text-gray-900 dark:text-white">
-                          {notification.title}
-                        </p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 truncate max-w-xs">
-                          {notification.message}
-                        </p>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-gray-700 dark:text-gray-300">
-                      {notification.recipients}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        {getTypeIcon(notification.type)}
-                        <span className="text-gray-700 dark:text-gray-300 capitalize">
-                          {notification.type}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        {getStatusIcon(notification.status)}
-                        <span className="text-gray-700 dark:text-gray-300 capitalize">
-                          {notification.status}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-gray-500 dark:text-gray-400">
-                      {notification.sentAt}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

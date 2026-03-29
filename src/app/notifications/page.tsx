@@ -4,8 +4,7 @@ import NotificationsClient from "@/components/notifications/notifications-client
 export default function NotificationsPage() {
   return (
     <SecureDashboardLayout
-      requiredRoles={["Administrator"]}
-      requiredPermissions={["send_notifications"]}
+      requiredRoles={["Administrator", "President", "Board", "Member"]}
     >
       <NotificationsClient />
     </SecureDashboardLayout>
