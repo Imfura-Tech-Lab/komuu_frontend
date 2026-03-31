@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Fragment } from "react";
+import { useState, useEffect, useCallback, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import { Dialog, Transition } from "@headlessui/react";
 import {
@@ -30,6 +30,9 @@ import {
   showErrorToast,
   showSuccessToast,
 } from "@/components/layouts/auth-layer-out";
+import { useMemberMembership } from "@/lib/hooks/useMemberMembership";
+import { useDpoPayment } from "@/lib/hooks/useDpoPayment";
+import PaymentModal from "@/components/payments/PaymentModal";
 
 // Types matching API response
 interface MemberDetails {
@@ -743,12 +746,34 @@ export default function MyPaymentsClient() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+  const [showRenewalModal, setShowRenewalModal] = useState(false);
 
   const router = useRouter();
+  const { membership, fetchCurrentMembership, loading: membershipLoading } = useMemberMembership();
+  const { initiateMembershipPayment, loading: dpoLoading } = useDpoPayment();
 
   useEffect(() => {
     fetchPayments(currentPage);
-  }, [currentPage]);
+    fetchCurrentMembership();
+  }, [currentPage, fetchCurrentMembership]);
+
+  const isMembershipExpiring = membership && membership.certificate?.valid_until &&
+    new Date(membership.certificate.valid_until) <= new Date(Date.now() + 60 * 24 * 60 * 60 * 1000); // within 60 days
+
+  const handleRenewalPayment = async (data: {
+    amount_paid: number;
+    payment_method: string;
+    gateway: string;
+    transaction_number?: string;
+  }) => {
+    // Use DPO for online payment
+    const paymentUrl = await initiateMembershipPayment("renewal", { amount: data.amount_paid, currency: "USD" });
+    if (paymentUrl) {
+      window.location.href = paymentUrl;
+      return { success: true };
+    }
+    return { success: false };
+  };
 
   const fetchPayments = async (page: number = 1) => {
     try {
@@ -885,6 +910,39 @@ export default function MyPaymentsClient() {
             </button>
           </div>
         </div>
+
+        {/* Membership Status Card */}
+        {membership && (
+          <div className="mb-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className={`p-2 rounded-lg ${membership.status?.toLowerCase() === "active" ? "bg-green-100 dark:bg-green-900/30" : "bg-amber-100 dark:bg-amber-900/30"}`}>
+                  <CheckCircleIcon className={`w-5 h-5 ${membership.status?.toLowerCase() === "active" ? "text-green-600" : "text-amber-600"}`} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                    Membership: <span className={membership.status?.toLowerCase() === "active" ? "text-green-600" : "text-amber-600"}>{membership.status}</span>
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {membership.membership_type}
+                    {membership.certificate?.valid_until && (
+                      <> &middot; Valid until {new Date(membership.certificate.valid_until).toLocaleDateString()}</>
+                    )}
+                  </p>
+                </div>
+              </div>
+              {isMembershipExpiring && (
+                <button
+                  onClick={() => setShowRenewalModal(true)}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-[#00B5A5] hover:bg-[#008F82] rounded-lg transition-colors"
+                >
+                  <CreditCardIcon className="w-4 h-4" />
+                  Renew
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <PaymentsSkeleton />
@@ -1102,6 +1160,16 @@ export default function MyPaymentsClient() {
         payment={selectedPayment}
         isOpen={sideSheetOpen}
         onClose={() => setSideSheetOpen(false)}
+      />
+
+      {/* Renewal Payment Modal */}
+      <PaymentModal
+        isOpen={showRenewalModal}
+        onClose={() => setShowRenewalModal(false)}
+        onSubmit={handleRenewalPayment}
+        loading={dpoLoading}
+        title="Renew Membership"
+        description="Pay to renew your membership via DPO"
       />
     </div>
   );

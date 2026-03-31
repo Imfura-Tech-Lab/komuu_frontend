@@ -51,7 +51,6 @@ export const ROLE_PERMISSIONS = {
     "manage_conversations",
     "manage_events",
     "manage_resources",
-    "manage_billing",
     "manage_exports",
   ],
   President: [
@@ -75,7 +74,6 @@ export const ROLE_PERMISSIONS = {
     "manage_conversations",
     "manage_events",
     "manage_resources",
-    "manage_billing",
     "manage_exports",
   ],
   Board: [
@@ -262,15 +260,6 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         order: 13,
       },
       {
-        name: "Billing",
-        href: "/billing",
-        permission: "manage_billing",
-        section: "finance",
-        icon: "payments",
-        description: "Manage subscriptions and billing",
-        order: 9,
-      },
-      {
         name: "Data Exports",
         href: "/exports",
         permission: "manage_exports",
@@ -379,15 +368,6 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         icon: "groups",
         description: "Manage member groups",
         order: 11,
-      },
-      {
-        name: "Billing",
-        href: "/billing",
-        permission: "manage_billing",
-        section: "finance",
-        icon: "payments",
-        description: "Manage subscriptions and billing",
-        order: 9,
       },
       {
         name: "Data Exports",

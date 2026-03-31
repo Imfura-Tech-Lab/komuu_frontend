@@ -13,13 +13,16 @@ import {
   ClockIcon,
   XCircleIcon,
   DocumentTextIcon,
+  CreditCardIcon,
 } from "@heroicons/react/24/outline";
 import { PDFService } from "@/services/pdfService";
 import { Application } from "@/types";
 import ApplicationList from "@/components/applications/ApplicationList";
 import PDFLoadingOverlay from "@/components/applications/PDFLoadingOverlay";
 import MemberApplicationSheet from "@/components/applications/MemberApplicationSheet";
+import PaymentModal from "@/components/payments/PaymentModal";
 import { useApplications } from "@/lib/hooks/useApplications";
+import { useDpoPayment } from "@/lib/hooks/useDpoPayment";
 import { useApplicationFilters } from "@/lib/hooks/useApplicationFilters";
 import {
   getStatusColor,
@@ -232,13 +235,37 @@ function EmptyState({ userRole }: { userRole: string }) {
 export default function ApplicationClient() {
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const router = useRouter();
 
   const { applications, loading, error, userRole, fetchApplications } =
     useApplications();
+  const { initiateMembershipPayment, loading: dpoLoading } = useDpoPayment();
 
   // Derive memberApplication from applications array for members
   const memberApplication = userRole === "Member" ? applications[0] : null;
+  const isApproved = memberApplication?.application_status?.toLowerCase() === "approved";
+  const hasCompletedPayment = memberApplication?.payments?.some(
+    (p: { status: string }) => p.status?.toLowerCase() === "completed"
+  );
+
+  const handleDpoPayment = async (data: {
+    amount_paid: number;
+    payment_method: string;
+    gateway: string;
+    transaction_number?: string;
+  }) => {
+    if (!memberApplication) return { success: false };
+    const paymentUrl = await initiateMembershipPayment(
+      memberApplication.id,
+      { amount: data.amount_paid, currency: "USD" }
+    );
+    if (paymentUrl) {
+      window.location.href = paymentUrl;
+      return { success: true };
+    }
+    return { success: false };
+  };
 
   const {
     filterStatus,
@@ -286,6 +313,30 @@ export default function ApplicationClient() {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <div className="px-4 py-8 mx-auto max-w-7xl sm:px-6 lg:px-8">
+          {/* Payment Required Banner */}
+          {isApproved && !hasCompletedPayment && (
+            <div className="mb-6 bg-[#00B5A5]/5 border border-[#00B5A5]/20 rounded-xl p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-[#00B5A5]/10 rounded-lg">
+                    <CreditCardIcon className="w-5 h-5 text-[#00B5A5]" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-900 dark:text-white">Payment Required</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Your application has been approved. Complete payment to finalize your membership.</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowPaymentModal(true)}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-[#00B5A5] hover:bg-[#008F82] rounded-lg transition-colors whitespace-nowrap"
+                >
+                  <CreditCardIcon className="w-4 h-4" />
+                  Pay Now
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Header */}
           <div className="mb-8">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -339,6 +390,15 @@ export default function ApplicationClient() {
           />
 
           <PDFLoadingOverlay isVisible={isGeneratingPDF} />
+
+          <PaymentModal
+            isOpen={showPaymentModal}
+            onClose={() => setShowPaymentModal(false)}
+            onSubmit={handleDpoPayment}
+            loading={dpoLoading}
+            title="Membership Payment"
+            description="Pay via DPO to complete your membership"
+          />
         </div>
       </div>
     );
