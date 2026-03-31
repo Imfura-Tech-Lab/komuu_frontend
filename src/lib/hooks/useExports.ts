@@ -9,11 +9,12 @@ import { getAuthenticatedClient, getCompanyHeaders, ApiError } from "@/lib/api-c
 
 export interface ExportJob {
   id: number;
-  type: string;
-  status: "pending" | "processing" | "completed" | "failed";
-  file_path: string | null;
-  created_at: string;
-  updated_at: string;
+  filename: string;
+  status: string;
+  export_from: string;
+  export_until: string;
+  generated_by: string;
+  generated_at: string;
 }
 
 interface ExportApiResponse {
@@ -39,22 +40,31 @@ export function useExports() {
   const [error, setError] = useState<string | null>(null);
 
   const requestExport = useCallback(
-    async (params?: { type?: string }): Promise<ExportJob | null> => {
+    async (params: { from: string; until: string }): Promise<ExportJob | null> => {
       try {
         setLoading(true);
         const client = getAuthenticatedClient();
-        const response = await client.post<ExportApiResponse>(
+        const response = await client.post<{ message: string; job_id: number; status_url: string }>(
           "export/all",
           params,
           { headers: getCompanyHeaders() }
         );
 
-        if (response.data.status === "success") {
-          showSuccessToast(response.data.message || "Export requested successfully");
-          return response.data.data;
+        const data = response.data;
+        if (data.job_id) {
+          showSuccessToast(data.message || "Export requested successfully");
+          return {
+            id: data.job_id,
+            filename: "",
+            status: "pending",
+            export_from: params.from,
+            export_until: params.until,
+            generated_by: "",
+            generated_at: new Date().toISOString(),
+          };
         }
 
-        showErrorToast(response.data.message || "Export request failed");
+        showErrorToast("Export request failed");
         return null;
       } catch (err) {
         const apiError = err as ApiError;
@@ -68,18 +78,15 @@ export function useExports() {
   );
 
   const checkStatus = useCallback(
-    async (id: number): Promise<ExportJob | null> => {
+    async (id: number): Promise<{ status: string } | null> => {
       try {
         const client = getAuthenticatedClient();
-        const response = await client.get<ExportApiResponse>(
+        const response = await client.get<{ job_id: number; status: string; download_url?: string }>(
           `export/all/${id}/status`,
           { headers: getCompanyHeaders() }
         );
 
-        if (response.data.status === "success") {
-          return response.data.data;
-        }
-        return null;
+        return { status: response.data.status === "completed" ? "completed" : response.data.status };
       } catch {
         return null;
       }
@@ -87,23 +94,9 @@ export function useExports() {
     []
   );
 
-  const downloadExport = useCallback(async (id: number): Promise<string | null> => {
-    try {
-      const client = getAuthenticatedClient();
-      const response = await client.get<{ status: string; data: { url: string } }>(
-        `export/all/${id}/download`,
-        { headers: getCompanyHeaders() }
-      );
-
-      if (response.data.status === "success") {
-        return response.data.data.url;
-      }
-      return null;
-    } catch (err) {
-      const apiError = err as ApiError;
-      showErrorToast(apiError.message || "Download failed");
-      return null;
-    }
+  const getDownloadUrl = useCallback((id: number): string => {
+    const baseUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL?.replace(/\/$/, "") || "";
+    return `${baseUrl}/export/all/${id}/download`;
   }, []);
 
   const fetchExports = useCallback(async () => {
@@ -153,7 +146,7 @@ export function useExports() {
     error,
     requestExport,
     checkStatus,
-    downloadExport,
+    getDownloadUrl,
     fetchExports,
     deleteExport,
   };

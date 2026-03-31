@@ -24,7 +24,8 @@ function formatDate(dateString: string): string {
 }
 
 function getStatusConfig(status: string) {
-  switch (status) {
+  const s = status?.toLowerCase();
+  switch (s) {
     case "completed":
       return { icon: <CheckCircle className="w-4 h-4" />, color: "text-green-600", bg: "bg-green-100 dark:bg-green-900/30" };
     case "processing":
@@ -39,9 +40,16 @@ function getStatusConfig(status: string) {
 }
 
 export default function ExportsClient() {
-  const { exports: exportJobs, loading, fetchExports, requestExport, checkStatus, downloadExport, deleteExport } = useExports();
+  const { exports: exportJobs, loading, fetchExports, requestExport, checkStatus, getDownloadUrl, deleteExport } = useExports();
   const [pollingIds, setPollingIds] = useState<Set<number>>(new Set());
   const intervalsRef = useRef<Map<number, NodeJS.Timeout>>(new Map());
+  const [fromDate, setFromDate] = useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 1);
+    return d.toISOString().split("T")[0];
+  });
+  const [untilDate, setUntilDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   useEffect(() => {
     fetchExports();
@@ -52,7 +60,7 @@ export default function ExportsClient() {
 
     const interval = setInterval(async () => {
       const updated = await checkStatus(id);
-      if (updated && (updated.status === "completed" || updated.status === "failed")) {
+      if (updated && (updated.status === "completed" || updated.status === "failed" || updated.status === "Completed")) {
         clearInterval(intervalsRef.current.get(id)!);
         intervalsRef.current.delete(id);
         setPollingIds((prev) => {
@@ -83,8 +91,10 @@ export default function ExportsClient() {
   }, [exportJobs, startPolling]);
 
   const handleRequestExport = async () => {
-    const job = await requestExport();
+    if (!fromDate || !untilDate) return;
+    const job = await requestExport({ from: fromDate, until: untilDate });
     if (job) {
+      setShowDatePicker(false);
       fetchExports();
       if (job.status === "pending" || job.status === "processing") {
         startPolling(job.id);
@@ -92,11 +102,9 @@ export default function ExportsClient() {
     }
   };
 
-  const handleDownload = async (id: number) => {
-    const url = await downloadExport(id);
-    if (url) {
-      window.open(url, "_blank");
-    }
+  const handleDownload = (id: number) => {
+    const url = getDownloadUrl(id);
+    window.open(url, "_blank");
   };
 
   return (
@@ -111,7 +119,7 @@ export default function ExportsClient() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={handleRequestExport}
+            onClick={() => setShowDatePicker(!showDatePicker)}
             disabled={loading}
             className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-[#00B5A5] hover:bg-[#008F82] rounded-lg transition-colors disabled:opacity-50"
           >
@@ -129,13 +137,55 @@ export default function ExportsClient() {
         </div>
       </div>
 
+      {/* Date Range Picker */}
+      {showDatePicker && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+          <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Select date range for export</h3>
+          <div className="flex flex-col sm:flex-row items-end gap-3">
+            <div className="flex-1 w-full">
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">From</label>
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent"
+              />
+            </div>
+            <div className="flex-1 w-full">
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Until</label>
+              <input
+                type="date"
+                value={untilDate}
+                onChange={(e) => setUntilDate(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowDatePicker(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRequestExport}
+                disabled={loading || !fromDate || !untilDate}
+                className="px-4 py-2 text-sm font-medium text-white bg-[#00B5A5] hover:bg-[#008F82] rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? "Exporting..." : "Start Export"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { label: "Total Exports", value: exportJobs.length, color: "text-gray-900 dark:text-white" },
-          { label: "Completed", value: exportJobs.filter((e) => e.status === "completed").length, color: "text-green-600" },
-          { label: "In Progress", value: exportJobs.filter((e) => e.status === "pending" || e.status === "processing").length, color: "text-blue-600" },
-          { label: "Failed", value: exportJobs.filter((e) => e.status === "failed").length, color: "text-red-600" },
+          { label: "Completed", value: exportJobs.filter((e) => e.status?.toLowerCase() === "completed").length, color: "text-green-600" },
+          { label: "In Progress", value: exportJobs.filter((e) => ["pending", "processing"].includes(e.status?.toLowerCase())).length, color: "text-blue-600" },
+          { label: "Failed", value: exportJobs.filter((e) => e.status?.toLowerCase() === "failed").length, color: "text-red-600" },
         ].map((stat) => (
           <div key={stat.label} className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
             <p className="text-sm text-gray-500 dark:text-gray-400">{stat.label}</p>
@@ -175,10 +225,10 @@ export default function ExportsClient() {
                     </div>
                     <div>
                       <p className="text-sm font-medium text-gray-900 dark:text-white">
-                        Export #{job.id} {job.type && `(${job.type})`}
+                        Export #{job.id}
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Created: {formatDate(job.created_at)}
+                        {job.export_from} to {job.export_until} &middot; by {job.generated_by} &middot; {formatDate(job.generated_at)}
                       </p>
                     </div>
                   </div>
@@ -187,7 +237,7 @@ export default function ExportsClient() {
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusConfig.bg} ${statusConfig.color}`}>
                       {job.status}
                     </span>
-                    {job.status === "completed" && (
+                    {job.status?.toLowerCase() === "completed" && (
                       <button
                         onClick={() => handleDownload(job.id)}
                         className="p-2 text-[#00B5A5] hover:bg-[#00B5A5]/10 rounded-lg transition-colors"

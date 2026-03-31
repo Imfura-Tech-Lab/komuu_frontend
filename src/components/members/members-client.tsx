@@ -261,6 +261,7 @@ export default function MembersClient() {
     {
       key: "certificate_status",
       label: "Certificate",
+      visible: false,
       sortable: true,
       filterable: true,
       filterComponent: {
@@ -299,6 +300,7 @@ export default function MembersClient() {
     {
       key: "application_status",
       label: "Application",
+      visible: false,
       sortable: true,
       filterable: true,
       filterComponent: {
@@ -340,6 +342,7 @@ export default function MembersClient() {
     {
       key: "incompliance",
       label: "Compliance",
+      visible: false,
       sortable: true,
       filterable: true,
       filterComponent: {
@@ -373,6 +376,7 @@ export default function MembersClient() {
     {
       key: "valid_until",
       label: "Valid Until",
+      visible: false,
       sortable: true,
       filterable: true,
       filterComponent: { type: "date" },
@@ -387,6 +391,7 @@ export default function MembersClient() {
     {
       key: "signed_date",
       label: "Signed Date",
+      visible: false,
       sortable: true,
       filterable: true,
       filterComponent: { type: "date" },
@@ -401,6 +406,7 @@ export default function MembersClient() {
     {
       key: "valid_from",
       label: "Valid From",
+      visible: false,
       sortable: true,
       filterable: true,
       filterComponent: { type: "date" },
