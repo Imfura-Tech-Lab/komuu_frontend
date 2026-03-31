@@ -51,6 +51,7 @@ export const ROLE_PERMISSIONS = {
     "manage_conversations",
     "manage_events",
     "manage_resources",
+    "manage_exports",
   ],
   President: [
     "sign_certificates",
@@ -73,6 +74,7 @@ export const ROLE_PERMISSIONS = {
     "manage_conversations",
     "manage_events",
     "manage_resources",
+    "manage_exports",
   ],
   Board: [
     "view_all_applications",
@@ -93,6 +95,7 @@ export const ROLE_PERMISSIONS = {
     "manage_conversations",
     "manage_events",
     "manage_resources",
+    "manage_exports",
   ],
   Member: [
     "view_profile",
@@ -257,13 +260,22 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         order: 13,
       },
       {
+        name: "Data Exports",
+        href: "/exports",
+        permission: "manage_exports",
+        section: "finance",
+        icon: "analytics",
+        description: "Export organization data",
+        order: 10,
+      },
+      {
         name: "System Settings",
         href: "/settings",
         permission: "system_settings",
         section: "settings",
         icon: "settings",
         description: "Configure system settings",
-        order: 14,
+        order: 15,
       },
     ],
     President: [
@@ -356,6 +368,15 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         icon: "groups",
         description: "Manage member groups",
         order: 11,
+      },
+      {
+        name: "Data Exports",
+        href: "/exports",
+        permission: "manage_exports",
+        section: "finance",
+        icon: "analytics",
+        description: "Export organization data",
+        order: 10,
       },
       {
         name: "Settings",
@@ -466,6 +487,15 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         icon: "groups",
         description: "Manage member groups",
         order: 12,
+      },
+      {
+        name: "Data Exports",
+        href: "/exports",
+        permission: "manage_exports",
+        section: "finance",
+        icon: "analytics",
+        description: "Export organization data",
+        order: 13,
       },
     ],
     Member: [

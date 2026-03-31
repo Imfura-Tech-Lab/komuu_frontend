@@ -35,6 +35,9 @@ interface UseApplicationManagerReturn {
   approveApplication: () => Promise<void>;
   signCertificate: () => Promise<void>;
   deleteApplication: (forceDelete: boolean) => Promise<boolean>;
+  addNewApplication: (formData: FormData) => Promise<{ success: boolean; errors?: Record<string, string[]> }>;
+  recordPayment: (data: { amount_paid: number; currency: string; payment_method: string; payment_gateway?: string }) => Promise<boolean>;
+  analyzeDocuments: () => Promise<string | null>;
 }
 
 export function useApplicationManager({
@@ -202,6 +205,100 @@ export function useApplicationManager({
     }
   }, [applicationId, router]);
 
+  const addNewApplication = useCallback(
+    async (formData: FormData): Promise<{ success: boolean; errors?: Record<string, string[]> }> => {
+      try {
+        setIsUpdating(true);
+        const client = getAuthenticatedClient();
+        const response = await client.postFormData<ApiResponse<Application>>(
+          "applications/add-new",
+          formData,
+          { headers: getCompanyHeaders() }
+        );
+
+        const data = response.data;
+        if (data.status === "success" || data.status === true) {
+          showSuccessToast("Application created successfully");
+          return { success: true };
+        }
+
+        throw new Error(data.message || "Failed to create application");
+      } catch (err) {
+        const apiError = err as ApiError;
+        if (apiError.errors) {
+          return { success: false, errors: apiError.errors };
+        }
+        showErrorToast(apiError.message || "Failed to create application");
+        return { success: false };
+      } finally {
+        setIsUpdating(false);
+      }
+    },
+    []
+  );
+
+  const recordPayment = useCallback(
+    async (data: {
+      amount_paid: number;
+      currency: string;
+      payment_method: string;
+      payment_gateway?: string;
+    }): Promise<boolean> => {
+      try {
+        setIsUpdating(true);
+        const client = getAuthenticatedClient();
+        const response = await client.post<ApiResponse<unknown>>(
+          `applications/${applicationId}/record-payment`,
+          data,
+          { headers: getCompanyHeaders() }
+        );
+
+        const responseData = response.data;
+        if (responseData.status === "success" || responseData.status === true) {
+          showSuccessToast("Payment recorded successfully");
+          await fetchApplication();
+          return true;
+        }
+
+        throw new Error(responseData.message || "Failed to record payment");
+      } catch (err) {
+        const apiError = err as ApiError;
+        showErrorToast(apiError.message || "Failed to record payment");
+        return false;
+      } finally {
+        setIsUpdating(false);
+      }
+    },
+    [applicationId, fetchApplication]
+  );
+
+  const analyzeDocuments = useCallback(async (): Promise<string | null> => {
+    try {
+      setIsUpdating(true);
+      setShowActionsDropdown(false);
+
+      const client = getAuthenticatedClient();
+      const response = await client.get<ApiResponse<{ analysis: string }>>(
+        `applications/${applicationId}/anayse`,
+        { headers: getCompanyHeaders() }
+      );
+
+      const data = response.data;
+      if (data.status === "success" || data.status === true) {
+        showSuccessToast("Document analysis completed");
+        return data.data?.analysis ?? null;
+      }
+
+      throw new Error(data.message || "Analysis failed");
+    } catch (err) {
+      const apiError = err as ApiError;
+      showErrorToast(apiError.message || "Document analysis failed");
+      return null;
+    } finally {
+      setIsUpdating(false);
+    }
+  }, [applicationId]);
+
   return {
     application,
     userData,
@@ -220,5 +317,8 @@ export function useApplicationManager({
     approveApplication,
     signCertificate,
     deleteApplication,
+    addNewApplication,
+    recordPayment,
+    analyzeDocuments,
   };
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Fragment } from "react";
+import { useState, useEffect, useCallback, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import { Dialog, Transition } from "@headlessui/react";
 import {
@@ -30,6 +30,8 @@ import {
   showErrorToast,
   showSuccessToast,
 } from "@/components/layouts/auth-layer-out";
+import { useMemberMembership } from "@/lib/hooks/useMemberMembership";
+import { useDpoPayment } from "@/lib/hooks/useDpoPayment";
 
 // Types matching API response
 interface MemberDetails {
@@ -745,10 +747,24 @@ export default function MyPaymentsClient() {
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
 
   const router = useRouter();
+  const { membership, fetchCurrentMembership } = useMemberMembership();
+  const { initiateMembershipPayment, loading: dpoLoading } = useDpoPayment();
 
   useEffect(() => {
     fetchPayments(currentPage);
-  }, [currentPage]);
+    fetchCurrentMembership();
+  }, [currentPage, fetchCurrentMembership]);
+
+  const isMembershipExpiring = membership && membership.certificate?.valid_until &&
+    new Date(membership.certificate.valid_until) <= new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
+
+  const handleRenewNow = async () => {
+    // Backend knows the renewal amount from the membership
+    const paymentUrl = await initiateMembershipPayment("renewal", { amount: 50, currency: "USD" });
+    if (paymentUrl) {
+      window.location.href = paymentUrl;
+    }
+  };
 
   const fetchPayments = async (page: number = 1) => {
     try {
@@ -885,6 +901,44 @@ export default function MyPaymentsClient() {
             </button>
           </div>
         </div>
+
+        {/* Membership Status Card */}
+        {membership && (
+          <div className="mb-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className={`p-2 rounded-lg ${membership.status?.toLowerCase() === "active" ? "bg-green-100 dark:bg-green-900/30" : "bg-amber-100 dark:bg-amber-900/30"}`}>
+                  <CheckCircleIcon className={`w-5 h-5 ${membership.status?.toLowerCase() === "active" ? "text-green-600" : "text-amber-600"}`} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                    Membership: <span className={membership.status?.toLowerCase() === "active" ? "text-green-600" : "text-amber-600"}>{membership.status}</span>
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {membership.membership_type}
+                    {membership.certificate?.valid_until && (
+                      <> &middot; Valid until {new Date(membership.certificate.valid_until).toLocaleDateString()}</>
+                    )}
+                  </p>
+                </div>
+              </div>
+              {isMembershipExpiring && (
+                <button
+                  onClick={handleRenewNow}
+                  disabled={dpoLoading}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-[#00B5A5] hover:bg-[#008F82] rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {dpoLoading ? (
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                  ) : (
+                    <CreditCardIcon className="w-4 h-4" />
+                  )}
+                  {dpoLoading ? "Redirecting..." : "Renew Now"}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <PaymentsSkeleton />
@@ -1103,6 +1157,7 @@ export default function MyPaymentsClient() {
         isOpen={sideSheetOpen}
         onClose={() => setSideSheetOpen(false)}
       />
+
     </div>
   );
 }

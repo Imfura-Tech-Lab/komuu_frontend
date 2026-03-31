@@ -13,6 +13,7 @@ import {
   ClockIcon,
   XCircleIcon,
   DocumentTextIcon,
+  CreditCardIcon,
 } from "@heroicons/react/24/outline";
 import { PDFService } from "@/services/pdfService";
 import { Application } from "@/types";
@@ -20,6 +21,7 @@ import ApplicationList from "@/components/applications/ApplicationList";
 import PDFLoadingOverlay from "@/components/applications/PDFLoadingOverlay";
 import MemberApplicationSheet from "@/components/applications/MemberApplicationSheet";
 import { useApplications } from "@/lib/hooks/useApplications";
+import { useDpoPayment } from "@/lib/hooks/useDpoPayment";
 import { useApplicationFilters } from "@/lib/hooks/useApplicationFilters";
 import {
   getStatusColor,
@@ -236,9 +238,25 @@ export default function ApplicationClient() {
 
   const { applications, loading, error, userRole, fetchApplications } =
     useApplications();
+  const { initiateMembershipPayment, loading: dpoLoading } = useDpoPayment();
 
   // Derive memberApplication from applications array for members
   const memberApplication = userRole === "Member" ? applications[0] : null;
+  const isApproved = memberApplication?.application_status?.toLowerCase() === "approved";
+  const hasCompletedPayment = memberApplication?.payments?.some(
+    (p: { status: string }) => p.status?.toLowerCase() === "completed"
+  );
+
+  const handlePayNow = async () => {
+    if (!memberApplication) return;
+    const paymentUrl = await initiateMembershipPayment(
+      memberApplication.id,
+      { amount: 50, currency: "USD" }
+    );
+    if (paymentUrl) {
+      window.location.href = paymentUrl;
+    }
+  };
 
   const {
     filterStatus,
@@ -286,6 +304,35 @@ export default function ApplicationClient() {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <div className="px-4 py-8 mx-auto max-w-7xl sm:px-6 lg:px-8">
+          {/* Payment Required Banner */}
+          {isApproved && !hasCompletedPayment && (
+            <div className="mb-6 bg-[#00B5A5]/5 border border-[#00B5A5]/20 rounded-xl p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-[#00B5A5]/10 rounded-lg">
+                    <CreditCardIcon className="w-5 h-5 text-[#00B5A5]" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-900 dark:text-white">Payment Required</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Your application has been approved. Complete payment to finalize your membership.</p>
+                  </div>
+                </div>
+                <button
+                  onClick={handlePayNow}
+                  disabled={dpoLoading}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-[#00B5A5] hover:bg-[#008F82] rounded-lg transition-colors whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {dpoLoading ? (
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                  ) : (
+                    <CreditCardIcon className="w-4 h-4" />
+                  )}
+                  {dpoLoading ? "Redirecting..." : "Pay Now"}
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Header */}
           <div className="mb-8">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

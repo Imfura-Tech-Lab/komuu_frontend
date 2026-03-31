@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { UserData } from "@/types";
 import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 
@@ -8,9 +8,25 @@ interface StatusAlertsProps {
 }
 
 export function StatusAlerts({ userData, router }: StatusAlertsProps) {
+  const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(() => {
+    if (typeof window !== "undefined") {
+      const stored = sessionStorage.getItem("dismissed_alerts");
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    }
+    return new Set();
+  });
+
+  const dismissAlert = (key: string) => {
+    setDismissedAlerts((prev) => {
+      const next = new Set(prev).add(key);
+      sessionStorage.setItem("dismissed_alerts", JSON.stringify([...next]));
+      return next;
+    });
+  };
+
   return (
     <>
-      {userData.role === "Pending" && (
+      {userData.role === "Pending" && !dismissedAlerts.has("pending") && (
         <div className="bg-orange-50 dark:bg-orange-900/20 border-l-4 border-orange-400 p-4">
           <div className="flex">
             <div className="flex-shrink-0">
@@ -26,7 +42,7 @@ export function StatusAlerts({ userData, router }: StatusAlertsProps) {
                 />
               </svg>
             </div>
-            <div className="ml-3">
+            <div className="ml-3 flex-1">
               <h3 className="text-sm font-medium text-orange-800 dark:text-orange-200">
                 Application Under Review
               </h3>
@@ -49,7 +65,7 @@ export function StatusAlerts({ userData, router }: StatusAlertsProps) {
         </div>
       )}
 
-      {userData.role !== "Pending" && !userData.verified && (
+      {userData.role !== "Pending" && !userData.verified && !dismissedAlerts.has("unverified") && (
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-4">
           <div className="flex">
             <div className="flex-shrink-0">
@@ -65,7 +81,7 @@ export function StatusAlerts({ userData, router }: StatusAlertsProps) {
                 />
               </svg>
             </div>
-            <div className="ml-3">
+            <div className="ml-3 flex-1">
               <h3 className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
                 Account Verification Required
               </h3>
@@ -75,12 +91,23 @@ export function StatusAlerts({ userData, router }: StatusAlertsProps) {
                 verification instructions or contact support.
               </p>
             </div>
+            <div className="flex-shrink-0 ml-3">
+              <button
+                onClick={() => dismissAlert("unverified")}
+                className="inline-flex text-yellow-400 hover:text-yellow-600 dark:hover:text-yellow-200 transition-colors"
+                aria-label="Dismiss"
+              >
+                <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {/* Certificate signing notification for President */}
-      {userData.role === "President" && (
+      {userData.role === "President" && !dismissedAlerts.has("certificate_authority") && (
         <div className="bg-purple-50 dark:bg-purple-900/20 border-l-4 border-purple-400 p-4">
           <div className="flex">
             <div className="flex-shrink-0">
@@ -98,7 +125,7 @@ export function StatusAlerts({ userData, router }: StatusAlertsProps) {
                 />
               </svg>
             </div>
-            <div className="ml-3">
+            <div className="ml-3 flex-1">
               <h3 className="text-sm font-medium text-purple-800 dark:text-purple-200">
                 Certificate Authority Access
               </h3>
@@ -115,6 +142,17 @@ export function StatusAlerts({ userData, router }: StatusAlertsProps) {
                   Review pending certificates →
                 </button>
               </div>
+            </div>
+            <div className="flex-shrink-0 ml-3">
+              <button
+                onClick={() => dismissAlert("certificate_authority")}
+                className="inline-flex text-purple-400 hover:text-purple-600 dark:hover:text-purple-200 transition-colors"
+                aria-label="Dismiss"
+              >
+                <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
             </div>
           </div>
         </div>

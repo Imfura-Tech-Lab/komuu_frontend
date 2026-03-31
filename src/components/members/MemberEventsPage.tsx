@@ -22,6 +22,7 @@ import {
   showErrorToast,
 } from "@/components/layouts/auth-layer-out";
 import { RegisterEventModal } from "../admin/modals/RegisterEventModal";
+import { useDpoPayment } from "@/lib/hooks/useDpoPayment";
 
 // ============================================================================
 // SKELETON LOADERS
@@ -349,6 +350,8 @@ export default function MemberEventsPage() {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [modalLoading, setModalLoading] = useState(false);
 
+  const { initiateEventPayment, loading: dpoLoading } = useDpoPayment();
+
   const {
     events,
     loading,
@@ -386,6 +389,19 @@ export default function MemberEventsPage() {
   }) => {
     if (!selectedEvent) return;
 
+    // For paid events, use DPO payment gateway
+    if (registrationData.is_paid && selectedEvent.is_paid) {
+      setModalLoading(true);
+      const paymentUrl = await initiateEventPayment(selectedEvent.id);
+      setModalLoading(false);
+      if (paymentUrl) {
+        window.location.href = paymentUrl;
+        return;
+      }
+      return;
+    }
+
+    // Free events — register directly
     setModalLoading(true);
     const success = await registerForEvent({
       event_id: selectedEvent.id,

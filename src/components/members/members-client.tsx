@@ -7,12 +7,14 @@ import {
   showSuccessToast,
 } from "@/components/layouts/auth-layer-out";
 import { BaseTable, BaseTableColumn } from "../ui/BaseTable";
-import { 
-  RefreshCw, 
-  AlertCircle, 
-  Users, 
-  CheckCircle, 
-  Shield, 
+import MemberImportModal from "../admin/modals/MemberImportModal";
+import {
+  RefreshCw,
+  AlertCircle,
+  Users,
+  CheckCircle,
+  Shield,
+  Upload,
   UserCheck,
   UserPlus,
   Clock,
@@ -66,6 +68,7 @@ interface Member {
 export default function MembersClient() {
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const router = useRouter();
@@ -258,6 +261,7 @@ export default function MembersClient() {
     {
       key: "certificate_status",
       label: "Certificate",
+      visible: false,
       sortable: true,
       filterable: true,
       filterComponent: {
@@ -296,6 +300,7 @@ export default function MembersClient() {
     {
       key: "application_status",
       label: "Application",
+      visible: false,
       sortable: true,
       filterable: true,
       filterComponent: {
@@ -337,6 +342,7 @@ export default function MembersClient() {
     {
       key: "incompliance",
       label: "Compliance",
+      visible: false,
       sortable: true,
       filterable: true,
       filterComponent: {
@@ -370,6 +376,7 @@ export default function MembersClient() {
     {
       key: "valid_until",
       label: "Valid Until",
+      visible: false,
       sortable: true,
       filterable: true,
       filterComponent: { type: "date" },
@@ -384,6 +391,7 @@ export default function MembersClient() {
     {
       key: "signed_date",
       label: "Signed Date",
+      visible: false,
       sortable: true,
       filterable: true,
       filterComponent: { type: "date" },
@@ -398,6 +406,7 @@ export default function MembersClient() {
     {
       key: "valid_from",
       label: "Valid From",
+      visible: false,
       sortable: true,
       filterable: true,
       filterComponent: { type: "date" },
@@ -662,14 +671,23 @@ export default function MembersClient() {
               </p>
             </div>
 
-            <button
-              onClick={fetchMembers}
-              disabled={loading}
-              className="inline-flex items-center px-4 py-2 bg-[#00B5A5] hover:bg-[#009985] text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-              Refresh
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowImportModal(true)}
+                className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Import
+              </button>
+              <button
+                onClick={fetchMembers}
+                disabled={loading}
+                className="inline-flex items-center px-4 py-2 bg-[#00B5A5] hover:bg-[#009985] text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+                Refresh
+              </button>
+            </div>
           </div>
         </div>
 
@@ -765,6 +783,15 @@ export default function MembersClient() {
           className="shadow-lg"
         />
       </div>
+
+      <MemberImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onImportComplete={() => {
+          setShowImportModal(false);
+          fetchMembers();
+        }}
+      />
     </div>
-  ); 
+  );
 }
