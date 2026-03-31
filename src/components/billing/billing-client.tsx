@@ -11,6 +11,7 @@ import {
   RotateCw,
 } from "lucide-react";
 import { useBilling, Subscription, SubscriptionInvoice } from "@/lib/hooks/useBilling";
+import SubscribeModal, { SubscribeMode } from "./SubscribeModal";
 
 type TabType = "plan" | "subscriptions" | "invoices";
 
@@ -34,6 +35,8 @@ function getStatusColor(status: string): string {
 
 export default function BillingClient() {
   const [activeTab, setActiveTab] = useState<TabType>("plan");
+  const [modalMode, setModalMode] = useState<SubscribeMode>("subscribe");
+  const [showModal, setShowModal] = useState(false);
   const {
     currentSubscription,
     subscriptions,
@@ -43,7 +46,32 @@ export default function BillingClient() {
     fetchSubscriptions,
     fetchInvoices,
     cancelSubscription,
+    subscribe,
+    upgradeSubscription,
+    renewSubscription,
   } = useBilling();
+
+  const handleModalSubmit = async (data: Record<string, unknown>) => {
+    let result: { success: boolean };
+    if (modalMode === "subscribe") {
+      result = await subscribe(data as Parameters<typeof subscribe>[0]);
+    } else if (modalMode === "upgrade") {
+      result = await upgradeSubscription(data as Parameters<typeof upgradeSubscription>[0]);
+    } else {
+      result = await renewSubscription(data as Parameters<typeof renewSubscription>[0]);
+    }
+    if (result.success) {
+      fetchCurrentPlan();
+      fetchSubscriptions();
+      fetchInvoices();
+    }
+    return result;
+  };
+
+  const openModal = (mode: SubscribeMode) => {
+    setModalMode(mode);
+    setShowModal(true);
+  };
 
   useEffect(() => {
     fetchCurrentPlan();
@@ -103,8 +131,21 @@ export default function BillingClient() {
           subscription={currentSubscription}
           loading={loading}
           onCancel={cancelSubscription}
+          onUpgrade={() => openModal("upgrade")}
+          onRenew={() => openModal("renew")}
+          onSubscribe={() => openModal("subscribe")}
         />
       )}
+
+      <SubscribeModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        mode={modalMode}
+        onSubmit={handleModalSubmit}
+        loading={loading}
+        currentPackageId={currentSubscription?.package?.id}
+        currentPrice={currentSubscription?.package?.price}
+      />
       {activeTab === "subscriptions" && (
         <SubscriptionsView subscriptions={subscriptions} loading={loading} />
       )}
@@ -119,10 +160,16 @@ function CurrentPlanView({
   subscription,
   loading,
   onCancel,
+  onUpgrade,
+  onRenew,
+  onSubscribe,
 }: {
   subscription: Subscription | null;
   loading: boolean;
   onCancel: () => Promise<boolean>;
+  onUpgrade: () => void;
+  onRenew: () => void;
+  onSubscribe: () => void;
 }) {
   if (loading) {
     return (
@@ -139,9 +186,16 @@ function CurrentPlanView({
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-12 text-center">
         <CreditCard className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
         <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No Active Subscription</h3>
-        <p className="text-gray-500 dark:text-gray-400">
-          You don&apos;t have an active subscription. Contact your administrator to subscribe.
+        <p className="text-gray-500 dark:text-gray-400 mb-4">
+          You don&apos;t have an active subscription yet.
         </p>
+        <button
+          onClick={onSubscribe}
+          className="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-medium text-white bg-[#00B5A5] hover:bg-[#008F82] rounded-lg transition-colors"
+        >
+          <CreditCard className="w-4 h-4" />
+          Subscribe Now
+        </button>
       </div>
     );
   }
@@ -195,15 +249,15 @@ function CurrentPlanView({
         {isActive && (
           <div className="flex items-center gap-3 mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
             <button
-              disabled
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-[#00B5A5] hover:bg-[#008F82] rounded-lg transition-colors disabled:opacity-50"
+              onClick={onUpgrade}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-[#00B5A5] hover:bg-[#008F82] rounded-lg transition-colors"
             >
               <ArrowUpCircle className="w-4 h-4" />
               Upgrade
             </button>
             <button
-              disabled
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
+              onClick={onRenew}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
             >
               <RotateCw className="w-4 h-4" />
               Renew
