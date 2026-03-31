@@ -249,10 +249,7 @@ export default function ApplicationClient() {
 
   const handlePayNow = async () => {
     if (!memberApplication) return;
-    const paymentUrl = await initiateMembershipPayment(
-      memberApplication.id,
-      { amount: 50, currency: "USD" }
-    );
+    const paymentUrl = await initiateMembershipPayment(memberApplication.id);
     if (paymentUrl) {
       window.location.href = paymentUrl;
     }

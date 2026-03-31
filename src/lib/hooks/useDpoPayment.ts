@@ -46,14 +46,14 @@ export function useDpoPayment() {
   const [error, setError] = useState<string | null>(null);
 
   const initiateMembershipPayment = useCallback(
-    async (applicationId: string, data: { amount: number; currency: string }): Promise<string | null> => {
+    async (applicationId: string): Promise<string | null> => {
       try {
         setLoading(true);
         setError(null);
         const client = getAuthenticatedClient();
         const response = await client.post<DpoInitResponse>(
           `payments/dpo/membership/${applicationId}`,
-          data,
+          {},
           {}
         );
 

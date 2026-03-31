@@ -760,7 +760,7 @@ export default function MyPaymentsClient() {
 
   const handleRenewNow = async () => {
     // Backend knows the renewal amount from the membership
-    const paymentUrl = await initiateMembershipPayment("renewal", { amount: 50, currency: "USD" });
+    const paymentUrl = await initiateMembershipPayment("renewal");
     if (paymentUrl) {
       window.location.href = paymentUrl;
     }
