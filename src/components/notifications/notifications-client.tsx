@@ -107,7 +107,7 @@ export default function NotificationsClient() {
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
           <p className="text-sm text-gray-500 dark:text-gray-400">Read</p>
-          <p className="text-2xl font-bold text-gray-900 dark:text-white">{total - unreadCount}</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-white">{(total || 0) - (unreadCount || 0)}</p>
         </div>
       </div>
 
