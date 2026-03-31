@@ -5,7 +5,7 @@ import {
   showSuccessToast,
   showErrorToast,
 } from "@/components/layouts/auth-layer-out";
-import { getAuthenticatedClient, getCompanyHeaders, ApiError } from "@/lib/api-client";
+import { getAuthenticatedClient, ApiError } from "@/lib/api-client";
 
 interface DpoInitResponse {
   status: string;
@@ -54,7 +54,7 @@ export function useDpoPayment() {
         const response = await client.post<DpoInitResponse>(
           `payments/dpo/membership/${applicationId}`,
           data,
-          { headers: getCompanyHeaders() }
+          {}
         );
 
         if (response.data.status === "success" && response.data.data) {
@@ -90,7 +90,7 @@ export function useDpoPayment() {
         const response = await client.post<DpoInitResponse>(
           "payments/dpo/subscription",
           data,
-          { headers: getCompanyHeaders() }
+          {}
         );
 
         if (response.data.status === "success" && response.data.data) {
@@ -121,7 +121,7 @@ export function useDpoPayment() {
         const response = await client.post<DpoInitResponse>(
           `payments/dpo/event/${eventId}`,
           {},
-          { headers: getCompanyHeaders() }
+          {}
         );
 
         if (response.data.status === "success" && response.data.data) {
@@ -172,7 +172,7 @@ export function useDpoPayment() {
         const client = getAuthenticatedClient();
         const response = await client.get<DpoStatusResponse>(
           `payments/dpo/status/${companyRef}`,
-          { headers: getCompanyHeaders() }
+          {}
         );
 
         if (response.data.status === "success" && response.data.data) {

@@ -20,7 +20,6 @@ import { Application } from "@/types";
 import ApplicationList from "@/components/applications/ApplicationList";
 import PDFLoadingOverlay from "@/components/applications/PDFLoadingOverlay";
 import MemberApplicationSheet from "@/components/applications/MemberApplicationSheet";
-import PaymentModal from "@/components/payments/PaymentModal";
 import { useApplications } from "@/lib/hooks/useApplications";
 import { useDpoPayment } from "@/lib/hooks/useDpoPayment";
 import { useApplicationFilters } from "@/lib/hooks/useApplicationFilters";
@@ -235,7 +234,6 @@ function EmptyState({ userRole }: { userRole: string }) {
 export default function ApplicationClient() {
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const router = useRouter();
 
   const { applications, loading, error, userRole, fetchApplications } =
@@ -249,22 +247,15 @@ export default function ApplicationClient() {
     (p: { status: string }) => p.status?.toLowerCase() === "completed"
   );
 
-  const handleDpoPayment = async (data: {
-    amount_paid: number;
-    payment_method: string;
-    gateway: string;
-    transaction_number?: string;
-  }) => {
-    if (!memberApplication) return { success: false };
+  const handlePayNow = async () => {
+    if (!memberApplication) return;
     const paymentUrl = await initiateMembershipPayment(
       memberApplication.id,
-      { amount: data.amount_paid, currency: "USD" }
+      { amount: 50, currency: "USD" }
     );
     if (paymentUrl) {
       window.location.href = paymentUrl;
-      return { success: true };
     }
-    return { success: false };
   };
 
   const {
@@ -327,11 +318,16 @@ export default function ApplicationClient() {
                   </div>
                 </div>
                 <button
-                  onClick={() => setShowPaymentModal(true)}
-                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-[#00B5A5] hover:bg-[#008F82] rounded-lg transition-colors whitespace-nowrap"
+                  onClick={handlePayNow}
+                  disabled={dpoLoading}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-[#00B5A5] hover:bg-[#008F82] rounded-lg transition-colors whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <CreditCardIcon className="w-4 h-4" />
-                  Pay Now
+                  {dpoLoading ? (
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                  ) : (
+                    <CreditCardIcon className="w-4 h-4" />
+                  )}
+                  {dpoLoading ? "Redirecting..." : "Pay Now"}
                 </button>
               </div>
             </div>
@@ -390,15 +386,6 @@ export default function ApplicationClient() {
           />
 
           <PDFLoadingOverlay isVisible={isGeneratingPDF} />
-
-          <PaymentModal
-            isOpen={showPaymentModal}
-            onClose={() => setShowPaymentModal(false)}
-            onSubmit={handleDpoPayment}
-            loading={dpoLoading}
-            title="Membership Payment"
-            description="Pay via DPO to complete your membership"
-          />
         </div>
       </div>
     );

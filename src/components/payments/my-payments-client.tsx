@@ -32,7 +32,6 @@ import {
 } from "@/components/layouts/auth-layer-out";
 import { useMemberMembership } from "@/lib/hooks/useMemberMembership";
 import { useDpoPayment } from "@/lib/hooks/useDpoPayment";
-import PaymentModal from "@/components/payments/PaymentModal";
 
 // Types matching API response
 interface MemberDetails {
@@ -746,10 +745,9 @@ export default function MyPaymentsClient() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
-  const [showRenewalModal, setShowRenewalModal] = useState(false);
 
   const router = useRouter();
-  const { membership, fetchCurrentMembership, loading: membershipLoading } = useMemberMembership();
+  const { membership, fetchCurrentMembership } = useMemberMembership();
   const { initiateMembershipPayment, loading: dpoLoading } = useDpoPayment();
 
   useEffect(() => {
@@ -758,21 +756,14 @@ export default function MyPaymentsClient() {
   }, [currentPage, fetchCurrentMembership]);
 
   const isMembershipExpiring = membership && membership.certificate?.valid_until &&
-    new Date(membership.certificate.valid_until) <= new Date(Date.now() + 60 * 24 * 60 * 60 * 1000); // within 60 days
+    new Date(membership.certificate.valid_until) <= new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
 
-  const handleRenewalPayment = async (data: {
-    amount_paid: number;
-    payment_method: string;
-    gateway: string;
-    transaction_number?: string;
-  }) => {
-    // Use DPO for online payment
-    const paymentUrl = await initiateMembershipPayment("renewal", { amount: data.amount_paid, currency: "USD" });
+  const handleRenewNow = async () => {
+    // Backend knows the renewal amount from the membership
+    const paymentUrl = await initiateMembershipPayment("renewal", { amount: 50, currency: "USD" });
     if (paymentUrl) {
       window.location.href = paymentUrl;
-      return { success: true };
     }
-    return { success: false };
   };
 
   const fetchPayments = async (page: number = 1) => {
@@ -933,11 +924,16 @@ export default function MyPaymentsClient() {
               </div>
               {isMembershipExpiring && (
                 <button
-                  onClick={() => setShowRenewalModal(true)}
-                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-[#00B5A5] hover:bg-[#008F82] rounded-lg transition-colors"
+                  onClick={handleRenewNow}
+                  disabled={dpoLoading}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-[#00B5A5] hover:bg-[#008F82] rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <CreditCardIcon className="w-4 h-4" />
-                  Renew
+                  {dpoLoading ? (
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                  ) : (
+                    <CreditCardIcon className="w-4 h-4" />
+                  )}
+                  {dpoLoading ? "Redirecting..." : "Renew Now"}
                 </button>
               )}
             </div>
@@ -1162,15 +1158,6 @@ export default function MyPaymentsClient() {
         onClose={() => setSideSheetOpen(false)}
       />
 
-      {/* Renewal Payment Modal */}
-      <PaymentModal
-        isOpen={showRenewalModal}
-        onClose={() => setShowRenewalModal(false)}
-        onSubmit={handleRenewalPayment}
-        loading={dpoLoading}
-        title="Renew Membership"
-        description="Pay to renew your membership via DPO"
-      />
     </div>
   );
 }
