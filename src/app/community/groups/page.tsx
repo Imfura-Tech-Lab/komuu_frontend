@@ -4,7 +4,7 @@ import SecureDashboardLayout from "@/components/dashboard/secure-dashboard-layou
 
 export default function MemberCommunityGroupsPage() {
   return (
-    <SecureDashboardLayout requiredRoles={["Member"]}>
+    <SecureDashboardLayout requiredRoles={["Member", "Board", "President", "Administrator"]}>
       <Suspense>
         <MemberGroupsPage />
       </Suspense>

@@ -546,21 +546,12 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
       },
       {
         name: "Community",
-        href: "/community",
+        href: "/community/groups",
         permission: "member_community",
         section: "engagement",
         icon: "community",
         description: "Connect with other members",
         order: 7,
-      },
-      {
-        name: "Groups",
-        href: "/community/groups",
-        permission: "member_groups",
-        section: "engagement",
-        icon: "groups",
-        description: "Join specialized groups",
-        order: 8,
       },
     ],
     Pending: [
