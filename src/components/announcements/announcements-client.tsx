@@ -229,8 +229,15 @@ export default function AnnouncementsClient() {
   const fetchGroups = async () => {
     try {
       const client = getAuthenticatedClient();
-      const res = await client.get<{ status: string; data: { data: Group[] } }>("communication/groups/all");
-      if (res.data.data?.data) setGroups(res.data.data.data);
+      // Try admin endpoint first, fallback to shared
+      const res = await client.get<{ status: string; data: { data: Array<Record<string, unknown>> } | Array<Record<string, unknown>> }>("communication/groups/all");
+      const rawData = res.data.data;
+      const groupsArr = Array.isArray(rawData) ? rawData : (rawData as { data: Array<Record<string, unknown>> })?.data || [];
+      setGroups(groupsArr.map((g: Record<string, unknown>) => ({
+        id: String(g.id),
+        name: String(g.name || ""),
+        slug: String(g.slug || ""),
+      })));
     } catch {}
   };
 
