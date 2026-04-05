@@ -14,6 +14,26 @@ export interface Notification {
   read_at: string | null;
   created_at: string;
   updated_at: string;
+  // Flat fields from API
+  title?: string;
+  message?: string;
+}
+
+function mapNotification(raw: Record<string, unknown>): Notification {
+  return {
+    id: (raw.notification_id || raw.id || "") as string,
+    type: (raw.type || "") as string,
+    data: {
+      title: raw.title,
+      message: raw.message,
+      record_id: raw.record_id,
+    },
+    read_at: raw.is_read ? (raw.updated_at as string || raw.created_at as string) : null,
+    created_at: raw.created_at as string,
+    updated_at: (raw.updated_at || raw.created_at || "") as string,
+    title: raw.title as string | undefined,
+    message: raw.message as string | undefined,
+  };
 }
 
 interface NotificationsApiResponse {
@@ -54,7 +74,9 @@ export function useNotifications() {
 
       const data = response.data;
       if (data.status === "success") {
-        setNotifications(data.data.data);
+        setNotifications(
+          (data.data.data as unknown as Record<string, unknown>[]).map(mapNotification)
+        );
         setCurrentPage(data.data.current_page);
         setLastPage(data.data.last_page);
         setTotal(data.data.total);
