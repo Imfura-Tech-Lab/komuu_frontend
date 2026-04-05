@@ -23,6 +23,7 @@ import {
 import { useRealtimeMessages, useTypingIndicator } from "@/lib/hooks/useRealtimeMessages";
 import { showErrorToast } from "@/components/layouts/auth-layer-out";
 import StartConversationModal from "@/components/community/Startconversationmodal";
+import { chatBgStyle } from "@/components/community/chat-doodle";
 
 // ============================================================================
 // HELPERS
@@ -253,8 +254,7 @@ export default function ChatWidget() {
 
           {/* MESSAGES */}
           {view === "chat" && (
-            <div className="px-3 py-2 space-y-0.5"
-              style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23e5e7eb' fill-opacity='0.08'%3E%3Cpath d='M20 20h20v20H20z'/%3E%3C/g%3E%3C/svg%3E\")" }}>
+            <div className="px-3 py-2 space-y-0.5" style={chatBgStyle.light}>
               {msgLoading && messages.length === 0 ? (
                 <div className="flex items-center justify-center h-full py-20"><div className="animate-spin w-6 h-6 border-2 border-[#00B5A5] border-t-transparent rounded-full" /></div>
               ) : messages.length === 0 ? (
