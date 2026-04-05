@@ -22,6 +22,7 @@ import {
   ArrowTopRightOnSquareIcon,
   DocumentArrowDownIcon,
   FunnelIcon,
+  PrinterIcon,
 } from "@heroicons/react/24/outline";
 import {
   CheckCircleIcon as CheckCircleSolid,
@@ -384,6 +385,109 @@ function PaymentRow({
 }
 
 // Side Sheet Component
+function printInvoice(payment: Payment) {
+  const win = window.open("", "_blank", "width=800,height=600");
+  if (!win) return;
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <title>Invoice #${payment.transaction_number}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1a1a1a; padding: 40px; max-width: 800px; margin: 0 auto; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; padding-bottom: 20px; border-bottom: 3px solid #00B5A5; }
+    .logo { font-size: 28px; font-weight: 800; color: #00B5A5; }
+    .logo span { display: block; font-size: 12px; font-weight: 400; color: #666; margin-top: 4px; }
+    .invoice-title { text-align: right; }
+    .invoice-title h1 { font-size: 32px; font-weight: 700; color: #1a1a1a; }
+    .invoice-title p { font-size: 13px; color: #666; margin-top: 4px; }
+    .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 40px; }
+    .meta-section h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #999; margin-bottom: 8px; }
+    .meta-section p { font-size: 14px; color: #333; line-height: 1.6; }
+    .meta-section strong { color: #1a1a1a; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+    thead { background: #f8f9fa; }
+    th { padding: 12px 16px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #666; border-bottom: 2px solid #e5e7eb; }
+    td { padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #f0f0f0; }
+    .text-right { text-align: right; }
+    .total-row { background: #00B5A5; color: white; }
+    .total-row td { padding: 16px; font-size: 16px; font-weight: 700; border: none; }
+    .status { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+    .status-completed { background: #d1fae5; color: #065f46; }
+    .status-pending { background: #fef3c7; color: #92400e; }
+    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 12px; color: #999; }
+    .footer strong { color: #00B5A5; }
+    @media print { body { padding: 20px; } button { display: none !important; } }
+    .print-btn { display: block; margin: 0 auto 30px; padding: 10px 30px; background: #00B5A5; color: white; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; }
+    .print-btn:hover { background: #009985; }
+  </style>
+</head>
+<body>
+  <button class="print-btn" onclick="window.print()">Print Invoice</button>
+
+  <div class="header">
+    <div class="logo">Komuu<span>Membership Portal</span></div>
+    <div class="invoice-title">
+      <h1>INVOICE</h1>
+      <p>#${payment.transaction_number}</p>
+    </div>
+  </div>
+
+  <div class="meta">
+    <div class="meta-section">
+      <h3>Billed To</h3>
+      <p><strong>${payment.member}</strong></p>
+      ${payment.application?.name_of_organization ? `<p>${payment.application.name_of_organization}</p>` : ""}
+      ${payment.application?.country_of_residency ? `<p>${payment.application.country_of_residency}</p>` : ""}
+      ${payment.application?.company_email ? `<p>${payment.application.company_email}</p>` : ""}
+    </div>
+    <div class="meta-section" style="text-align: right;">
+      <h3>Payment Info</h3>
+      <p><strong>Date:</strong> ${new Date(payment.payment_date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</p>
+      <p><strong>Method:</strong> ${payment.payment_method}</p>
+      <p><strong>Gateway:</strong> ${payment.gateway}</p>
+      <p><strong>Status:</strong> <span class="status status-${payment.status.toLowerCase()}">${payment.status}</span></p>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Description</th>
+        <th>Type</th>
+        <th class="text-right">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Membership Payment${payment.application?.membership_type ? ` — ${payment.application.membership_type}` : ""}</td>
+        <td>${payment.application?.membership_type || "Membership"}</td>
+        <td class="text-right">${payment.amount_paid}</td>
+      </tr>
+    </tbody>
+    <tfoot>
+      <tr class="total-row">
+        <td colspan="2">Total Paid</td>
+        <td class="text-right">${payment.amount_paid}</td>
+      </tr>
+    </tfoot>
+  </table>
+
+  ${payment.is_certificate_generated ? '<p style="text-align:center;color:#065f46;font-size:13px;margin-bottom:20px;">✓ Certificate has been generated for this payment</p>' : ""}
+
+  <div class="footer">
+    <p>Thank you for your payment.</p>
+    <p style="margin-top:8px;">This invoice was generated by <strong>Komuu</strong> Membership Portal</p>
+    <p style="margin-top:4px;">Transaction #${payment.transaction_number} · ${new Date(payment.payment_date).toISOString()}</p>
+  </div>
+</body>
+</html>`;
+
+  win.document.write(html);
+  win.document.close();
+}
+
 function PaymentSideSheet({
   payment,
   isOpen,
@@ -652,12 +756,15 @@ function PaymentSideSheet({
                         >
                           Close
                         </button>
-                        <button
-                          onClick={() => router.push(`/my-payments/${payment.id}`)}
-                          className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-[#00B5A5] hover:bg-[#009985] rounded-lg transition-colors"
-                        >
-                          Full Details
-                        </button>
+                        {payment.status.toLowerCase() === "completed" && (
+                          <button
+                            onClick={() => printInvoice(payment)}
+                            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-[#00B5A5] hover:bg-[#009985] rounded-lg transition-colors"
+                          >
+                            <PrinterIcon className="w-4 h-4" />
+                            Print Invoice
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
