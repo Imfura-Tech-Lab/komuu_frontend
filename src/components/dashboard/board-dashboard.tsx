@@ -24,6 +24,30 @@ import {
   //@ts-ignore
 } from "react-simple-maps";
 import { useState, useMemo, useCallback } from "react";
+import { exportChartAsPng, exportDataAsCsv } from "@/lib/utils/chartExport";
+
+// Export button component
+function ExportButton({ chartId, csvData, csvFilename }: { chartId: string; csvData?: Record<string, string | number>[]; csvFilename?: string }) {
+  const [showMenu, setShowMenu] = useState(false);
+  return (
+    <div className="relative">
+      <button onClick={() => setShowMenu(!showMenu)} className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors" title="Export">
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+      </button>
+      {showMenu && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
+          <div className="absolute right-0 top-full mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-20 min-w-[120px]">
+            <button onClick={() => { exportChartAsPng(chartId, csvFilename || "chart"); setShowMenu(false); }} className="w-full px-3 py-1.5 text-xs text-left text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">Export PNG</button>
+            {csvData && csvData.length > 0 && (
+              <button onClick={() => { exportDataAsCsv(csvData, csvFilename || "data"); setShowMenu(false); }} className="w-full px-3 py-1.5 text-xs text-left text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">Export CSV</button>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 // World map topology URL
 const geoUrl = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
@@ -638,7 +662,7 @@ function OverviewTab({
 
       {/* Key Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ChartCard title="Application Status">
+        <ChartCard title="Application Status" csvData={stats_applications.map(s => ({ status: s.status, count: s.count }))}>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
@@ -664,7 +688,7 @@ function OverviewTab({
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Membership Types">
+        <ChartCard title="Membership Types" csvData={membership_types.map(m => ({ category: m.category, count: m.count }))}>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={membershipTypesData}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -706,7 +730,7 @@ function MembersTab({ data }: { data: BoardDashboardData }) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ChartCard title="Membership Distribution">
+        <ChartCard title="Membership Distribution" csvData={[{ type: "Active", count: current_members }, { type: "Inactive", count: inactive_members }]}>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
@@ -728,7 +752,7 @@ function MembersTab({ data }: { data: BoardDashboardData }) {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Membership Types">
+        <ChartCard title="Membership Types" csvData={membership_types.map(m => ({ category: m.category, count: m.count }))}>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={membershipTypesData}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -746,7 +770,7 @@ function MembersTab({ data }: { data: BoardDashboardData }) {
         </ChartCard>
       </div>
 
-      <ChartCard title="Fields of Practice">
+      <ChartCard title="Fields of Practice" csvData={fields_of_pratice.map(f => ({ field: f.field_of_practice, count: f.count }))}>
         <ResponsiveContainer width="100%" height={400}>
           <BarChart data={fieldsOfPracticeData} layout="horizontal">
             <CartesianGrid strokeDasharray="3 3" />
@@ -815,7 +839,7 @@ function ApplicationsTab({ data }: { data: BoardDashboardData }) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ChartCard title="Application Status">
+        <ChartCard title="Application Status" csvData={stats_applications.map(s => ({ status: s.status, count: s.count }))}>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
@@ -841,7 +865,7 @@ function ApplicationsTab({ data }: { data: BoardDashboardData }) {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Applications by Region">
+        <ChartCard title="Applications by Region" csvData={application_per_region.map(r => ({ region: r.region, count: r.count }))}>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={applicationPerRegionData}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -1040,7 +1064,7 @@ function AnalyticsTab({ data }: { data: BoardDashboardData }) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ChartCard title="Fields of Practice Distribution">
+        <ChartCard title="Fields of Practice Distribution" csvData={fields_of_pratice.map(f => ({ field: f.field_of_practice, count: f.count }))}>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={fieldsOfPracticeData} layout="horizontal">
               <CartesianGrid strokeDasharray="3 3" />
@@ -1163,15 +1187,19 @@ function StatCard({
 function ChartCard({
   title,
   children,
+  csvData,
 }: {
   title: string;
   children: React.ReactNode;
+  csvData?: Record<string, string | number>[];
 }) {
+  const chartId = `chart-${title.toLowerCase().replace(/\s+/g, "-")}`;
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-        {title}
-      </h3>
+    <div id={chartId} className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h3>
+        <ExportButton chartId={chartId} csvData={csvData} csvFilename={title.toLowerCase().replace(/\s+/g, "-")} />
+      </div>
       {children}
     </div>
   );
