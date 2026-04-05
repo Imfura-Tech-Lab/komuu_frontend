@@ -2,7 +2,7 @@
 // Tiny membership-themed icons: certificates, groups, chat bubbles, calendars, badges
 
 const LIGHT_DOODLE = encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300">
-  <g fill="none" stroke="#00B5A5" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" opacity="0.12">
+  <g fill="none" stroke="#8696a0" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.3">
     <!-- Chat bubble -->
     <path d="M25 15c0-3.3 3.6-6 8-6s8 2.7 8 6-3.6 6-8 6c-1.5 0-2.9-.3-4.1-.8L25 22l1.5-3.2C25.5 17.6 25 16.4 25 15z" transform="translate(10,10)"/>
     <!-- Certificate/badge -->
@@ -61,7 +61,7 @@ const LIGHT_DOODLE = encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg"
 </svg>`);
 
 const DARK_DOODLE = encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300">
-  <g fill="none" stroke="#00B5A5" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" opacity="0.15">
+  <g fill="none" stroke="#8696a0" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.15">
     <!-- Chat bubble -->
     <path d="M25 15c0-3.3 3.6-6 8-6s8 2.7 8 6-3.6 6-8 6c-1.5 0-2.9-.3-4.1-.8L25 22l1.5-3.2C25.5 17.6 25 16.4 25 15z" transform="translate(10,10)"/>
     <!-- Certificate/badge -->
@@ -120,7 +120,7 @@ const DARK_DOODLE = encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" 
 </svg>`);
 
 export const chatBgStyle = {
-  light: { backgroundImage: `url("data:image/svg+xml,${LIGHT_DOODLE}")`, backgroundColor: "#e6f7f5" } as React.CSSProperties,
+  light: { backgroundImage: `url("data:image/svg+xml,${LIGHT_DOODLE}")`, backgroundColor: "#eae6df" } as React.CSSProperties,
   dark: { backgroundImage: `url("data:image/svg+xml,${DARK_DOODLE}")`, backgroundColor: "#0b141a" } as React.CSSProperties,
 };
 
