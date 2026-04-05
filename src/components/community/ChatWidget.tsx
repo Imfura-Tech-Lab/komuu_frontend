@@ -97,7 +97,7 @@ export default function ChatWidget() {
   // Peers / DMs
   const [peers, setPeers] = useState<Peer[]>([]);
   const [dmThreads, setDmThreads] = useState<DmThread[]>([]);
-  const [showPeerList, setShowPeerList] = useState(false);
+
 
   const endRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -158,7 +158,7 @@ export default function ChatWidget() {
         setChatTitle(peerName);
         setChatSubtitle("Direct message");
         setView("chat");
-        setShowPeerList(false);
+
         clearMessages();
         stopPolling();
         await fetchMessages(convId);
@@ -223,7 +223,6 @@ export default function ChatWidget() {
     setChatTitle("");
     setChatSubtitle("");
     setView("list");
-    setShowPeerList(false);
     stopPolling();
     clearMessages();
     removeFile();
@@ -281,7 +280,6 @@ export default function ChatWidget() {
         {/* HEADER */}
         <div className="bg-[#00B5A5] px-4 py-3 flex items-center gap-3 flex-shrink-0">
           {view === "chat" && <button onClick={goBack} className="text-white/80 hover:text-white"><ArrowLeftIcon className="w-5 h-5" /></button>}
-          {showPeerList && <button onClick={() => setShowPeerList(false)} className="text-white/80 hover:text-white"><ArrowLeftIcon className="w-5 h-5" /></button>}
           <div className="flex-1 min-w-0">
             {view === "chat" ? (
               <>
@@ -290,22 +288,15 @@ export default function ChatWidget() {
                   {typingUsers.length > 0 ? <span className="text-white/90 italic">{typingUsers.join(", ")} typing...</span> : chatSubtitle}
                 </p>
               </>
-            ) : showPeerList ? (
-              <h3 className="text-white font-semibold text-sm">New Message</h3>
             ) : (
               <h3 className="text-white font-semibold text-sm">Chats</h3>
             )}
           </div>
-          {!showPeerList && view === "list" && tab === "peers" && (
-            <button onClick={() => { setShowPeerList(true); setSearch(""); }} className="p-1 text-white/80 hover:text-white" title="New message">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-            </button>
-          )}
           <button onClick={() => setOpen(false)} className="p-1 text-white/80 hover:text-white"><XMarkIcon className="w-5 h-5" /></button>
         </div>
 
         {/* TABS (only in list view) */}
-        {view === "list" && !showPeerList && (
+        {view === "list" && (
           <div className="flex bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-b border-gray-100/50">
             <button onClick={() => { setTab("groups"); setSearch(""); }} className={`flex-1 py-2 text-xs font-semibold text-center border-b-2 transition-colors ${tab === "groups" ? "border-[#00B5A5] text-[#00B5A5]" : "border-transparent text-gray-500"}`}>
               <UserGroupIcon className="w-4 h-4 mx-auto mb-0.5" />Groups
@@ -321,7 +312,7 @@ export default function ChatWidget() {
           <div className="px-3 py-2 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
             <div className="relative">
               <MagnifyingGlassIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-              <input type="text" placeholder={showPeerList ? "Search members..." : tab === "groups" ? "Search groups..." : "Search messages..."} value={search} onChange={e => setSearch(e.target.value)}
+              <input type="text" placeholder={tab === "groups" ? "Search groups..." : "Search members..."} value={search} onChange={e => setSearch(e.target.value)}
                 className="w-full pl-8 pr-3 py-1.5 text-xs bg-gray-100 dark:bg-gray-800 border-0 rounded-lg focus:ring-1 focus:ring-[#00B5A5] text-gray-900 dark:text-white placeholder-gray-400" />
             </div>
           </div>
@@ -330,28 +321,8 @@ export default function ChatWidget() {
         {/* CONTENT */}
         <div className="flex-1 overflow-y-auto">
 
-          {/* === PEER PICKER === */}
-          {showPeerList && view === "list" && (
-            filteredPeers.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full p-6 text-center">
-                <UserIcon className="w-12 h-12 text-gray-300 mb-2" />
-                <p className="text-xs text-gray-500">{search ? "No members found" : "No members available"}</p>
-              </div>
-            ) : filteredPeers.map(p => (
-              <button key={p.id} onClick={() => startDm(p.id, p.name)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/60 dark:hover:bg-gray-800/60 border-b border-gray-100/30 transition-colors">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
-                  <span className="text-sm font-bold text-white">{p.name[0]?.toUpperCase()}</span>
-                </div>
-                <div className="flex-1 min-w-0 text-left">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{p.name}</p>
-                  <p className="text-[10px] text-gray-500">{p.role}</p>
-                </div>
-              </button>
-            ))
-          )}
-
           {/* === GROUPS LIST === */}
-          {!showPeerList && view === "list" && tab === "groups" && (
+          {view === "list" && tab === "groups" && (
             filteredGroups.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full p-6 text-center">
                 <UserGroupIcon className="w-12 h-12 text-gray-300 dark:text-gray-700 mb-2" />
@@ -371,28 +342,38 @@ export default function ChatWidget() {
           )}
 
           {/* === DM THREADS === */}
-          {!showPeerList && view === "list" && tab === "peers" && (
-            filteredDms.length === 0 ? (
+          {view === "list" && tab === "peers" && (() => {
+            // Merge peers with their DM threads: show all peers, with last message if exists
+            const dmByPeerId = new Map(dmThreads.map(d => [d.peer.id, d]));
+            const allPeers = filteredPeers.map(p => ({ ...p, dm: dmByPeerId.get(p.id) || null }));
+            // Sort: peers with active DMs first (by last message time), then alphabetical
+            allPeers.sort((a, b) => {
+              if (a.dm && !b.dm) return -1;
+              if (!a.dm && b.dm) return 1;
+              if (a.dm && b.dm) return new Date(b.dm.last_message_at).getTime() - new Date(a.dm.last_message_at).getTime();
+              return a.name.localeCompare(b.name);
+            });
+
+            return allPeers.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full p-6 text-center">
-                <ChatBubbleLeftRightIcon className="w-12 h-12 text-gray-300 dark:text-gray-700 mb-2" />
-                <p className="text-xs text-gray-500 mb-3">{search ? "No conversations found" : "No messages yet"}</p>
-                <button onClick={() => { setShowPeerList(true); setSearch(""); }} className="text-xs px-3 py-1.5 bg-[#00B5A5] text-white rounded-lg hover:bg-[#008F82]">New Message</button>
+                <UserIcon className="w-12 h-12 text-gray-300 dark:text-gray-700 mb-2" />
+                <p className="text-xs text-gray-500">{search ? "No members found" : "No members available"}</p>
               </div>
-            ) : filteredDms.map(dm => (
-              <button key={dm.id} onClick={() => selectDm(dm)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/60 dark:hover:bg-gray-800/60 border-b border-gray-100/30 transition-colors">
-                <div className="w-11 h-11 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
-                  <span className="text-sm font-bold text-white">{dm.peer.name[0]?.toUpperCase()}</span>
+            ) : allPeers.map(p => (
+              <button key={p.id} onClick={() => p.dm ? selectDm(p.dm) : startDm(p.id, p.name)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/60 dark:hover:bg-gray-800/60 border-b border-gray-100/30 transition-colors">
+                <div className="relative w-11 h-11 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
+                  <span className="text-sm font-bold text-white">{p.name[0]?.toUpperCase()}</span>
                 </div>
                 <div className="flex-1 min-w-0 text-left">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{dm.peer.name}</p>
-                    <span className="text-[9px] text-gray-400 ml-2">{timeAgo(dm.last_message_at)}</span>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{p.name}</p>
+                    {p.dm && <span className="text-[9px] text-gray-400 ml-2 flex-shrink-0">{timeAgo(p.dm.last_message_at)}</span>}
                   </div>
-                  <p className="text-[10px] text-gray-500 truncate">{dm.last_message || "No messages yet"}</p>
+                  <p className="text-[10px] text-gray-500 truncate">{p.dm?.last_message || p.role}</p>
                 </div>
               </button>
-            ))
-          )}
+            ));
+          })()}
 
           {/* === CHAT MESSAGES === */}
           {view === "chat" && (
