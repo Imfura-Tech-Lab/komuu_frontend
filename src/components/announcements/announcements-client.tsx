@@ -246,7 +246,11 @@ export default function AnnouncementsClient() {
     try {
       const client = getAuthenticatedClient();
       await client.post("community/announcements", data);
-      showSuccessToast("Announcement published" + (data.send_email ? " and emails sent" : ""));
+      showSuccessToast(
+        data.send_email
+          ? "Announcement published — emails are being sent in the background"
+          : "Announcement published"
+      );
       setShowCompose(false);
       fetchAnnouncements();
     } catch (err) {
