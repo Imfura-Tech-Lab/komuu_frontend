@@ -16,14 +16,13 @@ import {
 } from "@heroicons/react/24/outline";
 import { useMemberGroups, MemberGroup } from "@/lib/hooks/use-member-groups";
 import { Conversation, useMemberConversations } from "@/lib/hooks/useMemberConversations";
-import {
-  useMemberConversationMessages,
-  ConversationMessage,
-} from "@/lib/hooks/useMemberConversationMessages";
+import { ConversationMessage } from "@/lib/hooks/useMemberConversationMessages";
 import { useRealtimeMessages, useTypingIndicator } from "@/lib/hooks/useRealtimeMessages";
 import { showErrorToast } from "@/components/layouts/auth-layer-out";
 import { chatBgStyle } from "@/components/community/chat-doodle";
 import { getAuthenticatedClient } from "@/lib/api-client";
+import { useOfflineChat } from "@/lib/hooks/useOfflineChat";
+import { getCached, setCache } from "@/lib/chat-store";
 
 // ============================================================================
 // TYPES
@@ -92,24 +91,23 @@ export default function ChatWidget() {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [userId, setUserId] = useState<number | null>(null);
-  const [sending, setSending] = useState(false);
-
   // Peers / DMs
   const [peers, setPeers] = useState<Peer[]>([]);
   const [dmThreads, setDmThreads] = useState<DmThread[]>([]);
-
 
   const endRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const { joinedGroups, fetchJoinedGroups } = useMemberGroups();
   const { conversations, loading: convLoading, fetchConversations, startConversation } = useMemberConversations();
-  const { messages, fetchMessages, sendMessage, clearMessages, startPolling, stopPolling } = useMemberConversationMessages();
+
+  // Offline-first chat — cached messages, optimistic sends, offline queue
+  const { messages, online, sending, send: offlineSend, retry: retryMessage } = useOfflineChat(activeConv?.id ?? null, userId);
 
   useRealtimeMessages({
     conversationId: activeConv?.id ?? null,
-    onNewMessage: useCallback((_: ConversationMessage) => { if (activeConv) fetchMessages(activeConv.id); }, [activeConv, fetchMessages]),
-    onMessageDeleted: useCallback((_: number) => { if (activeConv) fetchMessages(activeConv.id); }, [activeConv, fetchMessages]),
+    onNewMessage: useCallback((_: ConversationMessage) => {}, []),
+    onMessageDeleted: useCallback((_: number) => {}, []),
   });
 
   const { typingUsers, sendTyping } = useTypingIndicator(activeConv?.id ?? null);
@@ -121,30 +119,30 @@ export default function ChatWidget() {
   useEffect(() => {
     if (open && view === "list") {
       fetchJoinedGroups(1);
-      fetchDmThreads();
-      fetchPeers();
+      loadCachedData();
     }
   }, [open]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
-  useEffect(() => () => stopPolling(), [stopPolling]);
 
-  // Fetch peers
-  const fetchPeers = async () => {
-    try {
-      const client = getAuthenticatedClient();
-      const res = await client.get<{ status: string; data: Peer[] }>("conversations/peers");
-      if (res.data.data) setPeers(res.data.data);
-    } catch {}
-  };
+  // Load peers and DMs — show cache first, then fetch fresh
+  const loadCachedData = async () => {
+    const cachedPeers = await getCached<Peer[]>("peers");
+    if (cachedPeers) setPeers(cachedPeers);
+    const cachedDms = await getCached<DmThread[]>("dm_threads");
+    if (cachedDms) setDmThreads(cachedDms);
 
-  // Fetch DM threads
-  const fetchDmThreads = async () => {
-    try {
-      const client = getAuthenticatedClient();
-      const res = await client.get<{ status: string; data: DmThread[] }>("conversations/direct-messages");
-      if (res.data.data) setDmThreads(res.data.data);
-    } catch {}
+    if (online) {
+      try {
+        const client = getAuthenticatedClient();
+        const [peersRes, dmsRes] = await Promise.all([
+          client.get<{ status: string; data: Peer[] }>("conversations/peers"),
+          client.get<{ status: string; data: DmThread[] }>("conversations/direct-messages"),
+        ]);
+        if (peersRes.data.data) { setPeers(peersRes.data.data); await setCache("peers", peersRes.data.data); }
+        if (dmsRes.data.data) { setDmThreads(dmsRes.data.data); await setCache("dm_threads", dmsRes.data.data); }
+      } catch {}
+    }
   };
 
   // Start DM with a peer
@@ -158,11 +156,7 @@ export default function ChatWidget() {
         setChatTitle(peerName);
         setChatSubtitle("Direct message");
         setView("chat");
-
-        clearMessages();
-        stopPolling();
-        await fetchMessages(convId);
-        startPolling(convId, 5000);
+        // useOfflineChat will auto-load messages for this conversation
       }
     } catch {
       showErrorToast("Failed to start conversation");
@@ -180,19 +174,15 @@ export default function ChatWidget() {
     setChatTitle(group.name);
     setChatSubtitle(`${group.members} members`);
     setSearch("");
-    clearMessages();
-    stopPolling();
     await fetchConversations(group.slug);
   };
 
   // Auto-open group chat once conversations load
   useEffect(() => {
     if (!activeGroup || convLoading || view === "chat") return;
-    const openChat = async (conv: Conversation) => {
+    const openChat = (conv: Conversation) => {
       setActiveConv(conv);
       setView("chat");
-      await fetchMessages(conv.id);
-      startPolling(conv.id, 5000);
     };
     if (conversations.length > 0) {
       openChat(conversations[0]);
@@ -206,15 +196,11 @@ export default function ChatWidget() {
   }, [activeGroup?.id, convLoading]);
 
   // Select a DM thread
-  const selectDm = async (dm: DmThread) => {
+  const selectDm = (dm: DmThread) => {
     setActiveConv({ id: dm.id, title: "DM", created_at: dm.last_message_at });
     setChatTitle(dm.peer.name);
     setChatSubtitle(dm.peer.role);
     setView("chat");
-    clearMessages();
-    stopPolling();
-    await fetchMessages(dm.id);
-    startPolling(dm.id, 5000);
   };
 
   const goBack = () => {
@@ -223,21 +209,16 @@ export default function ChatWidget() {
     setChatTitle("");
     setChatSubtitle("");
     setView("list");
-    stopPolling();
-    clearMessages();
     removeFile();
     setMsgText("");
     setSearch("");
-    fetchDmThreads();
+    loadCachedData();
   };
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if ((!msgText.trim() && !file) || !activeConv || sending) return;
-    if (msgText.trim().length > 0 && msgText.trim().length < 10) { showErrorToast("Min 10 characters"); return; }
-    setSending(true);
-    const ok = await sendMessage({ conversation_id: activeConv.id, content: msgText.trim() || "Sent an attachment", attachment: file || undefined });
-    setSending(false);
+    const ok = await offlineSend(msgText.trim(), file || undefined);
     if (ok) { setMsgText(""); removeFile(); }
   };
 
@@ -315,6 +296,13 @@ export default function ChatWidget() {
               <input type="text" placeholder={tab === "groups" ? "Search groups..." : "Search members..."} value={search} onChange={e => setSearch(e.target.value)}
                 className="w-full pl-8 pr-3 py-1.5 text-xs bg-gray-100 dark:bg-gray-800 border-0 rounded-lg focus:ring-1 focus:ring-[#00B5A5] text-gray-900 dark:text-white placeholder-gray-400" />
             </div>
+          </div>
+        )}
+
+        {/* OFFLINE BANNER */}
+        {!online && (
+          <div className="px-3 py-1.5 bg-amber-500/90 text-white text-[10px] text-center font-medium flex-shrink-0">
+            You're offline — messages will be sent when you reconnect
           </div>
         )}
 
@@ -423,7 +411,13 @@ export default function ChatWidget() {
                                 {msg.content && <p className={`text-[12px] leading-relaxed whitespace-pre-wrap break-words ${msg.file_url ? "px-2.5 pb-1 pt-0.5" : "px-2.5 py-1.5"}`}>{msg.content}</p>}
                                 <div className="flex items-center justify-end gap-0.5 px-2.5 pb-1">
                                   <span className={`text-[8px] ${own ? "text-white/50" : "text-gray-400"}`}>{formatMsgTime(msg.created_at)}</span>
-                                  {own && <CheckCircleIcon className="w-2.5 h-2.5 text-white/50" />}
+                                  {own && !(msg as unknown as { _pending?: boolean })._pending && <CheckCircleIcon className="w-2.5 h-2.5 text-white/50" />}
+                                  {(msg as unknown as { _pending?: boolean })._pending && !(msg as unknown as { _failed?: boolean })._failed && (
+                                    <svg className="w-2.5 h-2.5 text-white/40 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                                  )}
+                                  {(msg as unknown as { _failed?: boolean })._failed && (
+                                    <button onClick={(e) => { e.stopPropagation(); retryMessage((msg as unknown as { _tempId: string })._tempId); }} className="text-[8px] text-red-300 hover:text-red-100 underline ml-1">retry</button>
+                                  )}
                                 </div>
                               </div>
                             </div>
