@@ -24,6 +24,10 @@ import {
   showSuccessToast,
   showErrorToast,
 } from "@/components/layouts/auth-layer-out";
+import { PlusIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { getAuthenticatedClient } from "@/lib/api-client";
+
+const ADMIN_ROLES = ["Administrator", "President", "Board"];
 
 // ============================================================================
 // HELPERS
@@ -130,13 +134,15 @@ const GroupCard = ({ group, onClick, isActive, onJoin, onLeave, actionLoading }:
 // GROUP DETAIL SHEET
 // ============================================================================
 
-const GroupSheet = ({ group, onClose, onJoin, onLeave, onOpen, actionLoading }: {
+const GroupSheet = ({ group, onClose, onJoin, onLeave, onOpen, onDelete, actionLoading, isAdmin }: {
   group: MemberGroup;
   onClose: () => void;
   onJoin: (slug: string) => void;
   onLeave: (slug: string) => void;
   onOpen: (slug: string) => void;
+  onDelete?: (slug: string) => void;
   actionLoading: string | null;
+  isAdmin?: boolean;
 }) => (
   <div className="fixed inset-0 z-50 flex justify-end">
     <div className="absolute inset-0 bg-black/30" onClick={onClose} />
@@ -241,6 +247,14 @@ const GroupSheet = ({ group, onClose, onJoin, onLeave, onOpen, actionLoading }: 
             <ArrowRightOnRectangleIcon className="w-4 h-4" />Join Group
           </button>
         )}
+        {isAdmin && onDelete && (
+          <button
+            onClick={() => onDelete(group.slug)}
+            className="w-full py-2 text-xs font-medium rounded-lg border border-red-200 dark:border-red-800 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center justify-center gap-1.5 mt-1"
+          >
+            <TrashIcon className="w-3.5 h-3.5" />Delete Group
+          </button>
+        )}
       </div>
     </div>
   </div>
@@ -287,13 +301,53 @@ export default function MemberGroupsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [selected, setSelected] = useState<MemberGroup | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createName, setCreateName] = useState("");
+  const [createDesc, setCreateDesc] = useState("");
+  const [creating, setCreating] = useState(false);
 
   const { groups, joinedGroups, loading, pagination, fetchAllGroups, fetchJoinedGroups, joinGroup, leaveGroup } = useMemberGroups();
 
   useEffect(() => {
     fetchAllGroups(1);
     fetchJoinedGroups(1);
+    try {
+      const ud = JSON.parse(localStorage.getItem("user_data") || "{}");
+      setIsAdmin(ADMIN_ROLES.includes(ud.role));
+    } catch {}
   }, []);
+
+  const handleCreateGroup = async () => {
+    if (!createName.trim()) return;
+    setCreating(true);
+    try {
+      const client = getAuthenticatedClient();
+      await client.post("community/groups", { name: createName.trim(), description: createDesc.trim() });
+      showSuccessToast("Group created");
+      setShowCreateModal(false);
+      setCreateName("");
+      setCreateDesc("");
+      fetchAllGroups(1);
+    } catch {
+      showErrorToast("Failed to create group");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleDeleteGroup = async (slug: string) => {
+    if (!confirm("Delete this group permanently? All conversations will be lost.")) return;
+    try {
+      const client = getAuthenticatedClient();
+      await client.delete(`community/groups/${slug}`);
+      showSuccessToast("Group deleted");
+      setSelected(null);
+      fetchAllGroups(pagination.currentPage);
+    } catch {
+      showErrorToast("Failed to delete group");
+    }
+  };
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -352,6 +406,11 @@ export default function MemberGroupsPage() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Community</h1>
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">Discover and join groups in your community</p>
         </div>
+        {isAdmin && (
+          <button onClick={() => setShowCreateModal(true)} className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-[#00B5A5] hover:bg-[#008F82] rounded-lg transition-colors">
+            <PlusIcon className="w-4 h-4" />Create Group
+          </button>
+        )}
         <button onClick={handleRefresh} disabled={loading || refreshing} className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors">
           <ArrowPathIcon className={`h-4 w-4 mr-1.5 ${refreshing ? "animate-spin" : ""}`} />Refresh
         </button>
@@ -423,10 +482,38 @@ export default function MemberGroupsPage() {
               onJoin={handleJoin}
               onLeave={handleLeave}
               onOpen={(slug) => { setSelected(null); router.push(`/community/groups/${slug}`); }}
+              onDelete={isAdmin ? handleDeleteGroup : undefined}
               actionLoading={actionLoading}
+              isAdmin={isAdmin}
             />
           )}
         </>
+      )}
+
+      {/* Create Group Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/30" onClick={() => setShowCreateModal(false)} />
+          <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 mx-4">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Create Group</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Group Name</label>
+                <input type="text" value={createName} onChange={e => setCreateName(e.target.value)} placeholder="Enter group name" className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent dark:bg-gray-700 dark:text-white" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+                <textarea value={createDesc} onChange={e => setCreateDesc(e.target.value)} placeholder="Describe this group" rows={3} className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent dark:bg-gray-700 dark:text-white resize-none" />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button onClick={() => setShowCreateModal(false)} className="flex-1 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">Cancel</button>
+              <button onClick={handleCreateGroup} disabled={!createName.trim() || creating} className="flex-1 py-2 text-sm font-medium text-white bg-[#00B5A5] hover:bg-[#008F82] rounded-lg disabled:opacity-50 transition-colors">
+                {creating ? "Creating..." : "Create"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

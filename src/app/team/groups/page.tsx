@@ -1,13 +1,13 @@
-import { Suspense } from "react";
-import GroupsPage from "@/components/admin/GroupsPage";
-import SecureDashboardLayout from "@/components/dashboard/secure-dashboard-layout";
+"use client";
 
-export default function AdminGroupsPage() {
-  return (
-    <SecureDashboardLayout requiredRoles={["Administrator", "Board", "President"]}>
-      <Suspense>
-        <GroupsPage />
-      </Suspense>
-    </SecureDashboardLayout>
-  );
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+
+// Admin groups page redirects to unified community groups
+export default function RedirectToGroups() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/community/groups");
+  }, [router]);
+  return null;
 }

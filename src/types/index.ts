@@ -243,7 +243,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
       },
       {
         name: "Community",
-        href: "/team/groups",
+        href: "/community/groups",
         permission: "manage_groups",
         section: "engagement",
         icon: "groups",
@@ -362,7 +362,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
       },
       {
         name: "Community",
-        href: "/team/groups",
+        href: "/community/groups",
         permission: "manage_groups",
         section: "engagement",
         icon: "groups",
@@ -481,7 +481,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
       },
       {
         name: "Community",
-        href: "/team/groups",
+        href: "/community/groups",
         permission: "manage_groups",
         section: "engagement",
         icon: "groups",
