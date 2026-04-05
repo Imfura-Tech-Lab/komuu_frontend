@@ -92,7 +92,8 @@ export default function ChatWidget() {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [userId, setUserId] = useState<number | null>(null);
-  // Peers / DMs
+  // Cached data
+  const [groups, setGroups] = useState<MemberGroup[]>([]);
   const [peers, setPeers] = useState<Peer[]>([]);
   const [dmThreads, setDmThreads] = useState<DmThread[]>([]);
 
@@ -113,25 +114,43 @@ export default function ChatWidget() {
 
   const { typingUsers, sendTyping } = useTypingIndicator(activeConv?.id ?? null);
 
+  // Sync hook groups to local state + cache
+  useEffect(() => {
+    if (joinedGroups.length > 0) {
+      setGroups(joinedGroups);
+      setCache("chat_groups", joinedGroups);
+    }
+  }, [joinedGroups]);
+
+  // Load cached data immediately on mount (before opening)
   useEffect(() => {
     try { const d = JSON.parse(localStorage.getItem("user_data") || "{}"); if (d.id) setUserId(d.id); } catch {}
+    // Hydrate from cache instantly
+    (async () => {
+      const [cGroups, cPeers, cDms] = await Promise.all([
+        getCached<MemberGroup[]>("chat_groups"),
+        getCached<Peer[]>("peers"),
+        getCached<DmThread[]>("dm_threads"),
+      ]);
+      if (cGroups?.length) setGroups(cGroups);
+      if (cPeers?.length) setPeers(cPeers);
+      if (cDms?.length) setDmThreads(cDms);
+    })();
   }, []);
 
+  // Fetch fresh data when chat opens
   useEffect(() => {
     if (open && view === "list") {
-      fetchJoinedGroups(1);
-      loadCachedData();
+      refreshAllData();
     }
   }, [open]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
-  // Load peers and DMs — show cache first, then fetch fresh
-  const loadCachedData = async () => {
-    const cachedPeers = await getCached<Peer[]>("peers");
-    if (cachedPeers) setPeers(cachedPeers);
-    const cachedDms = await getCached<DmThread[]>("dm_threads");
-    if (cachedDms) setDmThreads(cachedDms);
+  // Fetch fresh from server and update cache
+  const refreshAllData = async () => {
+    // Fetch groups
+    await fetchJoinedGroups(1);
 
     if (online) {
       try {
@@ -213,7 +232,7 @@ export default function ChatWidget() {
     removeFile();
     setMsgText("");
     setSearch("");
-    loadCachedData();
+    refreshAllData();
   };
 
   const handleSend = async (e: React.FormEvent) => {
@@ -232,7 +251,7 @@ export default function ChatWidget() {
 
   const removeFile = () => { setFile(null); setPreview(null); if (fileRef.current) fileRef.current.value = ""; };
 
-  const filteredGroups = joinedGroups.filter(g => !search || g.name.toLowerCase().includes(search.toLowerCase()));
+  const filteredGroups = groups.filter(g => !search || g.name.toLowerCase().includes(search.toLowerCase()));
   const filteredPeers = peers.filter(p => !search || p.name.toLowerCase().includes(search.toLowerCase()));
   const filteredDms = dmThreads.filter(d => !search || d.peer.name.toLowerCase().includes(search.toLowerCase()));
 
