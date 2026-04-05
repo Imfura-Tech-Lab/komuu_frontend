@@ -422,7 +422,7 @@ function InteractiveMap({
         </div>
       )}
 
-      {/* Selected Country Detail Panel */}
+      {/* Selected Country Detail Panel — floating overlay */}
       {selectedCountry && (() => {
         const memberCount = countryDataMap.get(selectedCountry.toLowerCase()) || 0;
         const totalMembers = countriesWithMembers.reduce((s, c) => s + c.count, 0);
@@ -432,47 +432,46 @@ function InteractiveMap({
         const totalCountries = countriesWithMembers.length;
 
         return (
-          <div className="mt-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
-            <div className="bg-gradient-to-r from-[#00B5A5] to-[#00D4C7] px-5 py-4">
+          <div className="absolute top-4 right-4 z-20 w-72 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xl overflow-hidden">
+            <div className="bg-gradient-to-r from-[#00B5A5] to-[#00D4C7] px-4 py-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <h4 className="text-lg font-bold text-white">{selectedCountry}</h4>
-                  <p className="text-white/70 text-xs">{isTop10 ? `Ranked #${rank} of ${totalCountries} countries` : `${totalCountries} countries with members`}</p>
+                  <h4 className="text-sm font-bold text-white">{selectedCountry}</h4>
+                  <p className="text-white/70 text-[10px]">{isTop10 ? `#${rank} of ${totalCountries} countries` : `${totalCountries} countries`}</p>
                 </div>
-                <button onClick={() => setSelectedCountry(null)} className="p-1.5 text-white/70 hover:text-white hover:bg-white/20 rounded-lg">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                <button onClick={() => setSelectedCountry(null)} className="p-1 text-white/70 hover:text-white hover:bg-white/20 rounded">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>
             </div>
-            <div className="p-5">
-              <div className="grid grid-cols-3 gap-4 mb-4">
-                <div className="text-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{memberCount}</p>
-                  <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">Members</p>
+            <div className="p-4">
+              <div className="grid grid-cols-3 gap-2 mb-3">
+                <div className="text-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                  <p className="text-lg font-bold text-gray-900 dark:text-white">{memberCount}</p>
+                  <p className="text-[9px] text-gray-500 dark:text-gray-400">Members</p>
                 </div>
-                <div className="text-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                  <p className="text-2xl font-bold text-[#00B5A5]">{percentage}%</p>
-                  <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">of Total</p>
+                <div className="text-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                  <p className="text-lg font-bold text-[#00B5A5]">{percentage}%</p>
+                  <p className="text-[9px] text-gray-500 dark:text-gray-400">of Total</p>
                 </div>
-                <div className="text-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">#{rank || "—"}</p>
-                  <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">Rank</p>
+                <div className="text-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                  <p className="text-lg font-bold text-gray-900 dark:text-white">#{rank || "—"}</p>
+                  <p className="text-[9px] text-gray-500 dark:text-gray-400">Rank</p>
                 </div>
               </div>
-              {/* Member distribution bar */}
-              <div className="mb-3">
-                <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
-                  <span>Share of total membership</span>
+              <div className="mb-2">
+                <div className="flex items-center justify-between text-[10px] text-gray-500 dark:text-gray-400 mb-1">
+                  <span>Share of membership</span>
                   <span>{percentage}%</span>
                 </div>
-                <div className="w-full h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div className="w-full h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                   <div className="h-full bg-[#00B5A5] rounded-full transition-all" style={{ width: `${percentage}%` }} />
                 </div>
               </div>
               {isTop10 && (
-                <div className="flex items-center gap-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
-                  <span className="text-amber-500 text-sm">&#9733;</span>
-                  <span className="text-xs text-amber-700 dark:text-amber-300 font-medium">Top 10 country by membership</span>
+                <div className="flex items-center gap-1.5 p-1.5 bg-amber-50 dark:bg-amber-900/20 rounded border border-amber-200 dark:border-amber-800">
+                  <span className="text-amber-500 text-xs">&#9733;</span>
+                  <span className="text-[10px] text-amber-700 dark:text-amber-300 font-medium">Top 10 country</span>
                 </div>
               )}
             </div>
@@ -665,7 +664,7 @@ function OverviewTab({
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
           Global Overview
         </h3>
-        <div className="h-96 relative overflow-hidden">
+        <div className="h-96 relative">
           <InteractiveMap
             countriesWithMembers={countriesWithMembers}
             countryDataMap={countryDataMap}
