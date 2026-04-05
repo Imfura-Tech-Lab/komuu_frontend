@@ -21,6 +21,7 @@ import {
 import { Header } from "./Header";
 import { Sidebar } from "./Sidebar";
 import { StatusAlerts } from "./StatusAlerts";
+import ChatWidget from "@/components/community/ChatWidget";
 import { useImprovedAutoLogout } from "@/lib/hooks/useImprovedAutoLogout";
 import { SessionWarningModal } from "./SessionWarningModal";
 
@@ -414,6 +415,9 @@ export default function SecureDashboardLayout({
           </div>
         </main>
       </div>
+
+      {/* Chat Widget */}
+      <ChatWidget />
 
       {/* Session Warning Modal */}
       <SessionWarningModal

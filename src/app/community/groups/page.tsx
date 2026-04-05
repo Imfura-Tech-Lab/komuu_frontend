@@ -1,10 +1,13 @@
+import { Suspense } from "react";
+import MemberGroupsPage from "@/components/groups/MemberGroupsPage";
 import SecureDashboardLayout from "@/components/dashboard/secure-dashboard-layout";
-import ChatApp from "@/components/community/ChatApp";
 
-export default function CommunityPage() {
+export default function CommunityGroupsPage() {
   return (
     <SecureDashboardLayout requiredRoles={["Member", "Board", "President", "Administrator"]}>
-      <ChatApp />
+      <Suspense>
+        <MemberGroupsPage />
+      </Suspense>
     </SecureDashboardLayout>
   );
 }
