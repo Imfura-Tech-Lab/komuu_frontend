@@ -422,20 +422,63 @@ function InteractiveMap({
         </div>
       )}
 
-      {/* Selected Country Info */}
-      {selectedCountry && (
-        <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-          <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
-            📍 {selectedCountry}
-          </h4>
-          <p className="text-blue-700 dark:text-blue-300 text-sm">
-            Members: {countryDataMap.get(selectedCountry.toLowerCase()) || 0}
-            {topCountries.some(
-              (c) => c.country.toLowerCase() === selectedCountry.toLowerCase()
-            ) && " 🏆 (Top 10 Country)"}
-          </p>
-        </div>
-      )}
+      {/* Selected Country Detail Panel */}
+      {selectedCountry && (() => {
+        const memberCount = countryDataMap.get(selectedCountry.toLowerCase()) || 0;
+        const totalMembers = countriesWithMembers.reduce((s, c) => s + c.count, 0);
+        const percentage = totalMembers > 0 ? ((memberCount / totalMembers) * 100).toFixed(1) : "0";
+        const rank = [...countriesWithMembers].sort((a, b) => b.count - a.count).findIndex(c => c.country.toLowerCase() === selectedCountry.toLowerCase()) + 1;
+        const isTop10 = rank > 0 && rank <= 10;
+        const totalCountries = countriesWithMembers.length;
+
+        return (
+          <div className="mt-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
+            <div className="bg-gradient-to-r from-[#00B5A5] to-[#00D4C7] px-5 py-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-lg font-bold text-white">{selectedCountry}</h4>
+                  <p className="text-white/70 text-xs">{isTop10 ? `Ranked #${rank} of ${totalCountries} countries` : `${totalCountries} countries with members`}</p>
+                </div>
+                <button onClick={() => setSelectedCountry(null)} className="p-1.5 text-white/70 hover:text-white hover:bg-white/20 rounded-lg">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+            </div>
+            <div className="p-5">
+              <div className="grid grid-cols-3 gap-4 mb-4">
+                <div className="text-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{memberCount}</p>
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">Members</p>
+                </div>
+                <div className="text-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                  <p className="text-2xl font-bold text-[#00B5A5]">{percentage}%</p>
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">of Total</p>
+                </div>
+                <div className="text-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">#{rank || "—"}</p>
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">Rank</p>
+                </div>
+              </div>
+              {/* Member distribution bar */}
+              <div className="mb-3">
+                <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  <span>Share of total membership</span>
+                  <span>{percentage}%</span>
+                </div>
+                <div className="w-full h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                  <div className="h-full bg-[#00B5A5] rounded-full transition-all" style={{ width: `${percentage}%` }} />
+                </div>
+              </div>
+              {isTop10 && (
+                <div className="flex items-center gap-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                  <span className="text-amber-500 text-sm">&#9733;</span>
+                  <span className="text-xs text-amber-700 dark:text-amber-300 font-medium">Top 10 country by membership</span>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
