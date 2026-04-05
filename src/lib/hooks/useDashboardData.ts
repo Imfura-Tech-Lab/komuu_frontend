@@ -44,15 +44,16 @@ export function useDashboardData() {
         const endpoint = isBoard ? "board/dashboard" : "dashboard";
 
         const client = getAuthenticatedClient();
-        const response = await client.get<{ status: string; data: DashboardResponse; message?: string }>(endpoint);
+        const response = await client.get<{ status: string; data: unknown; message?: string }>(endpoint);
         const result = response.data;
 
         if (!isMounted.current) return;
 
-        if (result.status === "success") {
-          // Tag response with role for type discrimination
+        if (result.status === "success" && result.data) {
           const dashboardData = {
-            ...result,
+            status: "success",
+            message: result.message || "Dashboard Data",
+            data: result.data,
             role: isBoard ? "board" : "member",
           } as unknown as DashboardResponse;
           setData(dashboardData);
