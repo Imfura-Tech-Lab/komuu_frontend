@@ -14,18 +14,41 @@ export type BoardDashboardData = {
 };
 
 export type MemberDashboardData = {
-  pending_application: Array<{
-    id: string | number;
-    name_of_organization?: string;
-    Abbreviation?: string;
-    company_email?: string;
+  application: {
+    id: string;
     status: string;
+    organization: string;
+    membership_type: string;
+    membership_number: string | null;
+    has_paid: boolean;
+    submitted_at: string;
+  } | null;
+  certificate: {
+    valid_until: string | null;
+    next_renewal: string | null;
+    is_expiring_soon: boolean;
+    is_expired: boolean;
+  } | null;
+  renewal_due: boolean;
+  next_renewal_date: string | null;
+  events: {
+    total: number;
+    upcoming: Array<{
+      id: string | number;
+      title: string;
+      start_time: string;
+      location?: string;
+      is_paid?: boolean;
+      price?: number;
+    }>;
+  };
+  messages: Array<{
+    id: string | number;
+    body: string;
+    conversation_title: string | null;
+    sender_name: string;
     created_at: string;
   }>;
-  to_renew_this_month: unknown;
-  next_renewal_date: string | null;
-  latest_messages: unknown[];
-  upcoming_events: unknown[];
 };
 
 export type DashboardResponse =

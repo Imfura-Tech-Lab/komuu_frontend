@@ -3,7 +3,7 @@ import {
   showSuccessToast,
   showErrorToast,
 } from "@/components/layouts/auth-layer-out";
-import { getAuthenticatedClient, getCompanyHeaders, ApiError } from "@/lib/api-client";
+import { getAuthenticatedClient, ApiError } from "@/lib/api-client";
 
 export interface Event {
   id: string;
@@ -50,6 +50,13 @@ export interface RegisterEventParams {
   status?: "pending" | "confirmed" | "cancelled" | "failed";
 }
 
+export interface Pagination {
+  currentPage: number;
+  lastPage: number;
+  total: number;
+  perPage: number;
+}
+
 interface ApiResponse<T> {
   status: "success" | "error" | boolean;
   message: string;
@@ -59,27 +66,9 @@ interface ApiResponse<T> {
 interface PaginatedResponse<T> {
   current_page: number;
   data: T[];
-  first_page_url: string;
-  from: number;
   last_page: number;
-  last_page_url: string;
-  next_page_url: string | null;
-  path: string;
   per_page: number;
-  prev_page_url: string | null;
-  to: number;
   total: number;
-}
-
-interface UseMemberEventsReturn {
-  events: Event[];
-  myRegistrations: EventRegistration[];
-  loading: boolean;
-  error: string | null;
-  fetchEvents: () => Promise<void>;
-  fetchEvent: (id: string) => Promise<Event | null>;
-  registerForEvent: (params: RegisterEventParams) => Promise<boolean>;
-  cancelRegistration: (eventId: string) => Promise<boolean>;
 }
 
 function normalizeEvent(event: Record<string, unknown>): Event {
@@ -104,7 +93,7 @@ function normalizeEvent(event: Record<string, unknown>): Event {
     status: (event.status as Event["status"]) || "Scheduled",
     thumbnail: event.thumbnail as string | undefined,
     organizer: event.organizer as string | undefined,
-    registrations: (event.registrations as number) || 0,
+    registrations,
     available_slots: availableSlots,
     is_registered: Boolean(event.is_registered),
     created_at: event.created_at as string | undefined,
@@ -112,29 +101,37 @@ function normalizeEvent(event: Record<string, unknown>): Event {
   };
 }
 
-export function useMemberEvents(): UseMemberEventsReturn {
+export function useMemberEvents() {
   const [events, setEvents] = useState<Event[]>([]);
-  const [myRegistrations, setMyRegistrations] = useState<EventRegistration[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pagination, setPagination] = useState<Pagination>({
+    currentPage: 1,
+    lastPage: 1,
+    total: 0,
+    perPage: 10,
+  });
 
-  const fetchEvents = useCallback(async () => {
+  const fetchEvents = useCallback(async (page = 1) => {
     try {
       setLoading(true);
       setError(null);
 
       const client = getAuthenticatedClient();
       const response = await client.get<ApiResponse<PaginatedResponse<Record<string, unknown>>>>(
-        "events/all",
-        { headers: getCompanyHeaders() }
+        `events/all?page=${page}`
       );
 
       const data = response.data;
       if ((data.status === "success" || data.status === true) && data.data) {
         const eventsData = data.data.data || [];
-        setEvents(
-          Array.isArray(eventsData) ? eventsData.map(normalizeEvent) : []
-        );
+        setEvents(Array.isArray(eventsData) ? eventsData.map(normalizeEvent) : []);
+        setPagination({
+          currentPage: data.data.current_page,
+          lastPage: data.data.last_page,
+          total: data.data.total,
+          perPage: data.data.per_page,
+        });
       }
     } catch (err) {
       const apiError = err as ApiError;
@@ -142,9 +139,8 @@ export function useMemberEvents(): UseMemberEventsReturn {
         showErrorToast("Unauthorized. Please log in again.");
         return;
       }
-      const errorMessage = apiError.message || "Failed to fetch events";
-      setError(errorMessage);
-      showErrorToast(errorMessage);
+      setError(apiError.message || "Failed to fetch events");
+      showErrorToast(apiError.message || "Failed to fetch events");
     } finally {
       setLoading(false);
     }
@@ -152,179 +148,78 @@ export function useMemberEvents(): UseMemberEventsReturn {
 
   const fetchEvent = useCallback(async (id: string): Promise<Event | null> => {
     try {
-      setLoading(true);
-      setError(null);
-
       const client = getAuthenticatedClient();
-      const response = await client.get<ApiResponse<Record<string, unknown>>>(
-        `events/all/${id}`,
-        { headers: getCompanyHeaders() }
-      );
-
+      const response = await client.get<ApiResponse<Record<string, unknown>>>(`events/all/${id}`);
       const data = response.data;
       if ((data.status === "success" || data.status === true) && data.data) {
         return normalizeEvent(data.data);
       }
-
       return null;
-    } catch (err) {
-      const apiError = err as ApiError;
-      if (apiError.status === 404) {
-        showErrorToast("Event not found");
-      } else if (apiError.status === 403) {
-        showErrorToast("You don't have permission to view this event");
-      } else {
-        showErrorToast("Failed to load event details");
-      }
+    } catch {
+      showErrorToast("Failed to load event details");
       return null;
-    } finally {
-      setLoading(false);
     }
   }, []);
 
-  const registerForEvent = useCallback(
-    async (params: RegisterEventParams): Promise<boolean> => {
-      try {
-        setLoading(true);
-        setError(null);
+  const registerForEvent = useCallback(async (params: RegisterEventParams): Promise<boolean> => {
+    try {
+      const formData = new FormData();
+      formData.append("is_paid", params.is_paid ? "1" : "0");
+      if (params.amount_paid) formData.append("amount_paid", params.amount_paid.toString());
+      if (params.transaction_number) formData.append("transaction_number", params.transaction_number);
+      if (params.payment_method) formData.append("payment_method", params.payment_method);
 
-        if (params.is_paid && !params.amount_paid) {
-          showErrorToast("Amount paid is required for paid events");
-          return false;
-        }
+      const client = getAuthenticatedClient();
+      const response = await client.postFormData<ApiResponse<EventRegistration>>(
+        `events/register/${params.event_id}`,
+        formData
+      );
 
-        if (params.is_paid && !params.payment_method) {
-          showErrorToast("Payment method is required for paid events");
-          return false;
-        }
-
-        const formData = new FormData();
-        formData.append("is_paid", params.is_paid ? "1" : "0");
-
-        if (params.amount_paid) {
-          formData.append("amount_paid", params.amount_paid.toString());
-        }
-
-        if (params.transaction_number) {
-          formData.append("transaction_number", params.transaction_number);
-        }
-
-        if (params.payment_method) {
-          formData.append("payment_method", params.payment_method);
-        }
-
-        if (params.status) {
-          formData.append("status", params.status);
-        }
-
-        const client = getAuthenticatedClient();
-        const response = await client.postFormData<ApiResponse<EventRegistration>>(
-          `events/register/${params.event_id}`,
-          formData,
-          { headers: getCompanyHeaders() }
+      if (response.data.status === "success" || response.data.status === true) {
+        showSuccessToast("Successfully registered for the event");
+        setEvents((prev) =>
+          prev.map((event) =>
+            event.id === params.event_id
+              ? { ...event, is_registered: true, registrations: (event.registrations || 0) + 1, available_slots: event.available_slots ? event.available_slots - 1 : 0 }
+              : event
+          )
         );
-
-        const data = response.data;
-        if (data.status === "success" || data.status === true) {
-          showSuccessToast(
-            params.is_paid
-              ? "Registration submitted. Awaiting payment confirmation."
-              : "Successfully registered for the event"
-          );
-
-          setEvents((prev) =>
-            prev.map((event) =>
-              event.id === params.event_id
-                ? {
-                    ...event,
-                    is_registered: true,
-                    registrations: (event.registrations || 0) + 1,
-                    available_slots: event.available_slots
-                      ? event.available_slots - 1
-                      : 0,
-                  }
-                : event
-            )
-          );
-
-          if (data.data) {
-            setMyRegistrations((prev) => [...prev, data.data!]);
-          }
-
-          return true;
-        }
-
-        throw new Error(data.message || "Failed to register for event");
-      } catch (err) {
-        const apiError = err as ApiError;
-        showErrorToast(apiError.message || "Failed to register for event");
-        return false;
-      } finally {
-        setLoading(false);
+        return true;
       }
-    },
-    []
-  );
+      throw new Error(response.data.message || "Failed to register");
+    } catch (err) {
+      showErrorToast((err as ApiError).message || "Failed to register for event");
+      return false;
+    }
+  }, []);
 
-  const cancelRegistration = useCallback(
-    async (eventId: string): Promise<boolean> => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const client = getAuthenticatedClient();
-        const response = await client.post<ApiResponse<void>>(
-          `events/register/${eventId}/cancel`,
-          undefined,
-          { headers: getCompanyHeaders() }
+  const cancelRegistration = useCallback(async (eventId: string): Promise<boolean> => {
+    try {
+      const client = getAuthenticatedClient();
+      const response = await client.post<ApiResponse<void>>(`events/register/${eventId}/cancel`);
+      if (response.data.status === "success" || response.data.status === true) {
+        showSuccessToast("Registration cancelled");
+        setEvents((prev) =>
+          prev.map((event) =>
+            event.id === eventId
+              ? { ...event, is_registered: false, registrations: Math.max((event.registrations || 0) - 1, 0), available_slots: event.available_slots ? event.available_slots + 1 : (event.capacity || 0) }
+              : event
+          )
         );
-
-        const data = response.data;
-        if (data.status === "success" || data.status === true) {
-          showSuccessToast("Registration cancelled successfully");
-
-          setEvents((prev) =>
-            prev.map((event) =>
-              event.id === eventId
-                ? {
-                    ...event,
-                    is_registered: false,
-                    registrations: Math.max(
-                      (event.registrations || 0) - 1,
-                      0
-                    ),
-                    available_slots: event.available_slots
-                      ? event.available_slots + 1
-                      : (event.capacity || 0),
-                  }
-                : event
-            )
-          );
-
-          setMyRegistrations((prev) =>
-            prev.filter((reg) => reg.event_id !== eventId)
-          );
-
-          return true;
-        }
-
-        throw new Error(data.message || "Failed to cancel registration");
-      } catch (err) {
-        const apiError = err as ApiError;
-        showErrorToast(apiError.message || "Failed to cancel registration");
-        return false;
-      } finally {
-        setLoading(false);
+        return true;
       }
-    },
-    []
-  );
+      throw new Error(response.data.message || "Failed to cancel");
+    } catch (err) {
+      showErrorToast((err as ApiError).message || "Failed to cancel registration");
+      return false;
+    }
+  }, []);
 
   return {
     events,
-    myRegistrations,
     loading,
     error,
+    pagination,
     fetchEvents,
     fetchEvent,
     registerForEvent,

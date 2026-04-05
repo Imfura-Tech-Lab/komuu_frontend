@@ -106,8 +106,8 @@ function SidebarContent({
             <span className="text-[#00B5A5] font-bold text-sm">A</span>
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-white">AFSA Portal</h2>
-            <p className="text-xs text-teal-100">Member System</p>
+            <h2 className="text-lg font-semibold text-white">Komuu</h2>
+            <p className="text-xs text-teal-100">Membership Portal</p>
           </div>
         </div>
       </div>
@@ -138,18 +138,11 @@ function SidebarContent({
             <ThemeToggle placement="sidebar" variant="full" />
           </div>
 
-          {/* Role Information */}
+          {/* Role Badge */}
           <div className="px-4 py-3">
-            <div className="text-xs text-gray-500 dark:text-gray-400">
-              <p className="font-medium">Role: {userRole}</p>
-              <p className="mt-1">
-                {userRole === "Administrator" && "Full system control"}
-                {userRole === "President" && "Certificate authority"}
-                {userRole === "Board" && "View-only access"}
-                {userRole === "Member" && "Member benefits"}
-                {userRole === "Pending" && "Application pending"}
-              </p>
-            </div>
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#00B5A5]/10 text-[#00B5A5]">
+              {userRole}
+            </span>
           </div>
         </div>
       </div>

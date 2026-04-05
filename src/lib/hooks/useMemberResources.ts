@@ -186,24 +186,24 @@ export function useMemberResources(): UseMemberResourcesReturn {
   const downloadResource = useCallback(async (id: number): Promise<boolean> => {
     try {
       const client = getAuthenticatedClient();
-      const response = await client.get<ApiResponse<void>>(
-        `resources/${id}/download`,
-        { headers: getCompanyHeaders() }
+      const response = await client.get<ApiResponse<{ downloads: number; file_url: string; filename: string }>>(
+        `resources/${id}/download`
       );
 
       const data = response.data;
       if (data.status === "success" || data.status === true) {
         setResources((prev) =>
           prev.map((r) =>
-            r.id === id ? { ...r, downloads: (r.downloads || 0) + 1 } : r
+            r.id === id ? { ...r, downloads: (data.data as { downloads: number })?.downloads || (r.downloads || 0) + 1 } : r
           )
         );
 
-        if (data.download_url || data.file_url) {
-          const downloadUrl = data.download_url || data.file_url;
+        // Trigger file download
+        const fileUrl = (data.data as { file_url: string })?.file_url;
+        if (fileUrl) {
           const link = document.createElement("a");
-          link.href = sanitizeFileUrl(downloadUrl) || "";
-          link.download = data.filename || `resource-${id}`;
+          link.href = sanitizeFileUrl(fileUrl) || fileUrl;
+          link.download = (data.data as { filename: string })?.filename || `resource-${id}`;
           link.target = "_blank";
           document.body.appendChild(link);
           link.click();
@@ -213,17 +213,9 @@ export function useMemberResources(): UseMemberResourcesReturn {
         showSuccessToast("Download started");
         return true;
       }
-
-      throw new Error(data.message || "Failed to download resource");
+      throw new Error(data.message || "Failed to download");
     } catch (err) {
-      const apiError = err as ApiError;
-      if (apiError.status === 403) {
-        showErrorToast("You don't have permission to download this resource");
-      } else if (apiError.status === 404) {
-        showErrorToast("Resource not found");
-      } else {
-        showErrorToast(apiError.message || "Failed to download resource");
-      }
+      showErrorToast((err as ApiError).message || "Failed to download resource");
       return false;
     }
   }, []);

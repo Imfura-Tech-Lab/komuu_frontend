@@ -101,7 +101,7 @@ export function Header({
               </button>
               <div className="ml-4">
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  Portal
+                  Membership Portal
                 </h1>
               </div>
             </div>

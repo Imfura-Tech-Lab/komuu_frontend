@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import {
   showErrorToast,
   showSuccessToast,
@@ -60,6 +60,8 @@ interface UseMemberConversationMessagesReturn {
   sendMessage: (params: SendMessageParams) => Promise<boolean>;
   deleteMessage: (conversationId: number, messageId: number) => Promise<boolean>;
   clearMessages: () => void;
+  startPolling: (conversationId: number, intervalMs?: number) => void;
+  stopPolling: () => void;
 }
 
 export function useMemberConversationMessages(): UseMemberConversationMessagesReturn {
@@ -274,6 +276,64 @@ export function useMemberConversationMessages(): UseMemberConversationMessagesRe
     setError(null);
   }, []);
 
+  /**
+   * Polling for near-real-time messages
+   */
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startPolling = useCallback((conversationId: number, intervalMs = 5000) => {
+    // Stop any existing poll
+    if (pollingRef.current) clearInterval(pollingRef.current);
+
+    pollingRef.current = setInterval(async () => {
+      try {
+        const client = getAuthenticatedClient();
+        const response = await client.get<ApiResponse<ConversationDetailResponse>>(
+          `conversations/${conversationId}`,
+          { headers: getCompanyHeaders() }
+        );
+
+        const data = response.data;
+        if (data.status === "success" || data.status === true) {
+          let messagesData: ConversationMessage[] = [];
+          if (data.data?.messages && Array.isArray(data.data.messages)) {
+            messagesData = data.data.messages;
+          } else if (Array.isArray(data.data)) {
+            messagesData = data.data as unknown as ConversationMessage[];
+          }
+
+          const sorted = messagesData.sort((a, b) =>
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          );
+
+          // Only update if message count changed (avoid unnecessary rerenders)
+          setMessages((prev) => {
+            if (prev.length !== sorted.length || (sorted.length > 0 && prev[prev.length - 1]?.id !== sorted[sorted.length - 1]?.id)) {
+              return sorted;
+            }
+            return prev;
+          });
+        }
+      } catch {
+        // Silent fail on polling — don't spam errors
+      }
+    }, intervalMs);
+  }, []);
+
+  const stopPolling = useCallback(() => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, []);
+
   return {
     messages,
     loading,
@@ -284,5 +344,7 @@ export function useMemberConversationMessages(): UseMemberConversationMessagesRe
     sendMessage,
     deleteMessage,
     clearMessages,
+    startPolling,
+    stopPolling,
   };
 }
