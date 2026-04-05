@@ -21,6 +21,7 @@ import { Conversation, useMemberConversations } from "@/lib/hooks/useMemberConve
 import { useMemberConversationMessages, ConversationMessage } from "@/lib/hooks/useMemberConversationMessages";
 import StartConversationModal from "@/components/community/Startconversationmodal";
 import SecureDashboardLayout from "@/components/dashboard/secure-dashboard-layout";
+import { useRealtimeMessages, useTypingIndicator } from "@/lib/hooks/useRealtimeMessages";
 
 // ============================================================================
 // HELPERS
@@ -152,6 +153,19 @@ function GroupChatContent() {
   const { fetchGroup } = useMemberGroups();
   const { conversations, loading: convsLoading, fetchConversations, startConversation } = useMemberConversations();
   const { messages, loading: msgsLoading, fetchMessages, sendMessage, clearMessages, startPolling, stopPolling } = useMemberConversationMessages();
+
+  // Real-time: listen for new messages via WebSocket (falls back to polling if Echo unavailable)
+  useRealtimeMessages({
+    conversationId: selectedConv?.id ?? null,
+    onNewMessage: useCallback((_msg: ConversationMessage) => {
+      if (selectedConv) fetchMessages(selectedConv.id);
+    }, [selectedConv, fetchMessages]),
+    onMessageDeleted: useCallback((_msgId: number) => {
+      if (selectedConv) fetchMessages(selectedConv.id);
+    }, [selectedConv, fetchMessages]),
+  });
+
+  const { typingUsers, sendTyping } = useTypingIndicator(selectedConv?.id ?? null);
 
   // Get user ID
   useEffect(() => {
@@ -402,6 +416,15 @@ function GroupChatContent() {
               </div>
             )}
 
+            {/* Typing indicator */}
+            {typingUsers.length > 0 && (
+              <div className="px-4 py-1 text-xs text-gray-400 dark:text-gray-500 italic">
+                {typingUsers.length === 1
+                  ? `${typingUsers[0]} is typing...`
+                  : `${typingUsers.slice(0, 2).join(", ")} ${typingUsers.length > 2 ? `and ${typingUsers.length - 2} others` : ""} are typing...`}
+              </div>
+            )}
+
             {/* Input */}
             <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-3">
               {file && (
@@ -430,6 +453,7 @@ function GroupChatContent() {
                     value={msgText}
                     onChange={(e) => setMsgText(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(e); } }}
+                    onInput={() => sendTyping()}
                     placeholder="Type a message..."
                     rows={1}
                     className="w-full pl-10 pr-3 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent dark:bg-gray-700 dark:text-white resize-none"
