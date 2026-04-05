@@ -43,7 +43,9 @@ interface CertificateData {
   institution: InstitutionInfo;
 }
 
-// Helper function to load image as base64
+// Production verification URL
+const VERIFICATION_BASE_URL = 'https://komuu.com';
+
 async function loadImageAsBase64(url: string): Promise<string | null> {
   try {
     const response = await fetch(url);
@@ -60,7 +62,6 @@ async function loadImageAsBase64(url: string): Promise<string | null> {
   }
 }
 
-// Helper function to get image dimensions
 function getImageDimensions(base64: string): Promise<{ width: number; height: number }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -70,7 +71,6 @@ function getImageDimensions(base64: string): Promise<{ width: number; height: nu
   });
 }
 
-// Generate certificate hash for integrity
 async function generateCertificateHash(cert: CertificateInfo, institutionAbbr: string): Promise<string> {
   const data = `${institutionAbbr}${cert.member_number}${cert.valid_from}${cert.valid_until}${cert.token}`;
   const encoder = new TextEncoder();
@@ -80,82 +80,82 @@ async function generateCertificateHash(cert: CertificateInfo, institutionAbbr: s
     .join('');
 }
 
-// Generate serial number with checksum
 function generateSerialNumber(memberNumber: string, issueDate: string): string {
   const dateHash = new Date(issueDate).getTime().toString(36).toUpperCase();
   const checksum = memberNumber.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0) % 97;
   return `${memberNumber}-${dateHash}-${checksum.toString().padStart(2, '0')}`;
 }
 
-// Add watermark
+function formatDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+}
+
+// Subtle watermark — less dense, lighter
 function addWatermark(pdf: jsPDF, pageWidth: number, pageHeight: number, institutionAbbr: string) {
-  pdf.setTextColor(245, 245, 245); // Very light gray
-  pdf.setFontSize(60);
+  pdf.setTextColor(240, 240, 240);
+  pdf.setFontSize(50);
   pdf.setFont('helvetica', 'bold');
-  
-  // Diagonal watermark pattern with institution
-  const watermarkText = `${institutionAbbr} VERIFIED`;
-  for (let i = -pageHeight; i < pageHeight * 2; i += 40) {
+
+  const watermarkText = `${institutionAbbr}`;
+  // Only a few watermarks, not a dense pattern
+  for (let i = 30; i < pageHeight; i += 60) {
     pdf.text(watermarkText, pageWidth / 2, i, {
       align: 'center',
       angle: 45,
       renderingMode: 'stroke'
     });
   }
-  
-  pdf.setTextColor(0, 0, 0); // Reset to black
+
+  pdf.setTextColor(0, 0, 0);
 }
 
-// Add microprint border
+// Microprint border
 function addMicroprintBorder(pdf: jsPDF, pageWidth: number, pageHeight: number, institutionName: string) {
-  pdf.setFontSize(2); // Extremely small
-  pdf.setTextColor(120, 120, 120);
-  
-  const microprintText = `${institutionName.toUpperCase()} ORIGINAL DOCUMENT · CERTIFIED AUTHENTIC · `.repeat(15);
-  
-  // Top border
-  pdf.text(microprintText.substring(0, 500), 10, 11, { maxWidth: pageWidth - 20 });
-  
-  // Bottom border
-  pdf.text(microprintText.substring(0, 500), 10, pageHeight - 11, { maxWidth: pageWidth - 20 });
+  pdf.setFontSize(2);
+  pdf.setTextColor(180, 180, 180);
+
+  const microprintText = `${institutionName.toUpperCase()} · CERTIFIED AUTHENTIC · `.repeat(10);
+  pdf.text(microprintText.substring(0, 400), 10, 11, { maxWidth: pageWidth - 20 });
+  pdf.text(microprintText.substring(0, 400), 10, pageHeight - 11, { maxWidth: pageWidth - 20 });
 }
 
-// Add holographic pattern simulation
+// Subtle holographic dots — much lighter
 function addHolographicPattern(pdf: jsPDF, pageWidth: number, pageHeight: number) {
   pdf.setDrawColor(0, 181, 165);
   pdf.setFillColor(0, 181, 165);
   pdf.saveGraphicsState();
-   //@ts-ignore
-  pdf.setGState(new pdf.GState({ opacity: 0.03 })); 
-  
-  // Create repeating geometric pattern
-  for (let x = 15; x < pageWidth - 15; x += 15) {
-    for (let y = 15; y < pageHeight - 15; y += 15) {
-      pdf.circle(x, y, 1.5, 'F');
-      pdf.line(x, y, x + 7, y + 7);
+  //@ts-ignore
+  pdf.setGState(new pdf.GState({ opacity: 0.02 }));
+
+  for (let x = 20; x < pageWidth - 20; x += 20) {
+    for (let y = 20; y < pageHeight - 20; y += 20) {
+      pdf.circle(x, y, 1, 'F');
     }
   }
-  
+
   pdf.restoreGraphicsState();
 }
 
-// Add guilloche patterns
+// Thinner guilloche
 function addGuillochePattern(pdf: jsPDF, x: number, y: number, width: number, height: number) {
   pdf.setDrawColor(0, 181, 165);
-  pdf.setLineWidth(0.1);
+  pdf.setLineWidth(0.08);
   pdf.saveGraphicsState();
   //@ts-ignore
-  pdf.setGState(new pdf.GState({ opacity: 0.2 }));
-  
-  const waves = 15;
+  pdf.setGState(new pdf.GState({ opacity: 0.15 }));
+
+  const waves = 10;
   for (let i = 0; i < waves; i++) {
     const points: [number, number][] = [];
-    for (let j = 0; j <= width; j += 3) {
-      const yOffset = Math.sin((j + i * 10) * 0.15) * 4;
+    for (let j = 0; j <= width; j += 4) {
+      const yOffset = Math.sin((j + i * 12) * 0.12) * 3;
       points.push([j, height / 2 + yOffset]);
     }
-    
-    // Draw the wave line
+
     if (points.length > 1) {
       pdf.moveTo(x + points[0][0], y + points[0][1]);
       for (let k = 1; k < points.length; k++) {
@@ -164,56 +164,39 @@ function addGuillochePattern(pdf: jsPDF, x: number, y: number, width: number, he
       pdf.stroke();
     }
   }
-  
+
   pdf.restoreGraphicsState();
 }
 
-// Helper function to generate QR code as base64 with text in center
+// QR code with text in center
 async function generateQRCodeWithText(data: string, text: string): Promise<string> {
-  try {
-    // Generate QR code on canvas
-    const canvas = document.createElement('canvas');
-    await QRCode.toCanvas(canvas, data, {
-      width: 300,
-      margin: 1,
-      errorCorrectionLevel: 'H', // High error correction to allow for text overlay
-      color: {
-        dark: '#000000',
-        light: '#FFFFFF'
-      }
-    });
+  const canvas = document.createElement('canvas');
+  await QRCode.toCanvas(canvas, data, {
+    width: 300,
+    margin: 1,
+    errorCorrectionLevel: 'H',
+    color: { dark: '#000000', light: '#FFFFFF' }
+  });
 
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Could not get canvas context');
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Could not get canvas context');
 
-    // Add white background circle in center
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
-    const circleRadius = 45;
+  const centerX = canvas.width / 2;
+  const centerY = canvas.height / 2;
 
-    ctx.fillStyle = '#FFFFFF';
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, circleRadius, 0, 2 * Math.PI);
-    ctx.fill();
+  ctx.fillStyle = '#FFFFFF';
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, 40, 0, 2 * Math.PI);
+  ctx.fill();
 
-    // Add text in center
-    ctx.fillStyle = '#000000';
-    ctx.font = 'bold 16px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    
-    // Split text into two lines
-    const words = text.split(' ');
-    const line1 = words.slice(0, 2).join(' ');
-    const line2 = words.slice(2).join(' ');
-    
-    ctx.fillText(line1, centerX, centerY - 8);
-    ctx.fillText(line2, centerX, centerY + 8);
+  ctx.fillStyle = '#00B5A5';
+  ctx.font = 'bold 14px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('SCAN TO', centerX, centerY - 8);
+  ctx.fillText('VERIFY', centerX, centerY + 8);
 
-    return canvas.toDataURL('image/png');
-  } catch (error) {
-    throw error;
-  }
+  return canvas.toDataURL('image/png');
 }
 
 export async function generateCertificatePDF(data: CertificateData): Promise<Blob> {
@@ -227,7 +210,6 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Blo
   const pageHeight = pdf.internal.pageSize.getHeight();
   const { certificate, institution } = data;
 
-  // Generate security elements
   const certificateHash = await generateCertificateHash(certificate, institution.abbreviation);
   const serialNumber = generateSerialNumber(certificate.member_number, certificate.created_at);
 
@@ -236,202 +218,197 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Blo
   const signatureBase64 = institution.signature ? await loadImageAsBase64(institution.signature) : null;
   const stampBase64 = institution.stamp ? await loadImageAsBase64(institution.stamp) : null;
 
-  // Get current domain dynamically (works for localhost and production)
-  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://komuu.com';
-  
-  // Generate enhanced QR code with structured data - Dynamic URL
-  const verificationUrl = `${currentOrigin}/verify/${certificate.token}`;
+  // QR code — always use production URL for verification
+  const verificationUrl = `${VERIFICATION_BASE_URL}/verify/${certificate.token}`;
   const qrCodeData = JSON.stringify({
     url: verificationUrl,
     token: certificate.token,
     memberNumber: certificate.member_number,
-    issueDate: certificate.created_at,
-    expiryDate: certificate.valid_until,
     institution: institution.abbreviation,
     hash: certificateHash,
-    serial: serialNumber
   });
   const qrCodeBase64 = await generateQRCodeWithText(qrCodeData, 'Scan to verify');
 
-  // === SECURITY LAYER 1: Holographic Pattern ===
+  // === SECURITY LAYERS (subtle) ===
   addHolographicPattern(pdf, pageWidth, pageHeight);
-
-  // === SECURITY LAYER 2: Watermark (Dynamic Institution) ===
   addWatermark(pdf, pageWidth, pageHeight, institution.abbreviation);
 
-  // Add decorative border
-  pdf.setDrawColor(0, 181, 165); // #00B5A5
-  pdf.setLineWidth(3);
+  // Outer border — teal
+  pdf.setDrawColor(0, 181, 165);
+  pdf.setLineWidth(2.5);
   pdf.rect(8, 8, pageWidth - 16, pageHeight - 16);
-  
-  pdf.setDrawColor(200, 200, 200);
-  pdf.setLineWidth(0.5);
+
+  // Inner border — light gray
+  pdf.setDrawColor(210, 210, 210);
+  pdf.setLineWidth(0.3);
   pdf.rect(12, 12, pageWidth - 24, pageHeight - 24);
 
-  // === SECURITY LAYER 3: Microprint Border (Dynamic Institution) ===
   addMicroprintBorder(pdf, pageWidth, pageHeight, institution.name);
 
-  // === SECURITY LAYER 4: Guilloche Patterns (decorative areas) ===
-  addGuillochePattern(pdf, 15, 70, pageWidth - 30, 8);
-  addGuillochePattern(pdf, 15, pageHeight - 50, pageWidth - 30, 8);
+  // Subtle guilloche
+  addGuillochePattern(pdf, 15, 68, pageWidth - 30, 6);
+  addGuillochePattern(pdf, 15, pageHeight - 48, pageWidth - 30, 6);
 
-  // Add logo at top center
+  // === LOGO ===
   if (logoBase64) {
     try {
       const logoDimensions = await getImageDimensions(logoBase64);
-      const logoWidth = 30;
+      const logoWidth = 28;
       const logoHeight = (logoDimensions.height / logoDimensions.width) * logoWidth;
-      pdf.addImage(logoBase64, 'PNG', (pageWidth - logoWidth) / 2, 18, logoWidth, logoHeight);
+      pdf.addImage(logoBase64, 'PNG', (pageWidth - logoWidth) / 2, 16, logoWidth, logoHeight);
     } catch {
-      // Logo loading failed - continue without logo
+      // Continue without logo
     }
   }
 
-  // Institution name (Dynamic)
-  pdf.setFontSize(12);
+  // === INSTITUTION NAME ===
+  pdf.setFontSize(11);
   pdf.setFont('helvetica', 'bold');
-  pdf.setTextColor(0, 181, 165); // #00B5A5
-  pdf.text(institution.name.toUpperCase(), pageWidth / 2, 48, { align: 'center' });
+  pdf.setTextColor(0, 181, 165);
+  pdf.text(institution.name.toUpperCase(), pageWidth / 2, 47, { align: 'center' });
 
-  // Title
-  pdf.setFontSize(32);
+  // === TITLE ===
+  pdf.setFontSize(28);
   pdf.setFont('times', 'bold');
-  pdf.setTextColor(0, 0, 0);
-  pdf.text('CERTIFICATE OF MEMBERSHIP', pageWidth / 2, 62, { align: 'center' });
+  pdf.setTextColor(30, 30, 30);
+  pdf.text('CERTIFICATE OF MEMBERSHIP', pageWidth / 2, 60, { align: 'center' });
 
-  // Decorative line
+  // Decorative line under title
   pdf.setDrawColor(0, 181, 165);
-  pdf.setLineWidth(0.5);
-  pdf.line(60, 66, pageWidth - 60, 66);
+  pdf.setLineWidth(0.4);
+  pdf.line(70, 64, pageWidth - 70, 64);
 
-  // Main content
-  pdf.setFontSize(14);
+  // === BODY ===
+  pdf.setFontSize(13);
   pdf.setFont('helvetica', 'normal');
-  pdf.setTextColor(0, 0, 0);
-  pdf.text('This is to certify that', pageWidth / 2, 80, { align: 'center' });
+  pdf.setTextColor(60, 60, 60);
+  pdf.text('This is to certify that', pageWidth / 2, 78, { align: 'center' });
 
-  // Member name (highlighted) - Dynamic
-  pdf.setFontSize(26);
+  // Member name — full name
+  pdf.setFontSize(24);
   pdf.setFont('times', 'bold');
   pdf.setTextColor(0, 181, 165);
-  pdf.text(certificate.name, pageWidth / 2, 92, { align: 'center' });
+  pdf.text(certificate.name, pageWidth / 2, 90, { align: 'center' });
 
-  // Member number - Dynamic
+  // Member number
+  pdf.setFontSize(11);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setTextColor(120, 120, 120);
+  pdf.text(`Member No: ${certificate.member_number}`, pageWidth / 2, 98, { align: 'center' });
+
+  // Membership description with category
+  const fromDate = formatDate(certificate.valid_from);
+  const toDate = formatDate(certificate.valid_until);
+
+  pdf.setFontSize(13);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setTextColor(50, 50, 50);
+
+  // Show membership term properly: "is a Full Member of AFSA"
+  const termText = certificate.membership_term || 'a registered member';
+  pdf.text(`is ${termText} of the`, pageWidth / 2, 108, { align: 'center' });
+
+  pdf.setFont('helvetica', 'bold');
+  pdf.text(institution.name, pageWidth / 2, 116, { align: 'center' });
+
+  pdf.setFont('helvetica', 'normal');
   pdf.setFontSize(12);
-  pdf.setFont('helvetica', 'normal');
-  pdf.setTextColor(100, 100, 100);
-  pdf.text(`Member No: ${certificate.member_number}`, pageWidth / 2, 100, { align: 'center' });
+  pdf.text(`Valid from ${fromDate} until ${toDate}`, pageWidth / 2, 126, { align: 'center' });
 
-  // Membership category and dates - Dynamic
-  const fromDate = new Date(certificate.valid_from).toLocaleDateString('en-US', { 
-    year: 'numeric', 
-    month: 'long', 
-    day: 'numeric' 
-  });
-  const toDate = new Date(certificate.valid_until).toLocaleDateString('en-US', { 
-    year: 'numeric', 
-    month: 'long', 
-    day: 'numeric' 
-  });
-
-  pdf.setFontSize(14);
-  pdf.setFont('helvetica', 'normal');
-  pdf.setTextColor(0, 0, 0);
-  pdf.text(`Is ${certificate.membership_term} from ${fromDate}`, pageWidth / 2, 110, { align: 'center' });
-  pdf.text(`until ${toDate}`, pageWidth / 2, 118, { align: 'center' });
-
-  // Institution abbreviation - Dynamic
-  pdf.setFontSize(14);
-  pdf.text(`of ${institution.abbreviation}`, pageWidth / 2, 128, { align: 'center' });
-
+  // Rights text
   pdf.setFontSize(9);
   pdf.setFont('helvetica', 'italic');
-  pdf.setTextColor(80, 80, 80);
-  pdf.text('This membership includes all the rights, privileges and obligations associated', pageWidth / 2, 138, { align: 'center' });
-  pdf.text('with this category of membership.', pageWidth / 2, 143, { align: 'center' });
+  pdf.setTextColor(100, 100, 100);
+  pdf.text('This membership includes all the rights, privileges and obligations', pageWidth / 2, 136, { align: 'center' });
+  pdf.text('associated with this category of membership.', pageWidth / 2, 141, { align: 'center' });
 
-  const signatureY = pageHeight - 35;
+  // === SIGNATURE AREA ===
+  const signatureY = pageHeight - 32;
 
-  // Left side - Signature (Dynamic)
+  // Left — Authorized Signature
   const signatureX = 50;
   if (signatureBase64) {
     try {
       const sigDimensions = await getImageDimensions(signatureBase64);
       const sigWidth = 35;
       const sigHeight = (sigDimensions.height / sigDimensions.width) * sigWidth;
-      pdf.addImage(signatureBase64, 'PNG', signatureX, signatureY - sigHeight - 5, sigWidth, sigHeight);
+      pdf.addImage(signatureBase64, 'PNG', signatureX, signatureY - sigHeight - 3, sigWidth, sigHeight);
     } catch {
-      // Signature loading failed - continue without signature
+      // Continue without signature
     }
   }
-  
-  pdf.setLineWidth(0.3);
-  pdf.setDrawColor(0, 0, 0);
-  pdf.line(signatureX, signatureY, signatureX + 40, signatureY);
-  
-  pdf.setFontSize(9);
-  pdf.setFont('helvetica', 'bold');
-  pdf.setTextColor(0, 0, 0);
-  pdf.text('Authorized Signature', signatureX + 20, signatureY + 4, { align: 'center' });
-  
-  // President name - Dynamic
-  pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(8);
-  pdf.text(institution.president_name, signatureX + 20, signatureY + 8, { align: 'center' });
-  pdf.text(`Date: ${new Date(certificate.signed_date).toLocaleDateString()}`, signatureX + 20, signatureY + 12, { align: 'center' });
 
-  // Center - QR Code
-  const qrSize = 30;
+  pdf.setLineWidth(0.3);
+  pdf.setDrawColor(80, 80, 80);
+  pdf.line(signatureX, signatureY, signatureX + 40, signatureY);
+
+  pdf.setFontSize(8);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setTextColor(50, 50, 50);
+  pdf.text('Authorized Signature', signatureX + 20, signatureY + 4, { align: 'center' });
+
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(7);
+  pdf.setTextColor(100, 100, 100);
+  pdf.text(institution.president_name, signatureX + 20, signatureY + 8, { align: 'center' });
+  pdf.text(`Signed: ${formatDate(certificate.signed_date)}`, signatureX + 20, signatureY + 12, { align: 'center' });
+
+  // Center — QR Code
+  const qrSize = 28;
   const qrX = (pageWidth - qrSize) / 2;
-  const qrY = signatureY - qrSize + 5; 
-  
+  const qrY = signatureY - qrSize + 3;
   pdf.addImage(qrCodeBase64, 'PNG', qrX, qrY, qrSize, qrSize);
 
-  // Right side - Official Stamp (Dynamic)
+  // Small text under QR
+  pdf.setFontSize(5);
+  pdf.setTextColor(150, 150, 150);
+  pdf.text('Scan to verify authenticity', pageWidth / 2, signatureY + 6, { align: 'center' });
+
+  // Right — Official Stamp
   const stampX = pageWidth - 90;
   if (stampBase64) {
     try {
       const stampDimensions = await getImageDimensions(stampBase64);
-      const stampSize = 30;
+      const stampSize = 28;
       const stampHeight = (stampDimensions.height / stampDimensions.width) * stampSize;
-      pdf.addImage(stampBase64, 'PNG', stampX, signatureY - stampHeight - 5, stampSize, stampHeight);
+      pdf.addImage(stampBase64, 'PNG', stampX, signatureY - stampHeight - 3, stampSize, stampHeight);
     } catch {
-      // Stamp loading failed - continue without stamp
+      // Continue without stamp
     }
   }
 
   pdf.setLineWidth(0.3);
+  pdf.setDrawColor(80, 80, 80);
   pdf.line(stampX, signatureY, stampX + 40, signatureY);
-  
-  pdf.setFontSize(9);
+
+  pdf.setFontSize(8);
   pdf.setFont('helvetica', 'bold');
+  pdf.setTextColor(50, 50, 50);
   pdf.text('Official Stamp', stampX + 20, signatureY + 4, { align: 'center' });
 
-  // === SECURITY LAYER 5: Serial Number ===
-  pdf.setFontSize(7);
-  pdf.setFont('helvetica', 'normal');
-  pdf.setTextColor(100, 100, 100);
-  pdf.text(`Serial: ${serialNumber}`, pageWidth - 20, pageHeight - 3, { align: 'right' });
-
-  // Footer
-  pdf.setFontSize(7);
+  // === FOOTER ===
+  // Serial number (right)
+  pdf.setFontSize(6);
   pdf.setFont('helvetica', 'normal');
   pdf.setTextColor(150, 150, 150);
-  pdf.text('This is a digitally generated certificate', pageWidth / 2, pageHeight - 8, { align: 'center' });
+  pdf.text(`Serial: ${serialNumber}`, pageWidth - 15, pageHeight - 3, { align: 'right' });
 
-  // === SECURITY LAYER 6: Certificate Hash (for verification) ===
-  pdf.setFontSize(5);
-  pdf.text(`Hash: ${certificateHash.substring(0, 40)}...`, 20, pageHeight - 3);
+  // Footer text (center)
+  pdf.text('This is a digitally generated and verifiable certificate', pageWidth / 2, pageHeight - 7, { align: 'center' });
 
-  // === SECURITY LAYER 7: PDF Metadata (Dynamic) ===
+  // Hash (left)
+  pdf.setFontSize(4.5);
+  pdf.text(`Integrity: ${certificateHash.substring(0, 32)}`, 15, pageHeight - 3);
+
+  // === PDF METADATA ===
   pdf.setProperties({
     title: `${institution.abbreviation} Certificate - ${certificate.member_number}`,
     subject: 'Membership Certificate',
     author: institution.name,
-    keywords: `certificate,${certificate.token},${certificate.member_number},${certificateHash},${institution.abbreviation}`,
-    creator: 'Komuu Certificate System',
+    keywords: `certificate,${certificate.token},${certificate.member_number},${institution.abbreviation}`,
+    creator: `${institution.abbreviation} Certificate System`,
     //@ts-ignore
-    producer: 'Komuu Secure PDF Generator'
+    producer: `${institution.abbreviation} Secure PDF Generator`
   });
 
   return pdf.output('blob');
