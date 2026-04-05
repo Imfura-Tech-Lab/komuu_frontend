@@ -167,9 +167,9 @@ export default function ChatWidget() {
       <div className="fixed inset-0 bg-black/20 z-40 md:hidden" onClick={() => setOpen(false)} />
 
       {/* Chat window */}
-      <div className="fixed bottom-6 right-6 z-50 w-[calc(100vw-48px)] md:w-[400px] h-[calc(100vh-120px)] md:h-[600px] max-h-[700px] bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 flex flex-col overflow-hidden">
+      <div className="fixed bottom-6 right-6 z-50 w-[calc(100vw-48px)] md:w-[400px] h-[calc(100vh-120px)] md:h-[600px] max-h-[700px] rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 flex flex-col overflow-hidden" style={chatBgStyle.light}>
         {/* Header */}
-        <div className="bg-[#00B5A5] px-4 py-3 flex items-center gap-3 flex-shrink-0">
+        <div className="bg-[#00B5A5]/95 backdrop-blur-sm px-4 py-3 flex items-center gap-3 flex-shrink-0">
           {view !== "groups" && (
             <button onClick={goBack} className="text-white/80 hover:text-white"><ArrowLeftIcon className="w-5 h-5" /></button>
           )}
@@ -193,7 +193,7 @@ export default function ChatWidget() {
 
         {/* Search */}
         {view !== "chat" && (
-          <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-800">
+          <div className="px-3 py-2 border-b border-gray-100/50 dark:border-gray-800/50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
             <div className="relative">
               <MagnifyingGlassIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
               <input type="text" placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)}
@@ -214,7 +214,7 @@ export default function ChatWidget() {
                 <p className="text-xs text-gray-500">{search ? "No groups found" : "No groups joined"}</p>
               </div>
             ) : filteredGroups.map(g => (
-              <button key={g.slug} onClick={() => selectGroup(g)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 border-b border-gray-50 dark:border-gray-800/50">
+              <button key={g.slug} onClick={() => selectGroup(g)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/60 dark:hover:bg-gray-800/60 border-b border-gray-100/30 dark:border-gray-800/30">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#00B5A5] to-[#008F82] flex items-center justify-center flex-shrink-0">
                   <UserGroupIcon className="w-5 h-5 text-white" />
                 </div>
@@ -237,7 +237,7 @@ export default function ChatWidget() {
                 <button onClick={() => setShowNewTopic(true)} className="text-xs px-3 py-1.5 bg-[#00B5A5] text-white rounded-lg hover:bg-[#008F82]">New Topic</button>
               </div>
             ) : filteredConvs.map(c => (
-              <button key={c.id} onClick={() => selectConv(c)} className={`w-full flex items-center gap-3 px-4 py-3 border-b border-gray-50 dark:border-gray-800/50 ${activeConv?.id === c.id ? "bg-[#00B5A5]/5" : "hover:bg-gray-50 dark:hover:bg-gray-800/50"}`}>
+              <button key={c.id} onClick={() => selectConv(c)} className={`w-full flex items-center gap-3 px-4 py-3 border-b border-gray-100/30 dark:border-gray-800/30 ${activeConv?.id === c.id ? "bg-[#00B5A5]/5" : "hover:bg-gray-50 dark:hover:bg-gray-800/50"}`}>
                 <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
                   <span className="text-xs font-bold text-gray-600 dark:text-gray-300">{c.title[0]?.toUpperCase()}</span>
                 </div>
@@ -254,7 +254,7 @@ export default function ChatWidget() {
 
           {/* MESSAGES */}
           {view === "chat" && (
-            <div className="px-3 py-2 space-y-0.5" style={chatBgStyle.light}>
+            <div className="px-3 py-2 space-y-0.5">
               {msgLoading && messages.length === 0 ? (
                 <div className="flex items-center justify-center h-full py-20"><div className="animate-spin w-6 h-6 border-2 border-[#00B5A5] border-t-transparent rounded-full" /></div>
               ) : messages.length === 0 ? (
@@ -315,7 +315,7 @@ export default function ChatWidget() {
 
         {/* Input (chat view only) */}
         {view === "chat" && (
-          <div className="border-t border-gray-100 dark:border-gray-800 px-2 py-2 bg-white dark:bg-gray-900 flex-shrink-0">
+          <div className="border-t border-gray-100/50 dark:border-gray-800/50 px-2 py-2 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm flex-shrink-0">
             {file && (
               <div className="mb-1.5 mx-1 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center gap-2">
                 {preview ? <img src={preview} alt="" className="w-10 h-10 object-cover rounded" /> : <DocumentIcon className="w-5 h-5 text-gray-500" />}
