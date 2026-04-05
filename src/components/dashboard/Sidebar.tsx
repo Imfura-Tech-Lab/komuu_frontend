@@ -106,7 +106,7 @@ function SidebarContent({
             <span className="text-[#00B5A5] font-bold text-sm">A</span>
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-white">Komuu</h2>
+            <h2 className="text-lg font-semibold text-white">AFSA</h2>
             <p className="text-xs text-teal-100">Membership Portal</p>
           </div>
         </div>

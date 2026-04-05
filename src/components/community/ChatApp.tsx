@@ -573,7 +573,7 @@ export default function ChatApp() {
               <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-[#00B5A5]/10 flex items-center justify-center">
                 <ChatBubbleLeftRightIcon className="w-12 h-12 text-[#00B5A5]" />
               </div>
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Komuu Chat</h3>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">AFSA Chat</h3>
               <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm">
                 Chat with your groups and community members. Select a group to get started.
               </p>
