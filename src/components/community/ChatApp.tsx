@@ -241,7 +241,7 @@ export default function ChatApp() {
   // ============================================================================
 
   return (
-    <div className="flex h-[calc(100vh-64px)]" style={chatBg}>
+    <div className="flex h-[calc(100vh-64px)] bg-white dark:bg-gray-900">
       {/* ============ LEFT SIDEBAR ============ */}
       <div className={`w-full md:w-[340px] lg:w-[380px] bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-r border-gray-200/50 dark:border-gray-800/50 flex flex-col flex-shrink-0 ${mobilePanel === "chat" && (view === "conversations" || view === "messages") ? "hidden md:flex" : "flex"}`}>
         {/* Sidebar header */}
@@ -411,7 +411,7 @@ export default function ChatApp() {
             </div>
 
             {/* Messages area */}
-            <div className="flex-1 overflow-y-auto px-4 py-3">
+            <div className="flex-1 overflow-y-auto px-4 py-3" style={chatBg}>
               {msgsLoading && messages.length === 0 ? (
                 <div className="flex items-center justify-center h-full">
                   <div className="animate-spin w-8 h-8 border-2 border-[#00B5A5] border-t-transparent rounded-full" />
