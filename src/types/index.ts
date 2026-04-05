@@ -251,12 +251,21 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         order: 12,
       },
       {
+        name: "Announcements",
+        href: "/announcements",
+        permission: "send_notifications",
+        section: "communication",
+        icon: "notifications",
+        description: "Broadcast announcements to members",
+        order: 12,
+      },
+      {
         name: "Notifications",
         href: "/notifications",
         permission: "send_notifications",
         section: "communication",
         icon: "notifications",
-        description: "Send notifications to members",
+        description: "View notifications",
         order: 13,
       },
       {
