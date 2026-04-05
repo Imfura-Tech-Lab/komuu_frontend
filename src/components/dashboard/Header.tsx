@@ -2,6 +2,7 @@ import React, { RefObject, useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { UserData, UserRole } from "@/types";
 import { getAuthenticatedClient } from "@/lib/api-client";
+import { useConnectionStatus } from "@/lib/hooks/useConnectionStatus";
 import Image from "next/image";
 
 interface HeaderProps {
@@ -37,6 +38,7 @@ export function Header({
   const [imageError, setImageError] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const router = useRouter();
+  const connectionState = useConnectionStatus();
 
   const fetchUnreadCount = useCallback(async () => {
     try {
@@ -106,7 +108,30 @@ export function Header({
               </div>
             </div>
 
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3">
+              {/* Connection status */}
+              <div className="flex items-center gap-1.5" title={connectionState === "connected" ? "Real-time connected" : connectionState === "connecting" ? "Connecting..." : "Offline — using polling"}>
+                <div className="relative flex items-center">
+                  {connectionState === "connected" ? (
+                    <svg className="w-4 h-4 text-[#00B5A5]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                      <path d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01M1.178 10.178a16.5 16.5 0 0121.644 0M5.645 13.591a10.5 10.5 0 0112.71 0" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  ) : connectionState === "connecting" ? (
+                    <svg className="w-4 h-4 text-amber-500 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                      <path d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01M5.645 13.591a10.5 10.5 0 0112.71 0" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                      <path d="M12 20h.01M8.111 16.404a5.5 5.5 0 017.778 0" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M2 2l20 20" strokeLinecap="round" strokeLinejoin="round" className="text-red-400" stroke="currentColor" />
+                    </svg>
+                  )}
+                </div>
+                <span className={`hidden sm:block text-[10px] font-medium ${connectionState === "connected" ? "text-[#00B5A5]" : connectionState === "connecting" ? "text-amber-500" : "text-gray-400"}`}>
+                  {connectionState === "connected" ? "Live" : connectionState === "connecting" ? "..." : "Offline"}
+                </span>
+              </div>
+
               {/* Notification bell */}
               <button
                 onClick={() => router.push("/notifications")}
