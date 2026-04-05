@@ -220,6 +220,11 @@ export default function SecureDashboardLayout({
         }
       } finally {
         // Always clean up regardless of API success/failure
+        // Clear offline chat data before removing user_data (needs user ID)
+        // Clear offline chat data and disconnect WebSocket
+        import("@/lib/chat-store").then(({ clearChatStore }) => clearChatStore()).catch(() => {});
+        import("@/lib/echo").then(({ disconnectEcho }) => disconnectEcho()).catch(() => {});
+
         localStorage.removeItem("auth_token");
         localStorage.removeItem("user_data");
         localStorage.removeItem("refresh_token");

@@ -3,8 +3,19 @@
  * Caches messages, groups, peers, and queues outgoing messages.
  */
 
-const DB_NAME = "komuu_chat";
 const DB_VERSION = 1;
+
+function getDbName(): string {
+  if (typeof window === "undefined") return "komuu_chat_0";
+  try {
+    const userData = localStorage.getItem("user_data");
+    if (userData) {
+      const parsed = JSON.parse(userData);
+      if (parsed.id) return `komuu_chat_${parsed.id}`;
+    }
+  } catch {}
+  return "komuu_chat_0";
+}
 
 interface PendingMessage {
   id: string; // temp client ID
@@ -34,7 +45,7 @@ function openDB(): Promise<IDBDatabase> {
       return;
     }
 
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    const request = indexedDB.open(getDbName(), DB_VERSION);
 
     request.onupgradeneeded = () => {
       const db = request.result;
@@ -185,6 +196,20 @@ export async function setCache<T>(key: string, data: T): Promise<void> {
     const db = await openDB();
     const tx = db.transaction("cache", "readwrite");
     tx.objectStore("cache").put({ key, data, timestamp: Date.now() });
+  } catch {}
+}
+
+// ============================================================================
+// CLEANUP — call on logout
+// ============================================================================
+
+export async function clearChatStore(): Promise<void> {
+  try {
+    const dbName = getDbName();
+    // Delete the entire database for this user
+    if (typeof indexedDB !== "undefined") {
+      indexedDB.deleteDatabase(dbName);
+    }
   } catch {}
 }
 
