@@ -18,15 +18,14 @@ export function getEcho(): Echo<"reverb"> | null {
 
   const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || "";
   const wsHost = process.env.NEXT_PUBLIC_REVERB_HOST || "staging-api.komuu.com";
-  const wsPort = parseInt(process.env.NEXT_PUBLIC_REVERB_PORT || "8080");
 
   echoInstance = new Echo({
     broadcaster: "reverb",
     key: process.env.NEXT_PUBLIC_REVERB_APP_KEY || "komuu-reverb-key",
     wsHost,
-    wsPort,
-    wssPort: wsPort,
-    forceTLS: wsPort === 443,
+    wsPort: 443,
+    wssPort: 443,
+    forceTLS: true,
     enabledTransports: ["ws", "wss"],
     authEndpoint: `${apiUrl}broadcasting/auth`,
     auth: {
