@@ -4,6 +4,8 @@ import { BoardDashboardData } from "@/types/dashboard";
 import {
   BarChart,
   Bar,
+  LineChart,
+  Line as RechartsLine,
   PieChart,
   Pie,
   Cell,
@@ -657,6 +659,83 @@ function OverviewTab({
           icon={<GlobeIcon />}
           color="bg-purple-500"
         />
+      </div>
+
+      {/* Action Items */}
+      {((data.waiting_for_signature?.length || 0) > 0 || (data.waiting_for_approval?.length || 0) > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {(data.waiting_for_signature?.length || 0) > 0 && (
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
+                  <svg className="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">{data.waiting_for_signature?.length} Awaiting Signature</p>
+                  <p className="text-xs text-amber-600 dark:text-amber-400">Applications approved, pending President signature</p>
+                </div>
+              </div>
+            </div>
+          )}
+          {(data.waiting_for_approval?.length || 0) > 0 && (
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                  <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-blue-800 dark:text-blue-300">{data.waiting_for_approval?.length} Awaiting Approval</p>
+                  <p className="text-xs text-blue-600 dark:text-blue-400">Applications under review, pending Board decision</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Application Trends + Upcoming Events */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Application Trends */}
+        {data.applications_overtime && data.applications_overtime.length > 0 && (
+          <ChartCard title="Application Trends" csvData={data.applications_overtime.map(a => ({ month: a.month_year.trim(), applications: a.count }))}>
+            <ResponsiveContainer width="100%" height={250}>
+              <LineChart data={data.applications_overtime.map(a => ({ month: a.month_year.trim(), count: a.count }))}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+                <Tooltip />
+                <RechartsLine type="monotone" dataKey="count" stroke="#00B5A5" strokeWidth={2} dot={{ fill: "#00B5A5", r: 4 }} name="Applications" isAnimationActive={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </ChartCard>
+        )}
+
+        {/* Upcoming Events */}
+        {data.upcoming_events && data.upcoming_events.length > 0 && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Upcoming Events ({data.upcoming_events.length})</h3>
+            <div className="space-y-3">
+              {data.upcoming_events.slice(0, 4).map((event) => (
+                <div key={event.id} className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                  <div className="p-2 bg-[#00B5A5]/10 rounded-lg flex-shrink-0">
+                    <svg className="w-4 h-4 text-[#00B5A5]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{event.title}</p>
+                    <div className="flex items-center gap-2 mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      <span>{new Date(event.start_time).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                      <span>·</span>
+                      <span>{event.type}</span>
+                      <span>·</span>
+                      <span>{event.event_mode}</span>
+                      {event.is_paid && <span className="text-[#00B5A5] font-medium">${event.price}</span>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Quick Map Preview */}

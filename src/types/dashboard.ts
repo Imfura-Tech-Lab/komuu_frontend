@@ -11,6 +11,35 @@ export type BoardDashboardData = {
   expiring_certificates: unknown[];
   countries_of_operations: Array<{ country: string; count: number }>;
   application_per_region: Array<{ region: string; count: number }>;
+  // New fields from updated API
+  applications_overtime?: Array<{ month_year: string; count: number }>;
+  age_distribution?: Array<{ age_group: string; count: number }>;
+  upcoming_events?: Array<{
+    id: string;
+    title: string;
+    type: string;
+    start_time: string;
+    location?: string;
+    event_mode: string;
+    is_paid: boolean;
+    price?: string;
+    capacity: number;
+    status: string;
+  }>;
+  waiting_for_signature?: Array<{
+    id: string;
+    status: string;
+    name_of_organization?: string;
+    user_id: number;
+    created_at: string;
+  }>;
+  waiting_for_approval?: Array<{
+    id: string;
+    status: string;
+    name_of_organization?: string;
+    user_id: number;
+    created_at: string;
+  }>;
 };
 
 export type MemberDashboardData = {
