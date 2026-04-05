@@ -327,7 +327,7 @@ export default function ChatWidget() {
         )}
 
         {/* CONTENT */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto" style={view === "chat" ? chatBg : undefined}>
 
           {/* === GROUPS LIST === */}
           {view === "list" && tab === "groups" && (
@@ -385,9 +385,9 @@ export default function ChatWidget() {
 
           {/* === CHAT MESSAGES === */}
           {view === "chat" && (
-            <div className="px-3 py-2 space-y-0.5" style={chatBg}>
+            <div className="px-3 py-2 space-y-0.5">
               {messages.length === 0 ? (
-                <div className="flex items-center justify-center h-64">
+                <div className="flex items-center justify-center h-full min-h-[300px]">
                   <div className="text-center bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl px-6 py-5">
                     <ChatBubbleLeftRightIcon className="w-10 h-10 text-gray-300 mx-auto mb-2" />
                     <p className="text-xs text-gray-500">No messages yet</p>
