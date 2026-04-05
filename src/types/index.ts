@@ -580,6 +580,15 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         description: "Connect with other members",
         order: 7,
       },
+      {
+        name: "Announcements",
+        href: "/announcements",
+        permission: "member_community",
+        section: "engagement",
+        icon: "megaphone",
+        description: "Organization announcements",
+        order: 8,
+      },
     ],
     Pending: [
       {
