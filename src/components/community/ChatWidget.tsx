@@ -71,9 +71,11 @@ export default function ChatWidget() {
   const endRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const { joinedGroups, loading: grpLoading, fetchJoinedGroups } = useMemberGroups();
+  const [sending, setSending] = useState(false);
+
+  const { joinedGroups, fetchJoinedGroups } = useMemberGroups();
   const { conversations, loading: convLoading, fetchConversations, startConversation } = useMemberConversations();
-  const { messages, loading: msgLoading, fetchMessages, sendMessage, clearMessages, startPolling, stopPolling } = useMemberConversationMessages();
+  const { messages, fetchMessages, sendMessage, clearMessages, startPolling, stopPolling } = useMemberConversationMessages();
 
   useRealtimeMessages({
     conversationId: activeConv?.id ?? null,
@@ -146,9 +148,11 @@ export default function ChatWidget() {
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if ((!msgText.trim() && !file) || !activeConv || msgLoading) return;
+    if ((!msgText.trim() && !file) || !activeConv || sending) return;
     if (msgText.trim().length > 0 && msgText.trim().length < 10) { showErrorToast("Min 10 characters"); return; }
+    setSending(true);
     const ok = await sendMessage({ conversation_id: activeConv.id, content: msgText.trim() || "Sent an attachment", attachment: file || undefined });
+    setSending(false);
     if (ok) { setMsgText(""); removeFile(); }
   };
 
@@ -228,9 +232,7 @@ export default function ChatWidget() {
             </div>
 
             <div className="flex-1 overflow-y-auto">
-              {grpLoading ? (
-                <div className="p-4 space-y-3">{[1,2,3].map(i => <div key={i} className="h-14 bg-white/50 dark:bg-gray-800/50 rounded-xl animate-pulse" />)}</div>
-              ) : filteredGroups.length === 0 ? (
+              {filteredGroups.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full p-6 text-center">
                   <UserGroupIcon className="w-12 h-12 text-gray-300 dark:text-gray-700 mb-2" />
                   <p className="text-xs text-gray-500">{search ? "No groups found" : "No groups joined"}</p>
@@ -256,11 +258,7 @@ export default function ChatWidget() {
           <>
             {/* Messages */}
             <div className="flex-1 overflow-y-auto px-3 py-2">
-              {(msgLoading || convLoading) && messages.length === 0 ? (
-                <div className="flex items-center justify-center h-full">
-                  <div className="animate-spin w-6 h-6 border-2 border-[#00B5A5] border-t-transparent rounded-full" />
-                </div>
-              ) : messages.length === 0 ? (
+              {messages.length === 0 ? (
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl px-6 py-5">
                     <ChatBubbleLeftRightIcon className="w-10 h-10 text-gray-300 mx-auto mb-2" />
@@ -339,17 +337,17 @@ export default function ChatWidget() {
               )}
               <form onSubmit={handleSend} className="flex items-end gap-1.5">
                 <input ref={fileRef} type="file" onChange={handleFile} className="hidden" accept="image/*,application/pdf,.doc,.docx" />
-                <button type="button" onClick={() => fileRef.current?.click()} disabled={msgLoading} className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
+                <button type="button" onClick={() => fileRef.current?.click()} disabled={sending} className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
                   <PaperClipIcon className="w-4 h-4" />
                 </button>
                 <textarea
                   value={msgText} onChange={e => setMsgText(e.target.value)} onInput={() => sendTyping()}
                   onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(e); } }}
-                  placeholder="Message..." rows={1} disabled={msgLoading}
+                  placeholder="Message..." rows={1} disabled={sending}
                   className="flex-1 px-3 py-2 text-xs bg-gray-100 dark:bg-gray-800 border-0 rounded-2xl focus:ring-1 focus:ring-[#00B5A5] text-gray-900 dark:text-white placeholder-gray-400 resize-none"
                   style={{ minHeight: "36px", maxHeight: "80px" }}
                 />
-                <button type="submit" disabled={(!msgText.trim() && !file) || msgLoading} className="p-2 bg-[#00B5A5] text-white rounded-full hover:bg-[#008F82] disabled:opacity-40 transition-colors">
+                <button type="submit" disabled={(!msgText.trim() && !file) || sending} className="p-2 bg-[#00B5A5] text-white rounded-full hover:bg-[#008F82] disabled:opacity-40 transition-colors">
                   <PaperAirplaneIcon className="w-4 h-4" />
                 </button>
               </form>
