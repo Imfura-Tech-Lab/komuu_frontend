@@ -25,7 +25,8 @@ function formatDate(dateString: string): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-function getNotificationContent(data: Record<string, unknown>): { title: string; message: string } {
+function getNotificationContent(data: Record<string, unknown> | null | undefined): { title: string; message: string } {
+  if (!data) return { title: "Notification", message: "" };
   const title = (data.title || data.subject || data.type || "Notification") as string;
   const message = (data.message || data.body || data.description || "") as string;
   return { title, message };
