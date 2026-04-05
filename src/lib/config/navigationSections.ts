@@ -37,7 +37,7 @@ export const NAVIGATION_SECTIONS: NavigationSection[] = [
     id: "communication",
     label: "Communication",
     order: 6,
-    condition: (userRole) => userRole === "Administrator",
+    condition: (userRole) => ["Administrator", "President", "Board"].includes(userRole),
   },
   {
     id: "support",

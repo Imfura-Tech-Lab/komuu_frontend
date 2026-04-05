@@ -21,7 +21,8 @@ import {
   LightBulbIcon,
   PencilSquareIcon,
   UserCircleIcon,
-  TagIcon, 
+  TagIcon,
+  MegaphoneIcon,
 } from "@heroicons/react/24/outline";
 
 export function useNavigationIcons() {
@@ -42,6 +43,7 @@ export function useNavigationIcons() {
       certificate_sign: <PencilSquareIcon className="h-5 w-5 mr-3" />,
       analytics: <ChartBarIcon className="h-5 w-5 mr-3" />,
       notifications: <BellIcon className="h-5 w-5 mr-3" />,
+      megaphone: <MegaphoneIcon className="h-5 w-5 mr-3" />,
       settings: <CogIcon className="h-5 w-5 mr-3" />,
 
       // Executive/Leadership icons
