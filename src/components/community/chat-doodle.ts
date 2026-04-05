@@ -119,11 +119,35 @@ const DARK_DOODLE = encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" 
   </g>
 </svg>`);
 
-export const chatDoodleLight = `url("data:image/svg+xml,${LIGHT_DOODLE}")`;
-export const chatDoodleDark = `url("data:image/svg+xml,${DARK_DOODLE}")`;
-
-// For inline style usage
 export const chatBgStyle = {
-  light: { backgroundImage: `url("data:image/svg+xml,${LIGHT_DOODLE}")`, backgroundColor: "#f0f2f5" },
-  dark: { backgroundImage: `url("data:image/svg+xml,${DARK_DOODLE}")`, backgroundColor: "#0b141a" },
+  light: { backgroundImage: `url("data:image/svg+xml,${LIGHT_DOODLE}")`, backgroundColor: "#f0f2f5" } as React.CSSProperties,
+  dark: { backgroundImage: `url("data:image/svg+xml,${DARK_DOODLE}")`, backgroundColor: "#0b141a" } as React.CSSProperties,
 };
+
+import React from "react";
+
+/**
+ * Hook to get the correct chat background style based on theme.
+ * Uses next-themes to detect dark mode.
+ */
+export function useChatBgStyle(): React.CSSProperties {
+  const [style, setStyle] = React.useState<React.CSSProperties>(chatBgStyle.light);
+
+  React.useEffect(() => {
+    // Check current theme
+    const update = () => {
+      const isDark = document.documentElement.classList.contains("dark");
+      setStyle(isDark ? chatBgStyle.dark : chatBgStyle.light);
+    };
+
+    update();
+
+    // Watch for theme changes via class mutations on <html>
+    const observer = new MutationObserver(update);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+
+    return () => observer.disconnect();
+  }, []);
+
+  return style;
+}

@@ -19,7 +19,7 @@ import { Conversation, useMemberConversations } from "@/lib/hooks/useMemberConve
 import { ConversationMessage } from "@/lib/hooks/useMemberConversationMessages";
 import { useRealtimeMessages, useTypingIndicator } from "@/lib/hooks/useRealtimeMessages";
 import { showErrorToast } from "@/components/layouts/auth-layer-out";
-import { chatBgStyle } from "@/components/community/chat-doodle";
+import { useChatBgStyle } from "@/components/community/chat-doodle";
 import { getAuthenticatedClient } from "@/lib/api-client";
 import { useOfflineChat } from "@/lib/hooks/useOfflineChat";
 import { getCached, setCache } from "@/lib/chat-store";
@@ -79,6 +79,7 @@ function fName(url: string) { return url.split("/").pop() || "file"; }
 // ============================================================================
 
 export default function ChatWidget() {
+  const chatBg = useChatBgStyle();
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("groups");
   const [view, setView] = useState<View>("list");
@@ -256,7 +257,7 @@ export default function ChatWidget() {
     <>
       <div className="fixed inset-0 bg-black/20 z-40 md:hidden" onClick={() => setOpen(false)} />
 
-      <div className="fixed bottom-6 right-6 z-50 w-[calc(100vw-48px)] md:w-[400px] h-[calc(100vh-120px)] md:h-[600px] max-h-[700px] rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 flex flex-col overflow-hidden" style={chatBgStyle.light}>
+      <div className="fixed bottom-6 right-6 z-50 w-[calc(100vw-48px)] md:w-[400px] h-[calc(100vh-120px)] md:h-[600px] max-h-[700px] rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 flex flex-col overflow-hidden" style={chatBg}>
 
         {/* HEADER */}
         <div className="bg-[#00B5A5] px-4 py-3 flex items-center gap-3 flex-shrink-0">

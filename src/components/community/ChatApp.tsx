@@ -24,7 +24,7 @@ import { useRealtimeMessages, useTypingIndicator } from "@/lib/hooks/useRealtime
 import { showErrorToast, showSuccessToast } from "@/components/layouts/auth-layer-out";
 import { FileViewer } from "@/components/ui/FileViwer";
 import StartConversationModal from "@/components/community/Startconversationmodal";
-import { chatBgStyle } from "@/components/community/chat-doodle";
+import { useChatBgStyle } from "@/components/community/chat-doodle";
 
 // ============================================================================
 // HELPERS
@@ -79,6 +79,7 @@ type ChatView = "groups" | "conversations" | "messages";
 // ============================================================================
 
 export default function ChatApp() {
+  const chatBg = useChatBgStyle();
   // State
   const [activeGroup, setActiveGroup] = useState<MemberGroup | null>(null);
   const [activeConv, setActiveConv] = useState<Conversation | null>(null);
@@ -240,7 +241,7 @@ export default function ChatApp() {
   // ============================================================================
 
   return (
-    <div className="flex h-[calc(100vh-64px)]" style={chatBgStyle.light}>
+    <div className="flex h-[calc(100vh-64px)]" style={chatBg}>
       {/* ============ LEFT SIDEBAR ============ */}
       <div className={`w-full md:w-[340px] lg:w-[380px] bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-r border-gray-200/50 dark:border-gray-800/50 flex flex-col flex-shrink-0 ${mobilePanel === "chat" && (view === "conversations" || view === "messages") ? "hidden md:flex" : "flex"}`}>
         {/* Sidebar header */}
