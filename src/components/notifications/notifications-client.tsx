@@ -141,13 +141,13 @@ export default function NotificationsClient() {
           </div>
         ) : (
           <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {notifications.map((notification) => {
+            {notifications.map((notification, index) => {
               const { title, message } = getNotificationContent(notification.data);
               const isUnread = !notification.read_at;
 
               return (
                 <div
-                  key={notification.id}
+                  key={notification.id || `notif-${index}`}
                   className={`flex items-start gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${
                     isUnread ? "border-l-4 border-l-[#00B5A5] bg-[#00B5A5]/5 dark:bg-[#00B5A5]/10" : ""
                   }`}
