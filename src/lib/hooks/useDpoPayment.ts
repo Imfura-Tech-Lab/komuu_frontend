@@ -156,8 +156,10 @@ export function useDpoPayment() {
         if (response.data.status === "success" && response.data.data) {
           return response.data.data;
         }
+        showErrorToast(response.data.message || "Payment verification failed");
         return null;
-      } catch {
+      } catch (err) {
+        showErrorToast((err as ApiError).message || "Payment verification failed — please try again");
         return null;
       } finally {
         setLoading(false);
