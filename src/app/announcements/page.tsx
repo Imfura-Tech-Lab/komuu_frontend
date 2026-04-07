@@ -1,10 +1,10 @@
 import SecureDashboardLayout from "@/components/dashboard/secure-dashboard-layout";
-import AnnouncementsClient from "@/components/announcements/announcements-client";
+import CommunicationsClient from "@/components/announcements/announcements-client";
 
-export default function AnnouncementsPage() {
+export default function CommunicationsPage() {
   return (
     <SecureDashboardLayout requiredRoles={["Administrator", "President", "Board", "Member"]}>
-      <AnnouncementsClient />
+      <CommunicationsClient />
     </SecureDashboardLayout>
   );
 }
