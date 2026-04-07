@@ -36,7 +36,7 @@ export function useMemberImport() {
         setResult(null);
 
         const formData = new FormData();
-        formData.append("file", file);
+        formData.append("import_file", file);
 
         const client = getAuthenticatedClient();
         const response = await client.postFormData<ImportResponse>(

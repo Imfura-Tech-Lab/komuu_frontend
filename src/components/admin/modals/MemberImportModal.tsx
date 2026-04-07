@@ -74,6 +74,27 @@ export default function MemberImportModal({
         </div>
 
         <div className="p-6 space-y-4">
+          {/* Template download */}
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+            <p className="text-xs text-blue-800 dark:text-blue-300 mb-2 font-medium">Required columns in your Excel file:</p>
+            <p className="text-[10px] text-blue-600 dark:text-blue-400 leading-relaxed">membership_type, membership_no, first_name, surname, email_address, phone_number, application_date, from_date_certif_valid, to_date_certif_valid, next_cycle_payment_date, primary_field, membership_term</p>
+            <p className="text-[10px] text-blue-500 dark:text-blue-500 mt-1">Optional: title, middle_name, birth_of_date, whatsapp_number, country_of_residency, country_of_practice, academic_institution, institution</p>
+            <button
+              onClick={() => {
+                const headers = "membership_type,membership_no,first_name,surname,email_address,phone_number,title,middle_name,birth_of_date,whatsapp_number,country_of_residency,country_of_practice,primary_field,academic_institution,institution,application_date,from_date_certif_valid,to_date_certif_valid,next_cycle_payment_date,membership_term,in_compliance,status,icrc,payment_status";
+                const example = "Full Member,AFSA00100,John,Doe,john@example.com,+250781000000,Dr,,1990-01-01,,Rwanda,,Biology,University of Rwanda,AFSA,2026-01-01,2026-01-01,2027-06-30,2027-07-30,2026 - 2027,true,Approved,Normal,TXN001";
+                const blob = new Blob([headers + "\n" + example], { type: "text/csv" });
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = "member-import-template.csv";
+                a.click();
+              }}
+              className="mt-2 text-xs font-medium text-blue-700 dark:text-blue-300 hover:underline"
+            >
+              Download CSV template
+            </button>
+          </div>
+
           {/* Drop zone */}
           <div
             onDragOver={(e) => e.preventDefault()}

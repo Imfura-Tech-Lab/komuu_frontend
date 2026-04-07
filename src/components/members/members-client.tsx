@@ -8,6 +8,7 @@ import {
 } from "@/components/layouts/auth-layer-out";
 import { BaseTable, BaseTableColumn } from "../ui/BaseTable";
 import MemberImportModal from "../admin/modals/MemberImportModal";
+import OnboardMemberModal from "../admin/modals/OnboardMemberModal";
 import {
   RefreshCw,
   AlertCircle,
@@ -69,6 +70,7 @@ export default function MembersClient() {
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showOnboardModal, setShowOnboardModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const router = useRouter();
@@ -673,6 +675,13 @@ export default function MembersClient() {
 
             <div className="flex items-center gap-2">
               <button
+                onClick={() => setShowOnboardModal(true)}
+                className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-[#00B5A5] hover:bg-[#008F82] rounded-md transition-colors"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Add Member
+              </button>
+              <button
                 onClick={() => setShowImportModal(true)}
                 className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
@@ -791,6 +800,12 @@ export default function MembersClient() {
           setShowImportModal(false);
           fetchMembers();
         }}
+      />
+
+      <OnboardMemberModal
+        isOpen={showOnboardModal}
+        onClose={() => setShowOnboardModal(false)}
+        onSuccess={() => fetchMembers()}
       />
     </div>
   );
