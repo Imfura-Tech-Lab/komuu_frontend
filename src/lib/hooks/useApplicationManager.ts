@@ -33,6 +33,7 @@ interface UseApplicationManagerReturn {
   fetchApplication: () => Promise<void>;
   handleRefresh: () => Promise<void>;
   approveApplication: () => Promise<void>;
+  rejectApplication: (note: string) => Promise<void>;
   signCertificate: () => Promise<void>;
   deleteApplication: (forceDelete: boolean) => Promise<boolean>;
   addNewApplication: (formData: FormData) => Promise<{ success: boolean; errors?: Record<string, string[]> }>;
@@ -135,6 +136,33 @@ export function useApplicationManager({
     } catch (err) {
       const apiError = err as ApiError;
       showErrorToast(apiError.message || "Failed to approve application");
+    } finally {
+      setIsUpdating(false);
+    }
+  }, [applicationId, fetchApplication]);
+
+  const rejectApplication = useCallback(async (note: string) => {
+    try {
+      setIsUpdating(true);
+
+      const params = new URLSearchParams({ status: "0", note });
+
+      const client = getAuthenticatedClient();
+      const response = await client.put<ApiResponse<Application>>(
+        `applications/${applicationId}?${params.toString()}`,
+        undefined,
+        { headers: getCompanyHeaders() }
+      );
+
+      const data = response.data;
+      if (data.status === "success" || data.status === true) {
+        showSuccessToast(data.message || "Application rejected");
+        await fetchApplication();
+      } else {
+        throw new Error(data.message || "Failed to reject");
+      }
+    } catch (err) {
+      showErrorToast((err as ApiError).message || "Failed to reject application");
     } finally {
       setIsUpdating(false);
     }
@@ -315,6 +343,7 @@ export function useApplicationManager({
     fetchApplication,
     handleRefresh,
     approveApplication,
+    rejectApplication,
     signCertificate,
     deleteApplication,
     addNewApplication,

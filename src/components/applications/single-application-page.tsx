@@ -61,6 +61,7 @@ export default function SingleApplicationPage({
     isDeleting,
     fetchApplication,
     approveApplication,
+    rejectApplication,
     signCertificate,
     deleteApplication,
     recordPayment,
@@ -82,15 +83,18 @@ export default function SingleApplicationPage({
   const [showAnalysisModal, setShowAnalysisModal] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectNote, setRejectNote] = useState("");
 
-  const isApproved =
-    application?.application_status?.toLowerCase() === "approved";
+  const appStatus = application?.application_status?.toLowerCase() || "";
+  const isApproved = appStatus === "approved" || appStatus === "waiting for payment";
+  const isRejected = appStatus === "rejected";
   const isPresident = userData?.role === "President";
 
-  const hasUserApproved =
-    application?.approved_by?.some(
-      (approval) => approval.id === userData?.id
-    ) ?? false;
+  const userApproval = application?.approved_by?.find((a: { id: number }) => a.id === userData?.id);
+  const hasUserApproved = userApproval ? (userApproval as unknown as { approved: boolean }).approved === true : false;
+  const hasUserRejected = userApproval ? (userApproval as unknown as { approved: boolean }).approved === false : false;
+  const approvalProgress = (application as unknown as { approval_progress?: { required: number; approved: number; rejected: number; total_reviews: number } })?.approval_progress;
 
   useEffect(() => {
     fetchApplication();
@@ -103,6 +107,13 @@ export default function SingleApplicationPage({
 
   const handleApprove = async () => {
     await approveApplication();
+  };
+
+  const handleReject = async () => {
+    if (!rejectNote.trim()) return;
+    await rejectApplication(rejectNote.trim());
+    setShowRejectModal(false);
+    setRejectNote("");
   };
 
   const handleSign = async () => {
@@ -267,10 +278,14 @@ export default function SingleApplicationPage({
               isUpdating={isUpdating}
               isDeleting={isDeleting}
               isApproved={isApproved}
+              isRejected={isRejected}
               isPresident={isPresident}
               hasUserApproved={hasUserApproved}
+              hasUserRejected={hasUserRejected}
+              approvalProgress={approvalProgress}
               onRefresh={handleRefresh}
               onApprove={handleApprove}
+              onReject={() => setShowRejectModal(true)}
               onSign={handleSign}
               onDelete={handleDeleteClick}
               onRecordPayment={() => setShowPaymentModal(true)}
@@ -689,6 +704,29 @@ export default function SingleApplicationPage({
           isOpen={fileViewerOpen}
           onClose={closeFile}
         />
+
+        {/* Reject Modal */}
+        {showRejectModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/40" onClick={() => setShowRejectModal(false)} />
+            <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">Reject Application</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">This will immediately reject the application and notify the applicant via email.</p>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Reason for rejection *</label>
+                <textarea value={rejectNote} onChange={e => setRejectNote(e.target.value)} placeholder="Explain why this application is being rejected..." rows={4}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent dark:bg-gray-700 dark:text-white resize-none" />
+              </div>
+              <div className="flex gap-3 mt-4">
+                <button onClick={() => { setShowRejectModal(false); setRejectNote(""); }} className="flex-1 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg">Cancel</button>
+                <button onClick={handleReject} disabled={!rejectNote.trim() || isUpdating}
+                  className="flex-1 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50">
+                  {isUpdating ? "Rejecting..." : "Reject Application"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
