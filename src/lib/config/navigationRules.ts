@@ -33,7 +33,7 @@ export const NAVIGATION_RULES: NavigationRule[] = [
       userRole !== "Member" && userRole !== "Pending",
   },
   {
-    itemName: /.*Members.*/,
+    itemName: /^Member Management$|^Members$/,
     section: "membership",
     order: 4,
     condition: (item, userRole) =>
