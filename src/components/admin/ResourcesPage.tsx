@@ -244,9 +244,9 @@ const ResourceCard: React.FC<ResourceCardProps> = ({
           {resource.file_url && (
             <>
               <button
-                onClick={() => onView(resource.file_url!, resource.title)}
+                onClick={() => onCardClick(resource)}
                 className="p-4 transition-all transform bg-white rounded-full shadow-lg dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 hover:scale-110 active:scale-95"
-                title="View"
+                title="View Details"
               >
                 <EyeIcon className="w-6 h-6 text-gray-700 dark:text-gray-300" />
               </button>
