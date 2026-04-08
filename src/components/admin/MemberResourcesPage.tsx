@@ -24,6 +24,8 @@ import { HeartIcon as HeartIconSolid } from "@heroicons/react/24/solid";
 import { FileViewer } from "@/components/ui/FileViwer";
 import { showSuccessToast } from "@/components/layouts/auth-layer-out";
 import { useMemberResources, Resource } from "@/lib/hooks/useMemberResources";
+import { ResourceDetailSheet } from "@/components/admin/modals/ResourceDetailSheet";
+import { Resource as AdminResource } from "@/lib/hooks/useResources";
 
 // ============================================================================
 // HELPERS
@@ -391,13 +393,12 @@ export default function MemberResourcesPage() {
 
           {/* Detail Sheet */}
           {selected && (
-            <ResourceSheet
-              resource={selected}
+            <ResourceDetailSheet
+              isOpen={!!selected}
               onClose={() => setSelected(null)}
+              resource={selected as unknown as AdminResource}
               onView={handleView}
-              onDownload={handleDownload}
-              onLike={likeResource}
-              onDislike={dislikeResource}
+              onDownload={(url, name) => { handleDownload(selected.id); }}
             />
           )}
 

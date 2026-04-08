@@ -31,8 +31,8 @@ interface ResourceDetailSheetProps {
   resource: Resource | null;
   onView: (fileUrl: string, fileName: string) => void;
   onDownload: (fileUrl: string, fileName: string) => void;
-  onEdit: (resource: Resource) => void;
-  onDelete: (resource: Resource) => void;
+  onEdit?: (resource: Resource) => void;
+  onDelete?: (resource: Resource) => void;
 }
 
 export const ResourceDetailSheet: React.FC<ResourceDetailSheetProps> = ({
@@ -364,20 +364,24 @@ export const ResourceDetailSheet: React.FC<ResourceDetailSheetProps> = ({
                     <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => onEdit(resource)}
-                            className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                          >
-                            <PencilIcon className="w-4 h-4 mr-2" />
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => onDelete(resource)}
-                            className="inline-flex items-center px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 bg-white dark:bg-gray-800 border border-red-300 dark:border-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                          >
-                            <TrashIcon className="w-4 h-4 mr-2" />
-                            Delete
-                          </button>
+                          {onEdit && (
+                            <button
+                              onClick={() => onEdit(resource)}
+                              className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                            >
+                              <PencilIcon className="w-4 h-4 mr-2" />
+                              Edit
+                            </button>
+                          )}
+                          {onDelete && (
+                            <button
+                              onClick={() => onDelete(resource)}
+                              className="inline-flex items-center px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 bg-white dark:bg-gray-800 border border-red-300 dark:border-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                            >
+                              <TrashIcon className="w-4 h-4 mr-2" />
+                              Delete
+                            </button>
+                          )}
                         </div>
                         <div className="flex items-center gap-2">
                           {resource.file_url && (
