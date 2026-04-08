@@ -1,4 +1,4 @@
-import { CheckCircle, RefreshCw, FileSignature, Trash2, CreditCard, Brain, XCircle } from "lucide-react";
+import { CheckCircle, RefreshCw, FileSignature, Trash2, XCircle } from "lucide-react";
 
 interface ActionsButtonsProps {
   loading: boolean;
@@ -86,21 +86,6 @@ export function ActionsButtons({
           </button>
         )}
 
-        {isApproved && onRecordPayment && (
-          <button onClick={onRecordPayment} disabled={isUpdating}
-            className="inline-flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2 text-sm font-medium text-white bg-[#00B5A5] hover:bg-[#008F82] rounded-lg transition-colors disabled:opacity-50">
-            <CreditCard className="w-4 h-4" />
-            <span className="hidden sm:inline">Record Payment</span>
-          </button>
-        )}
-
-        {onAnalyzeDocuments && (
-          <button onClick={onAnalyzeDocuments} disabled={isUpdating}
-            className="inline-flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50">
-            <Brain className="w-4 h-4" />
-            <span className="hidden sm:inline">AI Analysis</span>
-          </button>
-        )}
 
         {isPresident && isApproved && (
           <button onClick={onSign} disabled={isUpdating}
