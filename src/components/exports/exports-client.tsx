@@ -40,7 +40,7 @@ function getStatusConfig(status: string) {
 }
 
 export default function ExportsClient() {
-  const { exports: exportJobs, loading, fetchExports, requestExport, checkStatus, getDownloadUrl, deleteExport } = useExports();
+  const { exports: exportJobs, loading, fetchExports, requestExport, checkStatus, downloadExport, approveExport, deleteExport } = useExports();
   const [pollingIds, setPollingIds] = useState<Set<number>>(new Set());
   const intervalsRef = useRef<Map<number, NodeJS.Timeout>>(new Map());
   const [fromDate, setFromDate] = useState(() => {
@@ -102,9 +102,13 @@ export default function ExportsClient() {
     }
   };
 
-  const handleDownload = (id: number) => {
-    const url = getDownloadUrl(id);
-    window.open(url, "_blank");
+  const handleDownload = async (id: number) => {
+    await downloadExport(id);
+  };
+
+  const handleApprove = async (id: number) => {
+    const ok = await approveExport(id, true);
+    if (ok) fetchExports();
   };
 
   return (
@@ -237,11 +241,20 @@ export default function ExportsClient() {
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusConfig.bg} ${statusConfig.color}`}>
                       {job.status}
                     </span>
+                    {job.status?.toLowerCase() !== "completed" && job.status?.toLowerCase() !== "failed" && (
+                      <button
+                        onClick={() => handleApprove(job.id)}
+                        className="px-2.5 py-1 text-xs font-medium text-green-700 bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-300 dark:hover:bg-green-900/50 rounded-lg transition-colors"
+                        title="Approve export"
+                      >
+                        Approve
+                      </button>
+                    )}
                     {job.status?.toLowerCase() === "completed" && (
                       <button
                         onClick={() => handleDownload(job.id)}
                         className="p-2 text-[#00B5A5] hover:bg-[#00B5A5]/10 rounded-lg transition-colors"
-                        title="Download"
+                        title="Download (requires 3 approvals)"
                       >
                         <Download className="w-4 h-4" />
                       </button>

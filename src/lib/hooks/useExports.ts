@@ -94,9 +94,49 @@ export function useExports() {
     []
   );
 
-  const getDownloadUrl = useCallback((id: number): string => {
-    const baseUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL?.replace(/\/$/, "") || "";
-    return `${baseUrl}/export/all/${id}/download`;
+  const downloadExport = useCallback(async (id: number): Promise<void> => {
+    try {
+      const client = getAuthenticatedClient();
+      const response = await client.get<{ status: string; message?: string; data?: { download_url: string; filename: string } }>(
+        `export/all/${id}/download`,
+        { headers: getCompanyHeaders() }
+      );
+
+      if (response.data.status === "success" && response.data.data?.download_url) {
+        const a = document.createElement("a");
+        a.href = response.data.data.download_url;
+        a.download = response.data.data.filename || "export.xlsx";
+        a.target = "_blank";
+        a.click();
+        showSuccessToast("Download started");
+      } else {
+        showErrorToast(response.data.message || "Download not available");
+      }
+    } catch (err) {
+      const apiError = err as ApiError;
+      showErrorToast(apiError.message || "Failed to download — may need more approvals");
+    }
+  }, []);
+
+  const approveExport = useCallback(async (id: number, approved: boolean): Promise<boolean> => {
+    try {
+      const client = getAuthenticatedClient();
+      const response = await client.post<{ status: string; message?: string }>(
+        `export/all/${id}/approve`,
+        { approved },
+        { headers: getCompanyHeaders() }
+      );
+
+      if (response.data.status === "success") {
+        showSuccessToast(approved ? "Export approved" : "Export rejected");
+        return true;
+      }
+      showErrorToast(response.data.message || "Failed");
+      return false;
+    } catch (err) {
+      showErrorToast((err as ApiError).message || "Failed to approve");
+      return false;
+    }
   }, []);
 
   const fetchExports = useCallback(async () => {
@@ -146,7 +186,8 @@ export function useExports() {
     error,
     requestExport,
     checkStatus,
-    getDownloadUrl,
+    downloadExport,
+    approveExport,
     fetchExports,
     deleteExport,
   };
