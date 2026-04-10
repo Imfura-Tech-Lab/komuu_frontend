@@ -15,7 +15,6 @@ interface ActionsButtonsProps {
   onReject?: () => void;
   onSign: () => void;
   onDelete: () => void;
-  onRecordPayment?: () => void;
   onAnalyzeDocuments?: () => void;
 }
 
@@ -34,7 +33,6 @@ export function ActionsButtons({
   onReject,
   onSign,
   onDelete,
-  onRecordPayment,
   onAnalyzeDocuments,
 }: ActionsButtonsProps) {
   const canReview = !isApproved && !isRejected;

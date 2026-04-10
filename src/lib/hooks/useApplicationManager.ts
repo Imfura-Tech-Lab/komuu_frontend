@@ -37,7 +37,6 @@ interface UseApplicationManagerReturn {
   signCertificate: () => Promise<void>;
   deleteApplication: (forceDelete: boolean) => Promise<boolean>;
   addNewApplication: (formData: FormData) => Promise<{ success: boolean; errors?: Record<string, string[]> }>;
-  recordPayment: (data: { amount_paid: number; currency: string; payment_method: string; payment_gateway?: string }) => Promise<boolean>;
   analyzeDocuments: () => Promise<string | null>;
 }
 
@@ -128,7 +127,11 @@ export function useApplicationManager({
 
       const data = response.data;
       if (data.status === "success" || data.status === true) {
-        showSuccessToast("Application approved successfully");
+        showSuccessToast(data.message || "Application approved successfully");
+        // Use response data directly if available, then refresh for full data
+        if (data.data) {
+          setApplication(data.data as Application);
+        }
         await fetchApplication();
       } else {
         throw new Error(data.message || "Failed to approve application");
@@ -157,6 +160,9 @@ export function useApplicationManager({
       const data = response.data;
       if (data.status === "success" || data.status === true) {
         showSuccessToast(data.message || "Application rejected");
+        if (data.data) {
+          setApplication(data.data as Application);
+        }
         await fetchApplication();
       } else {
         throw new Error(data.message || "Failed to reject");
@@ -265,41 +271,6 @@ export function useApplicationManager({
     []
   );
 
-  const recordPayment = useCallback(
-    async (data: {
-      amount_paid: number;
-      currency: string;
-      payment_method: string;
-      payment_gateway?: string;
-    }): Promise<boolean> => {
-      try {
-        setIsUpdating(true);
-        const client = getAuthenticatedClient();
-        const response = await client.post<ApiResponse<unknown>>(
-          `applications/${applicationId}/record-payment`,
-          data,
-          { headers: getCompanyHeaders() }
-        );
-
-        const responseData = response.data;
-        if (responseData.status === "success" || responseData.status === true) {
-          showSuccessToast("Payment recorded successfully");
-          await fetchApplication();
-          return true;
-        }
-
-        throw new Error(responseData.message || "Failed to record payment");
-      } catch (err) {
-        const apiError = err as ApiError;
-        showErrorToast(apiError.message || "Failed to record payment");
-        return false;
-      } finally {
-        setIsUpdating(false);
-      }
-    },
-    [applicationId, fetchApplication]
-  );
-
   const analyzeDocuments = useCallback(async (): Promise<string | null> => {
     try {
       setIsUpdating(true);
@@ -347,7 +318,6 @@ export function useApplicationManager({
     signCertificate,
     deleteApplication,
     addNewApplication,
-    recordPayment,
     analyzeDocuments,
   };
 }
