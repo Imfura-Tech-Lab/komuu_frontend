@@ -46,7 +46,7 @@ function getWelcomeMessage(status: string, hasApp: boolean): string {
 function MembershipProgress({ certificate }: { certificate: MemberDashboardData["certificate"] }) {
   if (!certificate?.valid_until) return null;
 
-  const validFrom = certificate.next_renewal ? new Date(new Date(certificate.valid_until).getTime() - 365 * 24 * 60 * 60 * 1000) : new Date();
+  const validFrom = new Date(new Date(certificate.valid_until).getTime() - 365 * 24 * 60 * 60 * 1000);
   const validUntil = new Date(certificate.valid_until);
   const now = new Date();
   const totalDays = differenceInDays(validUntil, validFrom);
@@ -54,15 +54,21 @@ function MembershipProgress({ certificate }: { certificate: MemberDashboardData[
   const remainingDays = differenceInDays(validUntil, now);
   const progress = totalDays > 0 ? Math.min(Math.max((elapsedDays / totalDays) * 100, 0), 100) : 0;
 
-  const isExpired = remainingDays < 0;
-  const isExpiringSoon = remainingDays >= 0 && remainingDays <= 60;
+  const isExpired = certificate.is_expired;
+  const isExpiringSoon = certificate.is_expiring_soon && !isExpired;
+
+  const badgeLabel = isExpired
+    ? "Expired"
+    : isExpiringSoon
+      ? `${Math.max(remainingDays, 0)}d left`
+      : `${Math.max(remainingDays, 0)}d remaining`;
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Membership Validity</h3>
         <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${isExpired ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" : isExpiringSoon ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"}`}>
-          {isExpired ? "Expired" : isExpiringSoon ? `${remainingDays}d left` : `${remainingDays}d remaining`}
+          {badgeLabel}
         </span>
       </div>
       <div className="w-full h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden mb-2">
@@ -75,6 +81,11 @@ function MembershipProgress({ certificate }: { certificate: MemberDashboardData[
         <span>{formatDate(validFrom.toISOString())}</span>
         <span>{formatDate(certificate.valid_until)}</span>
       </div>
+      {certificate.next_renewal && (
+        <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+          Next renewal: <span className="font-medium text-gray-700 dark:text-gray-300">{formatDate(certificate.next_renewal)}</span>
+        </p>
+      )}
     </div>
   );
 }
@@ -159,6 +170,11 @@ export default function MemberDashboard({ data, refetch }: MemberDashboardProps)
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{application?.organization || "View your membership application"}</p>
           {application?.membership_type && (
             <p className="text-[10px] text-[#00B5A5] font-medium mt-1">{application.membership_type}</p>
+          )}
+          {application?.submitted_at && (
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">
+              Submitted {formatDate(application.submitted_at)}
+            </p>
           )}
         </button>
 
