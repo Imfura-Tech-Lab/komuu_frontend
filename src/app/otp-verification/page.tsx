@@ -107,6 +107,7 @@ export default function OTPVerification() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Accept: "application/json",
           },
         }
       );
@@ -184,6 +185,7 @@ export default function OTPVerification() {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
+          Accept: "application/json",
         },
       });
 
