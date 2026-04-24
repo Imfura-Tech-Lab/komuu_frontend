@@ -9,7 +9,14 @@ export type BoardDashboardData = {
   fields_of_pratice: Array<{ field_of_practice: string; count: number }>;
   weekly_applications: unknown[];
   expiring_certificates: unknown[];
-  countries_of_operations: Array<{ country: string; count: number }>;
+  countries_of_operations: Array<{
+    country: string;
+    count: number;
+    region?: string;
+    new_this_month?: number;
+    membership_types?: Array<{ type: string; count: number }>;
+    fields_of_practice?: Array<{ field: string; count: number }>;
+  }>;
   application_per_region: Array<{ region: string; count: number }>;
   // New fields from updated API
   applications_overtime?: Array<{ month_year: string; count: number }>;

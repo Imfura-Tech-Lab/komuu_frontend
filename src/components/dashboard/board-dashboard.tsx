@@ -469,14 +469,23 @@ function InteractiveMap({
         const rank = [...countriesWithMembers].sort((a, b) => b.count - a.count).findIndex(c => c.country.toLowerCase() === selectedCountry.toLowerCase()) + 1;
         const isTop10 = rank > 0 && rank <= 10;
         const totalCountries = countriesWithMembers.length;
+        const details = countriesWithMembers.find(c => c.country.toLowerCase() === selectedCountry.toLowerCase());
+        const region = details?.region as string | undefined;
+        const newThisMonth = (details?.new_this_month ?? 0) as number;
+        const types = (details?.membership_types ?? []) as Array<{ type: string; count: number }>;
+        const fields = (details?.fields_of_practice ?? []) as Array<{ field: string; count: number }>;
+        const topFields = [...fields].sort((a, b) => b.count - a.count).slice(0, 5);
 
         return (
-          <div className="absolute top-4 right-4 z-20 w-72 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xl overflow-hidden">
-            <div className="bg-gradient-to-r from-[#00B5A5] to-[#00D4C7] px-4 py-3">
+          <div className="absolute top-4 right-4 z-20 w-72 max-h-[calc(100%-2rem)] overflow-y-auto bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xl">
+            <div className="bg-gradient-to-r from-[#00B5A5] to-[#00D4C7] px-4 py-3 sticky top-0 z-10">
               <div className="flex items-center justify-between">
                 <div>
                   <h4 className="text-sm font-bold text-white">{selectedCountry}</h4>
-                  <p className="text-white/70 text-[10px]">{isTop10 ? `#${rank} of ${totalCountries} countries` : `${totalCountries} countries`}</p>
+                  <p className="text-white/70 text-[10px]">
+                    {region ? `${region} · ` : ""}
+                    {isTop10 ? `#${rank} of ${totalCountries} countries` : `${totalCountries} countries`}
+                  </p>
                 </div>
                 <button onClick={() => setSelectedCountry(null)} className="p-1 text-white/70 hover:text-white hover:bg-white/20 rounded">
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -507,10 +516,46 @@ function InteractiveMap({
                   <div className="h-full bg-[#00B5A5] rounded-full transition-all" style={{ width: `${percentage}%` }} />
                 </div>
               </div>
+              {newThisMonth > 0 && (
+                <div className="flex items-center gap-1.5 p-1.5 mb-2 bg-emerald-50 dark:bg-emerald-900/20 rounded border border-emerald-200 dark:border-emerald-800">
+                  <span className="text-emerald-500 text-xs">+</span>
+                  <span className="text-[10px] text-emerald-700 dark:text-emerald-300 font-medium">
+                    {newThisMonth} new this month
+                  </span>
+                </div>
+              )}
               {isTop10 && (
-                <div className="flex items-center gap-1.5 p-1.5 bg-amber-50 dark:bg-amber-900/20 rounded border border-amber-200 dark:border-amber-800">
+                <div className="flex items-center gap-1.5 p-1.5 mb-2 bg-amber-50 dark:bg-amber-900/20 rounded border border-amber-200 dark:border-amber-800">
                   <span className="text-amber-500 text-xs">&#9733;</span>
                   <span className="text-[10px] text-amber-700 dark:text-amber-300 font-medium">Top 10 country</span>
+                </div>
+              )}
+              {types.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1.5">By type</p>
+                  <div className="flex flex-wrap gap-1">
+                    {types.map((t) => (
+                      <span key={t.type} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#00B5A5]/10 text-[#00B5A5] text-[10px] font-medium">
+                        {t.type} <span className="text-gray-600 dark:text-gray-400">·</span> {t.count}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {topFields.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1.5">
+                    Top fields of practice
+                    {fields.length > topFields.length ? ` (top ${topFields.length} of ${fields.length})` : ""}
+                  </p>
+                  <ul className="space-y-1">
+                    {topFields.map((f) => (
+                      <li key={f.field} className="flex items-center justify-between text-[11px]">
+                        <span className="text-gray-700 dark:text-gray-300 truncate">{f.field}</span>
+                        <span className="text-gray-500 dark:text-gray-400 font-medium tabular-nums">{f.count}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
             </div>
