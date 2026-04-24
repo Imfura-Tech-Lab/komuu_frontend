@@ -38,6 +38,12 @@ interface UseApplicationManagerReturn {
   deleteApplication: (forceDelete: boolean) => Promise<boolean>;
   addNewApplication: (formData: FormData) => Promise<{ success: boolean; errors?: Record<string, string[]> }>;
   analyzeDocuments: () => Promise<string | null>;
+  recordPayment: (payload: {
+    amount_paid: number;
+    currency: string;
+    payment_method: string;
+    payment_gateway?: string;
+  }) => Promise<boolean>;
 }
 
 export function useApplicationManager({
@@ -271,6 +277,47 @@ export function useApplicationManager({
     []
   );
 
+  const recordPayment = useCallback(
+    async (payload: {
+      amount_paid: number;
+      currency: string;
+      payment_method: string;
+      payment_gateway?: string;
+    }): Promise<boolean> => {
+      try {
+        setIsUpdating(true);
+
+        const client = getAuthenticatedClient();
+        const response = await client.post<ApiResponse<unknown>>(
+          `applications/${applicationId}/record-payment`,
+          payload,
+          { headers: getCompanyHeaders() }
+        );
+
+        const data = response.data;
+        if (data.status === "success" || data.status === true) {
+          showSuccessToast(data.message || "Payment recorded successfully");
+          await fetchApplication();
+          return true;
+        }
+
+        throw new Error(data.message || "Failed to record payment");
+      } catch (err) {
+        const apiError = err as ApiError;
+        const firstValidationError =
+          apiError.errors &&
+          (Object.values(apiError.errors)[0] as string[] | undefined)?.[0];
+        showErrorToast(
+          firstValidationError || apiError.message || "Failed to record payment"
+        );
+        return false;
+      } finally {
+        setIsUpdating(false);
+      }
+    },
+    [applicationId, fetchApplication]
+  );
+
   const analyzeDocuments = useCallback(async (): Promise<string | null> => {
     try {
       setIsUpdating(true);
@@ -319,5 +366,6 @@ export function useApplicationManager({
     deleteApplication,
     addNewApplication,
     analyzeDocuments,
+    recordPayment,
   };
 }

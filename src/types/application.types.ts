@@ -69,6 +69,8 @@ export interface Application {
   application_date: string;
   membership_type: string;
   membership_number: string | null;
+  category_price: number | string | null;
+  category_currency: string | null;
   employement: string | null;
   qualification: string | null;
   cv_resume: string | null;

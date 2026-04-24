@@ -1,4 +1,4 @@
-import { CheckCircle, RefreshCw, FileSignature, Trash2, XCircle } from "lucide-react";
+import { CheckCircle, CreditCard, RefreshCw, FileSignature, Trash2, XCircle } from "lucide-react";
 
 interface ActionsButtonsProps {
   loading: boolean;
@@ -6,6 +6,7 @@ interface ActionsButtonsProps {
   isDeleting: boolean;
   isApproved: boolean;
   isRejected?: boolean;
+  isWaitingForPayment?: boolean;
   isPresident: boolean;
   hasUserApproved: boolean;
   hasUserRejected?: boolean;
@@ -16,6 +17,7 @@ interface ActionsButtonsProps {
   onSign: () => void;
   onDelete: () => void;
   onAnalyzeDocuments?: () => void;
+  onRecordPayment?: () => void;
 }
 
 export function ActionsButtons({
@@ -24,6 +26,7 @@ export function ActionsButtons({
   isDeleting,
   isApproved,
   isRejected,
+  isWaitingForPayment,
   isPresident,
   hasUserApproved,
   hasUserRejected,
@@ -34,6 +37,7 @@ export function ActionsButtons({
   onSign,
   onDelete,
   onAnalyzeDocuments,
+  onRecordPayment,
 }: ActionsButtonsProps) {
   const canReview = !isApproved && !isRejected;
   const approveLabel = hasUserApproved ? "Approved ✓" : isApproved ? "Approved" : "Approve";
@@ -84,6 +88,15 @@ export function ActionsButtons({
           </button>
         )}
 
+
+        {isWaitingForPayment && onRecordPayment && (
+          <button onClick={onRecordPayment} disabled={isUpdating}
+            className="inline-flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2 text-sm font-medium text-white bg-[#00B5A5] hover:bg-[#009985] rounded-lg transition-colors disabled:opacity-50"
+            title="Record a bank transfer or offline payment for this application">
+            <CreditCard className="w-4 h-4" />
+            <span className="hidden sm:inline">Record Payment</span>
+          </button>
+        )}
 
         {isPresident && isApproved && (
           <button onClick={onSign} disabled={isUpdating}

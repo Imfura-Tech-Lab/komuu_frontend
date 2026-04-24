@@ -20,6 +20,7 @@ import {
 
 import { DeleteModal } from "../admin/modals/Deletemodal";
 import AIAnalysisModal from "../admin/modals/AIAnalysisModal";
+import RecordPaymentModal from "../admin/modals/RecordPaymentModal";
 import { ActionsButtons } from "../admin/ActionsDropdown";
 import { CollapsibleSection } from "../admin/CollapsibleSection";
 import { InfoRow } from "../admin/InfoRow";
@@ -63,6 +64,7 @@ export default function SingleApplicationPage({
     rejectApplication,
     signCertificate,
     deleteApplication,
+    recordPayment,
 
     analyzeDocuments,
   } = useApplicationManager({ applicationId });
@@ -83,9 +85,11 @@ export default function SingleApplicationPage({
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectNote, setRejectNote] = useState("");
+  const [showRecordPaymentModal, setShowRecordPaymentModal] = useState(false);
 
   const appStatus = application?.application_status?.toLowerCase() || "";
   const isApproved = appStatus === "approved" || appStatus === "waiting for payment";
+  const isWaitingForPayment = appStatus === "waiting for payment";
   const isRejected = appStatus === "rejected";
   const isPresident = userData?.role === "President";
 
@@ -127,6 +131,15 @@ export default function SingleApplicationPage({
     if (success) {
       setShowDeleteModal(false);
     }
+  };
+
+  const handleRecordPayment = async (payload: {
+    amount_paid: number;
+    currency: string;
+    payment_method: string;
+    payment_gateway?: string;
+  }) => {
+    return recordPayment(payload);
   };
 
   const handleAnalyzeDocuments = async () => {
@@ -268,6 +281,7 @@ export default function SingleApplicationPage({
               isDeleting={isDeleting}
               isApproved={isApproved}
               isRejected={isRejected}
+              isWaitingForPayment={isWaitingForPayment}
               isPresident={isPresident}
               hasUserApproved={hasUserApproved}
               hasUserRejected={hasUserRejected}
@@ -277,7 +291,7 @@ export default function SingleApplicationPage({
               onReject={() => setShowRejectModal(true)}
               onSign={handleSign}
               onDelete={handleDeleteClick}
-
+              onRecordPayment={() => setShowRecordPaymentModal(true)}
               onAnalyzeDocuments={handleAnalyzeDocuments}
             />
           </div>
@@ -677,6 +691,20 @@ export default function SingleApplicationPage({
           onClose={() => setShowAnalysisModal(false)}
           analysis={analysisResult}
           loading={analysisLoading}
+        />
+
+        <RecordPaymentModal
+          isOpen={showRecordPaymentModal}
+          onClose={() => setShowRecordPaymentModal(false)}
+          onSubmit={handleRecordPayment}
+          loading={isUpdating}
+          expectedAmount={
+            application.category_price !== null &&
+            application.category_price !== undefined
+              ? Number(application.category_price)
+              : null
+          }
+          expectedCurrency={application.category_currency ?? null}
         />
 
         <FileViewer
