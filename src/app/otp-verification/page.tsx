@@ -153,8 +153,18 @@ export default function OTPVerification() {
           }, 1000);
         }
       } else {
-        showErrorToast(data.message || "Invalid OTP code. Please try again.");
-        setErrors({ otp: data.message || "Invalid OTP code" });
+        let errorMessage: string;
+        if (response.status === 422) {
+          errorMessage = "Incorrect OTP code. Please check and try again.";
+        } else if (response.status === 401) {
+          errorMessage =
+            "This OTP code has expired. Please return to login and request a new one.";
+        } else {
+          errorMessage =
+            data.message || "Could not verify OTP. Please try again.";
+        }
+        showErrorToast(errorMessage);
+        setErrors({ otp: errorMessage });
       }
     } catch {
       showErrorToast("An unexpected error occurred. Please try again.");
