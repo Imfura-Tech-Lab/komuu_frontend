@@ -25,7 +25,7 @@ import {
   Line,
   //@ts-ignore
 } from "react-simple-maps";
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { exportChartAsPng, exportDataAsCsv } from "@/lib/utils/chartExport";
 
 // Export button component
@@ -92,10 +92,26 @@ function InteractiveMap({
     y: number;
   } | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [position, setPosition] = useState({
     coordinates: [0, 20] as [number, number],
     zoom: 1,
   });
+
+  // Fullscreen: escape to exit, lock body scroll while open.
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsFullscreen(false);
+    };
+    document.addEventListener("keydown", handleEsc);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", handleEsc);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [isFullscreen]);
 
   // Enhanced country coordinates
   const countryCoordinates = useMemo(
@@ -234,9 +250,30 @@ function InteractiveMap({
   }, [selectedCountry, topCountries]);
 
   return (
-    <div className="relative">
+    <div
+      className={
+        isFullscreen
+          ? "fixed inset-0 z-50 bg-white dark:bg-gray-900 p-4"
+          : "relative"
+      }
+    >
       {/* Map Controls */}
       <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
+        <button
+          onClick={() => setIsFullscreen((v) => !v)}
+          className="bg-white dark:bg-gray-800 p-2 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          title={isFullscreen ? "Exit fullscreen (Esc)" : "Fullscreen"}
+        >
+          {isFullscreen ? (
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9V4.5M9 9H4.5M9 9L3.5 3.5M15 9h4.5M15 9V4.5M15 9l5.5-5.5M9 15H4.5M9 15v4.5M9 15l-5.5 5.5M15 15h4.5M15 15v4.5m0-4.5l5.5 5.5" />
+            </svg>
+          ) : (
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+            </svg>
+          )}
+        </button>
         <button
           onClick={resetView}
           className="bg-white dark:bg-gray-800 p-2 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
@@ -293,7 +330,7 @@ function InteractiveMap({
           style={{
             width: "100%",
             height: "100%",
-            maxHeight: "384px",
+            maxHeight: isFullscreen ? "none" : "384px",
           }}
           preserveAspectRatio="xMidYMid meet"
         >
