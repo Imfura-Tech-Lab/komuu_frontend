@@ -1,9 +1,30 @@
-import React, { RefObject, useState, useEffect, useCallback } from "react";
+import React, { RefObject, useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { UserData, UserRole } from "@/types";
 import { getAuthenticatedClient } from "@/lib/api-client";
 import { useConnectionStatus } from "@/lib/hooks/useConnectionStatus";
 import Image from "next/image";
+
+interface BellNotification {
+  notification_id: string;
+  is_read: boolean;
+  title: string;
+  message: string;
+  created_at: string;
+}
+
+function formatRelativeTime(iso: string): string {
+  const date = new Date(iso);
+  const diffMs = Date.now() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
 
 interface HeaderProps {
   userData: UserData;
@@ -37,6 +58,10 @@ export function Header({
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [recentNotifications, setRecentNotifications] = useState<BellNotification[]>([]);
+  const [recentLoading, setRecentLoading] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const connectionState = useConnectionStatus();
 
@@ -54,11 +79,45 @@ export function Header({
     }
   }, []);
 
+  const fetchRecentNotifications = useCallback(async () => {
+    try {
+      setRecentLoading(true);
+      const client = getAuthenticatedClient();
+      const response = await client.get<{
+        status: string;
+        data: { data: BellNotification[] };
+      }>("notifications?page=1");
+      if (response.data.status === "success") {
+        setRecentNotifications(response.data.data.data.slice(0, 5));
+      }
+    } catch {
+      // Silent fail
+    } finally {
+      setRecentLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchUnreadCount();
     const interval = setInterval(fetchUnreadCount, 60000);
     return () => clearInterval(interval);
   }, [fetchUnreadCount]);
+
+  useEffect(() => {
+    if (!notifOpen) return;
+    fetchRecentNotifications();
+  }, [notifOpen, fetchRecentNotifications]);
+
+  useEffect(() => {
+    if (!notifOpen) return;
+    function handleClickOutside(event: MouseEvent) {
+      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
+        setNotifOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [notifOpen]);
 
   const handleLogoutClick = () => {
     setProfileDropdownOpen(false);
@@ -133,20 +192,104 @@ export function Header({
               </div>
 
               {/* Notification bell */}
-              <button
-                onClick={() => router.push("/notifications")}
-                className="relative p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                aria-label="Notifications"
-              >
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-                {unreadCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-red-500 rounded-full">
-                    {unreadCount > 99 ? "99+" : unreadCount}
-                  </span>
+              <div className="relative" ref={notifRef}>
+                <button
+                  onClick={() => setNotifOpen((prev) => !prev)}
+                  className="relative p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  aria-label="Notifications"
+                  aria-expanded={notifOpen}
+                  aria-haspopup="true"
+                >
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-red-500 rounded-full">
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {notifOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 max-w-[calc(100vw-2rem)] rounded-xl shadow-xl bg-white dark:bg-gray-800 ring-1 ring-black/5 dark:ring-white/10 z-50 overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Notifications</h3>
+                      {unreadCount > 0 && (
+                        <span className="text-xs font-medium text-[#00B5A5]">
+                          {unreadCount} unread
+                        </span>
+                      )}
+                    </div>
+                    <div className="max-h-96 overflow-y-auto">
+                      {recentLoading && recentNotifications.length === 0 ? (
+                        <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
+                          {[0, 1, 2].map((i) => (
+                            <div key={i} className="px-4 py-3 animate-pulse">
+                              <div className="h-3 w-1/2 bg-gray-200 dark:bg-gray-700 rounded mb-2" />
+                              <div className="h-3 w-3/4 bg-gray-200 dark:bg-gray-700 rounded" />
+                            </div>
+                          ))}
+                        </div>
+                      ) : recentNotifications.length === 0 ? (
+                        <div className="px-4 py-10 text-center">
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            No notifications yet
+                          </p>
+                        </div>
+                      ) : (
+                        <ul className="divide-y divide-gray-100 dark:divide-gray-700/50">
+                          {recentNotifications.map((n) => (
+                            <li
+                              key={n.notification_id}
+                              className={`px-4 py-3 transition-colors ${
+                                !n.is_read ? "bg-[#00B5A5]/5 dark:bg-[#00B5A5]/10" : ""
+                              }`}
+                            >
+                              <div className="flex items-start gap-2">
+                                <span
+                                  className={`flex-shrink-0 mt-1.5 w-2 h-2 rounded-full ${
+                                    !n.is_read ? "bg-[#00B5A5]" : "bg-transparent"
+                                  }`}
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <p
+                                    className={`text-sm truncate ${
+                                      !n.is_read
+                                        ? "font-semibold text-gray-900 dark:text-white"
+                                        : "font-medium text-gray-600 dark:text-gray-400"
+                                    }`}
+                                  >
+                                    {n.title}
+                                  </p>
+                                  {n.message && (
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">
+                                      {n.message}
+                                    </p>
+                                  )}
+                                  <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">
+                                    {formatRelativeTime(n.created_at)}
+                                  </p>
+                                </div>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                    <div className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                      <button
+                        onClick={() => {
+                          setNotifOpen(false);
+                          router.push("/notifications");
+                        }}
+                        className="w-full px-4 py-3 text-sm font-medium text-[#00B5A5] hover:bg-[#00B5A5]/5 dark:hover:bg-[#00B5A5]/10 transition-colors"
+                      >
+                        View all notifications
+                      </button>
+                    </div>
+                  </div>
                 )}
-              </button>
+              </div>
 
               {/* Profile dropdown */}
               <div className="relative" ref={dropdownRef}>
