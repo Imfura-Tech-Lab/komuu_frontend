@@ -234,12 +234,13 @@ export default function SingleCertificatePage({
       const data = await response.json();
 
       if (data.status === "success") {
-        setCertificate(data.data);
+        const cert = data.data?.certificate ?? data.data;
+        setCertificate(cert);
         setEditForm({
-          status: data.data.status || "",
-          valid_from: data.data.valid_from || "",
-          valid_until: data.data.valid_until || "",
-          membership_term: data.data.membership_term || "",
+          status: cert?.status || "",
+          valid_from: cert?.valid_from || "",
+          valid_until: cert?.valid_until || "",
+          membership_term: cert?.membership_term || "",
         });
       } else {
         throw new Error(data.message || "Failed to fetch certificate");
