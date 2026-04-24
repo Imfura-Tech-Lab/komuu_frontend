@@ -50,7 +50,7 @@ interface NotificationsApiResponse {
 
 interface UnreadsResponse {
   status: string;
-  data: { count: number };
+  data: { total: number };
 }
 
 export function useNotifications() {
@@ -96,7 +96,7 @@ export function useNotifications() {
 
       const data = response.data;
       if (data.status === "success") {
-        setUnreadCount(data.data.count);
+        setUnreadCount(data.data.total ?? 0);
       }
     } catch {
       // Silent fail

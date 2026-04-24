@@ -68,11 +68,12 @@ export function Header({
   const fetchUnreadCount = useCallback(async () => {
     try {
       const client = getAuthenticatedClient();
-      const response = await client.get<{ status: string; data: { count: number } }>(
-        "notifications/unreads"
-      );
+      const response = await client.get<{
+        status: string;
+        data: { total: number };
+      }>("notifications/unreads");
       if (response.data.status === "success") {
-        setUnreadCount(response.data.data.count);
+        setUnreadCount(response.data.data.total ?? 0);
       }
     } catch {
       // Silent fail
