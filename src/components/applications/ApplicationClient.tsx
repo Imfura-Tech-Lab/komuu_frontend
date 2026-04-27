@@ -13,13 +13,12 @@ import {
   ClockIcon,
   XCircleIcon,
   DocumentTextIcon,
-  CreditCardIcon,
 } from "@heroicons/react/24/outline";
 import { PDFService } from "@/services/pdfService";
 import { Application } from "@/types";
 import ApplicationList from "@/components/applications/ApplicationList";
 import PDFLoadingOverlay from "@/components/applications/PDFLoadingOverlay";
-import MemberApplicationSheet from "@/components/applications/MemberApplicationSheet";
+import MemberApplicationView from "@/components/applications/MemberApplicationView";
 import { useApplications } from "@/lib/hooks/useApplications";
 import { useDpoPayment } from "@/lib/hooks/useDpoPayment";
 import { useApplicationFilters } from "@/lib/hooks/useApplicationFilters";
@@ -233,19 +232,15 @@ function EmptyState({ userRole }: { userRole: string }) {
 // Main Component
 export default function ApplicationClient() {
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
-  const router = useRouter();
 
   const { applications, loading, error, userRole, fetchApplications } =
     useApplications();
   const { initiateMembershipPayment, loading: dpoLoading } = useDpoPayment();
 
-  // Derive memberApplication from applications array for members
+  // Members only ever have 0 or 1 application — the admin list shape is
+  // reused for both roles by useApplications but on the member side we
+  // render the single item inline, not as a table.
   const memberApplication = userRole === "Member" ? applications[0] : null;
-  const isApproved = memberApplication?.application_status?.toLowerCase() === "approved";
-  const hasCompletedPayment = memberApplication?.payments?.some(
-    (p: { status: string }) => p.status?.toLowerCase() === "completed"
-  );
 
   const handlePayNow = async () => {
     if (!memberApplication) return;
@@ -292,96 +287,31 @@ export default function ApplicationClient() {
     return <ErrorState error={error} onRetry={fetchApplications} />;
   }
 
-  // Member View - Show table with sheet
+  // Member View — direct single-application page (no table, no sheet).
   if (userRole === "Member") {
     if (!memberApplication) {
       return <EmptyState userRole={userRole} />;
     }
 
+    const normalizedStatus = memberApplication.application_status?.toLowerCase() ?? "";
+    const canDownloadCertificate = normalizedStatus.includes("certificate");
+
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <div className="px-4 py-8 mx-auto max-w-7xl sm:px-6 lg:px-8">
-          {/* Payment Required Banner */}
-          {isApproved && !hasCompletedPayment && (
-            <div className="mb-6 bg-[#00B5A5]/5 border border-[#00B5A5]/20 rounded-xl p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-[#00B5A5]/10 rounded-lg">
-                    <CreditCardIcon className="w-5 h-5 text-[#00B5A5]" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-900 dark:text-white">Payment Required</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Your application has been approved. Complete payment to finalize your membership.</p>
-                  </div>
-                </div>
-                <button
-                  onClick={handlePayNow}
-                  disabled={dpoLoading}
-                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-[#00B5A5] hover:bg-[#008F82] rounded-lg transition-colors whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {dpoLoading ? (
-                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                  ) : (
-                    <CreditCardIcon className="w-4 h-4" />
-                  )}
-                  {dpoLoading ? "Redirecting..." : "Pay Now"}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Header */}
-          <div className="mb-8">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  My Application
-                </h1>
-                <p className="mt-1 text-gray-600 dark:text-gray-400">
-                  View your membership application status and details
-                </p>
-              </div>
-              <button
-                onClick={() => fetchApplications()}
-                disabled={loading}
-                className="inline-flex items-center gap-2 px-4 py-2 text-gray-700 transition-colors bg-white border border-gray-300 rounded-lg dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-              >
-                <ArrowPathIcon
-                  className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
-                />
-                Refresh
-              </button>
-            </div>
-          </div>
-
-          {/* Application Table */}
-          <ApplicationList
-            applications={applications}
-            filteredApplications={applications}
-            userRole={userRole}
-            getStatusColor={getStatusColor}
-            formatDate={formatDate}
-            formatBoolean={formatBoolean}
-            onGeneratePDF={handleGenerateSinglePDF}
-            onViewDetails={() => setIsSheetOpen(true)}
-          />
-
-          {/* Member Application Sheet */}
-          <MemberApplicationSheet
-            isOpen={isSheetOpen}
-            onClose={() => setIsSheetOpen(false)}
-            application={memberApplication as any}
-            onRefresh={fetchApplications}
+          <MemberApplicationView
+            application={memberApplication as unknown as Parameters<typeof MemberApplicationView>[0]["application"]}
+            onRefresh={() => fetchApplications()}
             isRefreshing={loading}
+            onPayNow={handlePayNow}
+            isPayingNow={dpoLoading}
             onGeneratePDF={
-              memberApplication.application_status
-                ?.toLowerCase()
-                .includes("certificate")
-                ? () => handleGenerateSinglePDF(memberApplication as any)
+              canDownloadCertificate
+                ? () => handleGenerateSinglePDF(memberApplication as Application)
                 : undefined
             }
+            isGeneratingPDF={isGeneratingPDF}
           />
-
           <PDFLoadingOverlay isVisible={isGeneratingPDF} />
         </div>
       </div>
