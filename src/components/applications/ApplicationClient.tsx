@@ -22,6 +22,10 @@ import MemberApplicationView from "@/components/applications/MemberApplicationVi
 import { useApplications } from "@/lib/hooks/useApplications";
 import { useDpoPayment } from "@/lib/hooks/useDpoPayment";
 import { useApplicationFilters } from "@/lib/hooks/useApplicationFilters";
+import { useCertificates } from "@/lib/hooks/useCertificates";
+import { generateCertificatePDF } from "@/lib/utils/certificateGenerator";
+import { getAuthenticatedClient } from "@/lib/api-client";
+import { showErrorToast } from "@/components/layouts/auth-layer-out";
 import {
   getStatusColor,
   formatDate,
@@ -236,6 +240,7 @@ export default function ApplicationClient() {
   const { applications, loading, error, userRole, fetchApplications } =
     useApplications();
   const { initiateMembershipPayment, loading: dpoLoading } = useDpoPayment();
+  const { getCertificateData } = useCertificates();
 
   // Members only ever have 0 or 1 application — the admin list shape is
   // reused for both roles by useApplications but on the member side we
@@ -263,6 +268,43 @@ export default function ApplicationClient() {
     setIsGeneratingPDF(true);
     try {
       await PDFService.generateSingleApplicationPDF(application);
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
+  const handleDownloadCertificate = async () => {
+    setIsGeneratingPDF(true);
+    try {
+      const client = getAuthenticatedClient();
+      const resp = await client.get<{
+        status: string;
+        data?: { id: number; member_number?: string };
+        message?: string;
+      }>("membership/current-membership");
+
+      const cert = resp.data?.data;
+      if (!cert?.id) {
+        showErrorToast("Active certificate not found");
+        return;
+      }
+
+      const certificateData = await getCertificateData(cert.id);
+      if (!certificateData) return;
+
+      const pdfBlob = await generateCertificatePDF(certificateData);
+      const url = URL.createObjectURL(pdfBlob);
+      const fileName = `Certificate-${cert.member_number ?? cert.id}.pdf`;
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch {
+      showErrorToast("Failed to download certificate");
     } finally {
       setIsGeneratingPDF(false);
     }
@@ -306,9 +348,7 @@ export default function ApplicationClient() {
             onPayNow={handlePayNow}
             isPayingNow={dpoLoading}
             onGeneratePDF={
-              canDownloadCertificate
-                ? () => handleGenerateSinglePDF(memberApplication as Application)
-                : undefined
+              canDownloadCertificate ? handleDownloadCertificate : undefined
             }
             isGeneratingPDF={isGeneratingPDF}
           />
