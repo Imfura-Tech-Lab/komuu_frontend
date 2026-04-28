@@ -12,6 +12,7 @@ env:
   DROPLET_USER: ${{ secrets.DROPLET_USER }}
   CONTAINER_NAME: nextjs-sandbox
   BACKEND_URL: https://sandbox-api.komuu.com/api/v1/
+  VERIFICATION_BASE_URL: https://sandbox.komuu.com
   SSH_PORT: 2222
   DOCKER_NETWORK: komuu
 
@@ -48,6 +49,7 @@ jobs:
           cache-to: type=gha,mode=max
           build-args: |
             NEXT_PUBLIC_BACKEND_API_URL=${{ env.BACKEND_URL }}
+            NEXT_PUBLIC_VERIFICATION_BASE_URL=${{ env.VERIFICATION_BASE_URL }}
             NODE_ENV=production
 
       - name: Save Docker image

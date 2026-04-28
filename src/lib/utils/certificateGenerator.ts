@@ -43,8 +43,18 @@ interface CertificateData {
   institution: InstitutionInfo;
 }
 
-// Production verification URL
-const VERIFICATION_BASE_URL = 'https://komuu.com';
+// Resolve the verification base URL per environment. Build-time override
+// (NEXT_PUBLIC_VERIFICATION_BASE_URL) wins so we can pin the QR target
+// explicitly per deploy; otherwise we fall back to the host the cert is
+// being generated from (so staging certs point at staging, prod at prod).
+function getVerificationBaseUrl(): string {
+  const envUrl = process.env.NEXT_PUBLIC_VERIFICATION_BASE_URL;
+  if (envUrl) return envUrl.replace(/\/+$/, '');
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return window.location.origin;
+  }
+  return 'https://komuu.com';
+}
 
 async function loadImageAsBase64(url: string): Promise<string | null> {
   try {
@@ -218,8 +228,7 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Blo
   const signatureBase64 = institution.signature ? await loadImageAsBase64(institution.signature) : null;
   const stampBase64 = institution.stamp ? await loadImageAsBase64(institution.stamp) : null;
 
-  // QR code — always use production URL for verification
-  const verificationUrl = `${VERIFICATION_BASE_URL}/verify/${certificate.token}`;
+  const verificationUrl = `${getVerificationBaseUrl()}/verify/${certificate.token}`;
   const qrCodeData = JSON.stringify({
     url: verificationUrl,
     token: certificate.token,
