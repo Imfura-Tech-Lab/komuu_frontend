@@ -61,6 +61,7 @@ export function Header({
   const [notifOpen, setNotifOpen] = useState(false);
   const [recentNotifications, setRecentNotifications] = useState<BellNotification[]>([]);
   const [recentLoading, setRecentLoading] = useState(false);
+  const [memberNumber, setMemberNumber] = useState<string | null>(null);
   const notifRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const connectionState = useConnectionStatus();
@@ -103,6 +104,28 @@ export function Header({
     const interval = setInterval(fetchUnreadCount, 60000);
     return () => clearInterval(interval);
   }, [fetchUnreadCount]);
+
+  useEffect(() => {
+    if (userData.role !== "Member") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const client = getAuthenticatedClient();
+        const response = await client.get<{
+          status: string;
+          data?: { member_number?: string | null };
+        }>("membership/current-membership");
+        if (!cancelled && response.data.status === "success") {
+          setMemberNumber(response.data.data?.member_number ?? null);
+        }
+      } catch {
+        // Member may not have an active certificate yet — fall back to email.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userData.role]);
 
   useEffect(() => {
     if (!notifOpen) return;
@@ -324,7 +347,7 @@ export function Header({
                       {userData.name}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {userData.email}
+                      {memberNumber || userData.email}
                     </p>
                   </div>
                   <svg
@@ -408,7 +431,7 @@ export function Header({
                           </div>
                           <div className="flex items-center mt-1">
                             <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                              {userData.email}
+                              {memberNumber || userData.email}
                             </p>
                             {userData.role !== "Pending" && userData.verified && (
                               <span className="ml-1.5 flex-shrink-0 inline-flex items-center justify-center h-4 w-4 rounded-full bg-green-100 dark:bg-green-900/30">

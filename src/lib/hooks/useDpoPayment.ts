@@ -76,6 +76,37 @@ export function useDpoPayment() {
     []
   );
 
+  const initiateRenewalPayment = useCallback(
+    async (): Promise<string | null> => {
+      try {
+        setLoading(true);
+        setError(null);
+        const client = getAuthenticatedClient();
+        const response = await client.post<DpoInitResponse>(
+          "payments/dpo/renewal",
+          {},
+          {}
+        );
+
+        if (response.data.status === "success" && response.data.data) {
+          showSuccessToast("Redirecting to payment page...");
+          return response.data.data.payment_url;
+        }
+
+        showErrorToast(response.data.message || "Failed to initiate renewal");
+        return null;
+      } catch (err) {
+        const apiError = err as ApiError;
+        showErrorToast(apiError.message || "Renewal initiation failed");
+        setError(apiError.message);
+        return null;
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
   const initiateSubscriptionPayment = useCallback(
     async (data: {
       package: number;
@@ -192,6 +223,7 @@ export function useDpoPayment() {
     loading,
     error,
     initiateMembershipPayment,
+    initiateRenewalPayment,
     initiateSubscriptionPayment,
     initiateEventPayment,
     verifyPayment,

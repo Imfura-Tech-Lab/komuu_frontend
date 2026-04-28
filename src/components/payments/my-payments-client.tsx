@@ -855,7 +855,7 @@ export default function MyPaymentsClient() {
 
   const router = useRouter();
   const { membership, fetchCurrentMembership } = useMemberMembership();
-  const { initiateMembershipPayment, loading: dpoLoading } = useDpoPayment();
+  const { initiateRenewalPayment, loading: dpoLoading } = useDpoPayment();
 
   useEffect(() => {
     fetchPayments(currentPage);
@@ -866,8 +866,7 @@ export default function MyPaymentsClient() {
     new Date(membership.certificate.valid_until) <= new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
 
   const handleRenewNow = async () => {
-    // Backend knows the renewal amount from the membership
-    const paymentUrl = await initiateMembershipPayment("renewal");
+    const paymentUrl = await initiateRenewalPayment();
     if (paymentUrl) {
       window.location.href = paymentUrl;
     }
