@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { XMarkIcon, UserPlusIcon, ArrowLeftIcon, ArrowRightIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
-import { getAuthenticatedClient, getCompanyHeaders } from "@/lib/api-client";
+import { getAuthenticatedClient, getCompanyHeaders, ApiError } from "@/lib/api-client";
 import { showSuccessToast, showErrorToast } from "@/components/layouts/auth-layer-out";
 
 interface Props { isOpen: boolean; onClose: () => void; onSuccess: () => void; }
@@ -136,17 +136,20 @@ export default function OnboardMemberModal({ isOpen, onClose, onSuccess }: Props
         showErrorToast(res.data.message || "Failed to add member");
       }
     } catch (err: unknown) {
-      const e = err as { response?: { data?: { errors?: Record<string, string[]>; message?: string } } };
-      if (e.response?.data?.errors) { setErrors(e.response.data.errors); findStepWithError(e.response.data.errors); }
-      showErrorToast(e.response?.data?.message || "Failed to add member");
+      const e = err as ApiError;
+      if (e.errors) {
+        setErrors(e.errors as Record<string, string[]>);
+        findStepWithError(e.errors as Record<string, string[]>);
+      }
+      showErrorToast(e.message || "Failed to add member");
     } finally { setLoading(false); }
   };
 
   const findStepWithError = (errs: Record<string, string[]>) => {
-    const step1 = ["email", "title", "first_name", "surname", "phone_number", "date_of_birth", "secondary_email", "alternative_phone", "whatsapp_number", "passport"];
+    const step1 = ["email", "title", "first_name", "surname", "phone_number", "date_of_birth", "secondary_email", "alternative_phone", "whatsapp_number", "passport", "passport_from", "middle_name"];
     const step2 = ["membership_category", "country_of_residence", "countries_of_operation"];
     const step3 = ["field_of_practice", "university", "degree", "degree_year", "country_of_study", "cv_resume", "qualification"];
-    const keys = Object.keys(errs);
+    const keys = Object.keys(errs).map(k => k.split(".")[0]);
     if (keys.some(k => step1.includes(k))) setStep(0);
     else if (keys.some(k => step2.includes(k))) setStep(1);
     else if (keys.some(k => step3.includes(k))) setStep(2);
