@@ -2,15 +2,16 @@
 
 import { useState, useEffect } from "react";
 import { XMarkIcon, UserPlusIcon, ArrowLeftIcon, ArrowRightIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
-import { getAuthenticatedClient } from "@/lib/api-client";
+import { getAuthenticatedClient, getCompanyHeaders } from "@/lib/api-client";
 import { showSuccessToast, showErrorToast } from "@/components/layouts/auth-layer-out";
 
 interface Props { isOpen: boolean; onClose: () => void; onSuccess: () => void; }
 interface Category { id: number; category: string; price: string; }
 interface Country { id: number; country: string; }
-interface FieldOfPractice { id: number; field_of_practice: string; }
+interface FieldOfPractice { id: number; field: string; }
 
-const TITLES = ["Mr", "Mrs", "Ms", "Dr", "Prof", "Rev", "Hon"];
+const TITLES = ["Mr", "Mrs", "Ms", "Dr", "Prof", "Eng", "Chief", "Hon"];
+const CURRENCIES = ["USD", "EUR", "GBP", "RWF", "AUD", "CAD"];
 const STEPS = ["Personal Info", "Membership", "Professional", "Payment"];
 
 export default function OnboardMemberModal({ isOpen, onClose, onSuccess }: Props) {
@@ -20,6 +21,8 @@ export default function OnboardMemberModal({ isOpen, onClose, onSuccess }: Props
   const [countries, setCountries] = useState<Country[]>([]);
   const [fields, setFields] = useState<FieldOfPractice[]>([]);
   const [errors, setErrors] = useState<Record<string, string[]>>({});
+  const [countrySearch, setCountrySearch] = useState("");
+  const [fieldSearch, setFieldSearch] = useState("");
 
   // Step 1: Personal
   const [title, setTitle] = useState("Mr");
@@ -61,15 +64,28 @@ export default function OnboardMemberModal({ isOpen, onClose, onSuccess }: Props
   const fetchData = async () => {
     try {
       const client = getAuthenticatedClient();
+      const companyId = typeof window !== "undefined" ? localStorage.getItem("company_id") : null;
+      if (!companyId) {
+        showErrorToast("Institution context missing — please reload and try again");
+        return;
+      }
+      const headers = getCompanyHeaders();
       const [catRes, countryRes, fieldRes] = await Promise.all([
-        client.get<{ status: string; data: Category[] }>("membership/categories"),
-        fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}countries`).then(r => r.json()),
-        fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}${(JSON.parse(localStorage.getItem("user_data") || "{}").institutions?.[0]?.id || "0155afcb-a75d-45f7-bb39-a28e6f003c6f")}/get-fields-of-practices`).then(r => r.json()),
+        client.get<{ status: string; data: { data?: Category[] } | Category[] }>("membership/categories", { headers }),
+        client.get<{ status: string; countries: Country[] }>("countries"),
+        client.get<{ status: string; data: { data?: FieldOfPractice[] } | FieldOfPractice[] }>(`${companyId}/get-fields-of-practices`),
       ]);
-      if (catRes.data.data) setCategories(Array.isArray(catRes.data.data) ? catRes.data.data : []);
-      if (countryRes.data) setCountries(countryRes.data);
-      if (fieldRes.data) setFields(Array.isArray(fieldRes.data) ? fieldRes.data : []);
-    } catch {}
+
+      const catPayload = catRes.data.data;
+      setCategories(Array.isArray(catPayload) ? catPayload : (catPayload?.data ?? []));
+
+      setCountries(Array.isArray(countryRes.data.countries) ? countryRes.data.countries : []);
+
+      const fieldPayload = fieldRes.data.data;
+      setFields(Array.isArray(fieldPayload) ? fieldPayload : (fieldPayload?.data ?? []));
+    } catch {
+      showErrorToast("Failed to load form data — please try again");
+    }
   };
 
   const resetForm = () => {
@@ -78,7 +94,7 @@ export default function OnboardMemberModal({ isOpen, onClose, onSuccess }: Props
     setCategoryId(""); setCountryId(""); setSelectedCountries([]); setSelectedFields([]);
     setUniversity(""); setDegree(""); setDegreeYear(""); setCountryOfStudy("");
     setCvFile(null); setQualFile(null); setRecordPayment(false); setAmount(""); setCurrency("USD");
-    setErrors({});
+    setErrors({}); setCountrySearch(""); setFieldSearch("");
   };
 
   const handleSubmit = async () => {
@@ -218,21 +234,30 @@ export default function OnboardMemberModal({ isOpen, onClose, onSuccess }: Props
             </div>
             <div>
               <label className={labelCls}>Countries of Operation</label>
+              <input
+                type="text"
+                value={countrySearch}
+                onChange={e => setCountrySearch(e.target.value)}
+                placeholder="Search countries..."
+                className={`${inputCls} mb-2`}
+              />
               <div className="space-y-2 max-h-40 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg p-2">
-                {countries.slice(0, 50).map(c => {
-                  const sel = selectedCountries.find(s => s.country === String(c.id));
-                  return (
-                    <label key={c.id} className="flex items-center gap-2 text-xs cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 p-1 rounded">
-                      <input type="checkbox" checked={!!sel} onChange={() => {
-                        if (sel) setSelectedCountries(prev => prev.filter(s => s.country !== String(c.id)));
-                        else setSelectedCountries(prev => [...prev, { country: String(c.id), isPrimary: false }]);
-                      }} className="w-3.5 h-3.5 text-[#00B5A5] rounded" />
-                      <span className="text-gray-700 dark:text-gray-300">{c.country}</span>
-                    </label>
-                  );
-                })}
+                {countries
+                  .filter(c => c.country.toLowerCase().includes(countrySearch.toLowerCase()))
+                  .map(c => {
+                    const sel = selectedCountries.find(s => s.country === String(c.id));
+                    return (
+                      <label key={c.id} className="flex items-center gap-2 text-xs cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 p-1 rounded">
+                        <input type="checkbox" checked={!!sel} onChange={() => {
+                          if (sel) setSelectedCountries(prev => prev.filter(s => s.country !== String(c.id)));
+                          else setSelectedCountries(prev => [...prev, { country: String(c.id), isPrimary: false }]);
+                        }} className="w-3.5 h-3.5 text-[#00B5A5] rounded" />
+                        <span className="text-gray-700 dark:text-gray-300">{c.country}</span>
+                      </label>
+                    );
+                  })}
               </div>
-              <p className="text-[10px] text-gray-400 mt-1">{selectedCountries.length} selected</p>
+              <p className="text-[10px] text-gray-400 mt-1">{selectedCountries.length} selected · {countries.length} available</p>
             </div>
           </>)}
 
@@ -240,20 +265,33 @@ export default function OnboardMemberModal({ isOpen, onClose, onSuccess }: Props
           {step === 2 && (<>
             <div>
               <label className={labelCls}>Fields of Practice</label>
+              <input
+                type="text"
+                value={fieldSearch}
+                onChange={e => setFieldSearch(e.target.value)}
+                placeholder="Search fields..."
+                className={`${inputCls} mb-2`}
+              />
               <div className="space-y-2 max-h-40 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg p-2">
-                {fields.map(f => {
-                  const sel = selectedFields.find(s => s.field === String(f.id));
-                  return (
-                    <label key={f.id} className="flex items-center gap-2 text-xs cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 p-1 rounded">
-                      <input type="checkbox" checked={!!sel} onChange={() => {
-                        if (sel) setSelectedFields(prev => prev.filter(s => s.field !== String(f.id)));
-                        else setSelectedFields(prev => [...prev, { field: String(f.id), isPrimary: prev.length === 0 }]);
-                      }} className="w-3.5 h-3.5 text-[#00B5A5] rounded" />
-                      <span className="text-gray-700 dark:text-gray-300">{f.field_of_practice}</span>
-                    </label>
-                  );
-                })}
+                {fields.length === 0 && (
+                  <p className="text-[11px] text-gray-400 italic px-1 py-2">No fields configured for this institution.</p>
+                )}
+                {fields
+                  .filter(f => f.field?.toLowerCase().includes(fieldSearch.toLowerCase()))
+                  .map(f => {
+                    const sel = selectedFields.find(s => s.field === String(f.id));
+                    return (
+                      <label key={f.id} className="flex items-center gap-2 text-xs cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 p-1 rounded">
+                        <input type="checkbox" checked={!!sel} onChange={() => {
+                          if (sel) setSelectedFields(prev => prev.filter(s => s.field !== String(f.id)));
+                          else setSelectedFields(prev => [...prev, { field: String(f.id), isPrimary: prev.length === 0 }]);
+                        }} className="w-3.5 h-3.5 text-[#00B5A5] rounded" />
+                        <span className="text-gray-700 dark:text-gray-300">{f.field}</span>
+                      </label>
+                    );
+                  })}
               </div>
+              <p className="text-[10px] text-gray-400 mt-1">{selectedFields.length} selected · {fields.length} available</p>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div><label className={labelCls}>University</label><input type="text" value={university} onChange={e => setUniversity(e.target.value)} className={inputCls} /></div>
@@ -296,7 +334,7 @@ export default function OnboardMemberModal({ isOpen, onClose, onSuccess }: Props
                   <div><label className={labelCls}>Amount</label><input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder={categories.find(c => c.id === Number(categoryId))?.price || "50"} className={inputCls} /></div>
                   <div><label className={labelCls}>Currency</label>
                     <select value={currency} onChange={e => setCurrency(e.target.value)} className={inputCls}>
-                      <option value="USD">USD</option><option value="EUR">EUR</option><option value="GBP">GBP</option><option value="RWF">RWF</option>
+                      {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
                 </div>
