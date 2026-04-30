@@ -169,15 +169,19 @@ export default function OnboardMemberModal({ isOpen, onClose, onSuccess }: Props
   const labelCls = "block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1";
   const errCls = "text-[10px] text-red-500 mt-0.5";
 
+  const errorEntries = Object.entries(errors).flatMap(([key, msgs]) =>
+    (msgs ?? []).map(m => ({ key, message: m }))
+  );
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/40" onClick={() => !loading && onClose()} />
       <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-xl mx-4 max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="sticky top-0 bg-white dark:bg-gray-800 px-6 py-4 border-b border-gray-200 dark:border-gray-700 z-10">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2"><UserPlusIcon className="w-5 h-5 text-[#00B5A5]" /><h3 className="text-lg font-bold text-gray-900 dark:text-white">Add New Member</h3></div>
-            <button onClick={onClose} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"><XMarkIcon className="w-5 h-5 text-gray-500" /></button>
+            <button onClick={onClose} disabled={loading} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg disabled:opacity-50"><XMarkIcon className="w-5 h-5 text-gray-500" /></button>
           </div>
           {/* Steps */}
           <div className="flex items-center gap-2">
@@ -195,6 +199,16 @@ export default function OnboardMemberModal({ isOpen, onClose, onSuccess }: Props
 
         {/* Content */}
         <div className="p-6 space-y-4">
+          {errorEntries.length > 0 && (
+            <div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800 p-3 text-xs text-red-700 dark:text-red-300">
+              <p className="font-semibold mb-1">Please fix the following:</p>
+              <ul className="list-disc pl-4 space-y-0.5">
+                {errorEntries.map((e, i) => (
+                  <li key={i}><span className="font-mono text-[10px] text-red-500">{e.key}</span> — {e.message}</li>
+                ))}
+              </ul>
+            </div>
+          )}
           {/* STEP 1: Personal */}
           {step === 0 && (<>
             <div className="grid grid-cols-4 gap-2">
@@ -208,16 +222,16 @@ export default function OnboardMemberModal({ isOpen, onClose, onSuccess }: Props
               <div><label className={labelCls}>Phone *</label><input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+250..." className={inputCls} />{err("phone_number") && <p className={errCls}>{err("phone_number")}</p>}</div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><label className={labelCls}>Date of Birth</label><input type="date" value={dob} onChange={e => setDob(e.target.value)} className={inputCls} /></div>
-              <div><label className={labelCls}>WhatsApp</label><input type="tel" value={whatsapp} onChange={e => setWhatsapp(e.target.value)} className={inputCls} /></div>
+              <div><label className={labelCls}>Date of Birth</label><input type="date" value={dob} onChange={e => setDob(e.target.value)} className={inputCls} />{err("date_of_birth") && <p className={errCls}>{err("date_of_birth")}</p>}</div>
+              <div><label className={labelCls}>WhatsApp</label><input type="tel" value={whatsapp} onChange={e => setWhatsapp(e.target.value)} className={inputCls} />{err("whatsapp_number") && <p className={errCls}>{err("whatsapp_number")}</p>}</div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><label className={labelCls}>Secondary Email</label><input type="email" value={secondaryEmail} onChange={e => setSecondaryEmail(e.target.value)} className={inputCls} /></div>
-              <div><label className={labelCls}>Alt Phone</label><input type="tel" value={altPhone} onChange={e => setAltPhone(e.target.value)} className={inputCls} /></div>
+              <div><label className={labelCls}>Secondary Email</label><input type="email" value={secondaryEmail} onChange={e => setSecondaryEmail(e.target.value)} className={inputCls} />{err("secondary_email") && <p className={errCls}>{err("secondary_email")}</p>}</div>
+              <div><label className={labelCls}>Alt Phone</label><input type="tel" value={altPhone} onChange={e => setAltPhone(e.target.value)} className={inputCls} />{err("alternative_phone") && <p className={errCls}>{err("alternative_phone")}</p>}</div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><label className={labelCls}>Passport/ID No.</label><input type="text" value={passport} onChange={e => setPassport(e.target.value)} className={inputCls} /></div>
-              <div><label className={labelCls}>Passport From</label><input type="text" value={passportFrom} onChange={e => setPassportFrom(e.target.value)} className={inputCls} /></div>
+              <div><label className={labelCls}>Passport/ID No.</label><input type="text" value={passport} onChange={e => setPassport(e.target.value)} className={inputCls} />{err("passport") && <p className={errCls}>{err("passport")}</p>}</div>
+              <div><label className={labelCls}>Passport From</label><input type="text" value={passportFrom} onChange={e => setPassportFrom(e.target.value)} className={inputCls} />{err("passport_from") && <p className={errCls}>{err("passport_from")}</p>}</div>
             </div>
           </>)}
 
@@ -297,20 +311,20 @@ export default function OnboardMemberModal({ isOpen, onClose, onSuccess }: Props
               <p className="text-[10px] text-gray-400 mt-1">{selectedFields.length} selected · {fields.length} available</p>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><label className={labelCls}>University</label><input type="text" value={university} onChange={e => setUniversity(e.target.value)} className={inputCls} /></div>
-              <div><label className={labelCls}>Degree</label><input type="text" value={degree} onChange={e => setDegree(e.target.value)} className={inputCls} /></div>
+              <div><label className={labelCls}>University</label><input type="text" value={university} onChange={e => setUniversity(e.target.value)} className={inputCls} />{err("university") && <p className={errCls}>{err("university")}</p>}</div>
+              <div><label className={labelCls}>Degree</label><input type="text" value={degree} onChange={e => setDegree(e.target.value)} className={inputCls} />{err("degree") && <p className={errCls}>{err("degree")}</p>}</div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><label className={labelCls}>Graduation Year</label><input type="number" value={degreeYear} onChange={e => setDegreeYear(e.target.value)} placeholder="2024" min="1900" max={new Date().getFullYear()} className={inputCls} /></div>
+              <div><label className={labelCls}>Graduation Year</label><input type="number" value={degreeYear} onChange={e => setDegreeYear(e.target.value)} placeholder="2024" min="1900" max={new Date().getFullYear()} className={inputCls} />{err("degree_year") && <p className={errCls}>{err("degree_year")}</p>}</div>
               <div><label className={labelCls}>Country of Study</label>
                 <select value={countryOfStudy} onChange={e => setCountryOfStudy(e.target.value)} className={inputCls}>
                   <option value="">Select</option>{countries.map(c => <option key={c.id} value={c.id}>{c.country}</option>)}
-                </select>
+                </select>{err("country_of_study") && <p className={errCls}>{err("country_of_study")}</p>}
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><label className={labelCls}>CV/Resume (PDF)</label><input type="file" accept=".pdf,.doc,.docx" onChange={e => setCvFile(e.target.files?.[0] || null)} className="w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-[#00B5A5]/10 file:text-[#00B5A5]" /></div>
-              <div><label className={labelCls}>Qualification (PDF)</label><input type="file" accept=".pdf" onChange={e => setQualFile(e.target.files?.[0] || null)} className="w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-[#00B5A5]/10 file:text-[#00B5A5]" /></div>
+              <div><label className={labelCls}>CV/Resume (PDF, max 2MB)</label><input type="file" accept=".pdf,.doc,.docx" onChange={e => setCvFile(e.target.files?.[0] || null)} className="w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-[#00B5A5]/10 file:text-[#00B5A5]" />{err("cv_resume") && <p className={errCls}>{err("cv_resume")}</p>}</div>
+              <div><label className={labelCls}>Qualification (PDF, max 2MB)</label><input type="file" accept=".pdf" onChange={e => setQualFile(e.target.files?.[0] || null)} className="w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-[#00B5A5]/10 file:text-[#00B5A5]" />{err("qualification") && <p className={errCls}>{err("qualification")}</p>}</div>
             </div>
           </>)}
 
@@ -334,11 +348,11 @@ export default function OnboardMemberModal({ isOpen, onClose, onSuccess }: Props
               </label>
               {recordPayment && (
                 <div className="grid grid-cols-2 gap-3">
-                  <div><label className={labelCls}>Amount</label><input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder={categories.find(c => c.id === Number(categoryId))?.price || "50"} className={inputCls} /></div>
+                  <div><label className={labelCls}>Amount</label><input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder={categories.find(c => c.id === Number(categoryId))?.price || "50"} className={inputCls} />{err("amount_paid") && <p className={errCls}>{err("amount_paid")}</p>}</div>
                   <div><label className={labelCls}>Currency</label>
                     <select value={currency} onChange={e => setCurrency(e.target.value)} className={inputCls}>
                       {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
+                    </select>{err("currency") && <p className={errCls}>{err("currency")}</p>}
                   </div>
                 </div>
               )}
@@ -350,13 +364,13 @@ export default function OnboardMemberModal({ isOpen, onClose, onSuccess }: Props
         {/* Footer */}
         <div className="sticky bottom-0 bg-white dark:bg-gray-800 px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex gap-3">
           {step > 0 && (
-            <button onClick={() => setStep(step - 1)} className="px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center gap-1.5">
+            <button onClick={() => setStep(step - 1)} disabled={loading} className="px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center gap-1.5 disabled:opacity-50">
               <ArrowLeftIcon className="w-4 h-4" />Back
             </button>
           )}
           <div className="flex-1" />
           {step < STEPS.length - 1 ? (
-            <button onClick={() => setStep(step + 1)} disabled={!canNext()}
+            <button onClick={() => setStep(step + 1)} disabled={!canNext() || loading}
               className="px-6 py-2.5 text-sm font-medium text-white bg-[#00B5A5] hover:bg-[#008F82] rounded-lg disabled:opacity-50 flex items-center gap-1.5">
               Next<ArrowRightIcon className="w-4 h-4" />
             </button>
