@@ -56,6 +56,7 @@ export default function OnboardMemberModal({ isOpen, onClose, onSuccess }: Props
   const [recordPayment, setRecordPayment] = useState(false);
   const [amount, setAmount] = useState("");
   const [currency, setCurrency] = useState("USD");
+  const [generateCertificate, setGenerateCertificate] = useState(false);
 
   useEffect(() => {
     if (isOpen) { fetchData(); setStep(0); resetForm(); }
@@ -94,6 +95,7 @@ export default function OnboardMemberModal({ isOpen, onClose, onSuccess }: Props
     setCategoryId(""); setCountryId(""); setSelectedCountries([]); setSelectedFields([]);
     setUniversity(""); setDegree(""); setDegreeYear(""); setCountryOfStudy("");
     setCvFile(null); setQualFile(null); setRecordPayment(false); setAmount(""); setCurrency("USD");
+    setGenerateCertificate(false);
     setErrors({}); setCountrySearch(""); setFieldSearch("");
   };
 
@@ -125,11 +127,17 @@ export default function OnboardMemberModal({ isOpen, onClose, onSuccess }: Props
       if (qualFile) fd.append("qualification", qualFile);
       fd.append("record_payment", recordPayment ? "1" : "0");
       if (recordPayment) { fd.append("amount_paid", amount || "0"); fd.append("currency", currency); }
+      fd.append("generate_certificate", recordPayment && generateCertificate ? "1" : "0");
 
       const client = getAuthenticatedClient();
       const res = await client.postFormData<{ status: string; message?: string; errors?: Record<string, string[]> }>("applications/add-new", fd);
       if (res.data.status === "success" || res.data.status === true as unknown as string) {
-        showSuccessToast("Member added — welcome email sent");
+        const successMsg = recordPayment && generateCertificate
+          ? "Member onboarded with certificate — appears in Members list now"
+          : recordPayment
+          ? "Member added with payment recorded — ready for certificate signing"
+          : "Member added — awaiting payment";
+        showSuccessToast(successMsg);
         onSuccess(); onClose();
       } else {
         if (res.data.errors) { setErrors(res.data.errors); findStepWithError(res.data.errors); }
@@ -343,21 +351,39 @@ export default function OnboardMemberModal({ isOpen, onClose, onSuccess }: Props
             </div>
             <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
               <label className="flex items-center gap-3 cursor-pointer mb-3">
-                <input type="checkbox" checked={recordPayment} onChange={e => setRecordPayment(e.target.checked)} className="w-4 h-4 text-[#00B5A5] rounded focus:ring-[#00B5A5]" />
+                <input type="checkbox" checked={recordPayment} onChange={e => { setRecordPayment(e.target.checked); if (!e.target.checked) setGenerateCertificate(false); }} className="w-4 h-4 text-[#00B5A5] rounded focus:ring-[#00B5A5]" />
                 <div><p className="text-sm font-medium text-gray-700 dark:text-gray-300">Record payment now</p><p className="text-xs text-gray-500">Mark as paid during onboarding</p></div>
               </label>
               {recordPayment && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div><label className={labelCls}>Amount</label><input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder={categories.find(c => c.id === Number(categoryId))?.price || "50"} className={inputCls} />{err("amount_paid") && <p className={errCls}>{err("amount_paid")}</p>}</div>
-                  <div><label className={labelCls}>Currency</label>
-                    <select value={currency} onChange={e => setCurrency(e.target.value)} className={inputCls}>
-                      {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>{err("currency") && <p className={errCls}>{err("currency")}</p>}
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div><label className={labelCls}>Amount</label><input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder={categories.find(c => c.id === Number(categoryId))?.price || "50"} className={inputCls} />{err("amount_paid") && <p className={errCls}>{err("amount_paid")}</p>}</div>
+                    <div><label className={labelCls}>Currency</label>
+                      <select value={currency} onChange={e => setCurrency(e.target.value)} className={inputCls}>
+                        {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>{err("currency") && <p className={errCls}>{err("currency")}</p>}
+                    </div>
                   </div>
-                </div>
+                  <label className="mt-3 flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" checked={generateCertificate} onChange={e => setGenerateCertificate(e.target.checked)} className="w-4 h-4 text-[#00B5A5] rounded focus:ring-[#00B5A5]" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Sign certificate immediately</p>
+                      <p className="text-xs text-gray-500">Mints the membership number and lands the member in the Members list right away.</p>
+                    </div>
+                  </label>
+                </>
               )}
             </div>
-            <p className="text-xs text-gray-400">A welcome email with login credentials will be sent to the member.</p>
+            <div className="rounded-lg bg-gray-50 dark:bg-gray-700/30 p-3 text-xs text-gray-500 dark:text-gray-400 space-y-1">
+              <p className="font-semibold text-gray-700 dark:text-gray-300">What happens after submit:</p>
+              {recordPayment && generateCertificate ? (
+                <p>→ Welcome email sent · payment recorded · certificate signed · <span className="text-[#00B5A5] font-medium">appears in Members list</span></p>
+              ) : recordPayment ? (
+                <p>→ Welcome email sent · payment recorded · status <span className="font-medium">Approved</span> · <span className="font-medium">President can sign certificate</span></p>
+              ) : (
+                <p>→ Welcome email sent · status <span className="font-medium">Waiting for Payment</span> · appears in <span className="font-medium">Applications list</span></p>
+              )}
+            </div>
           </>)}
         </div>
 
