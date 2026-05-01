@@ -348,11 +348,45 @@ function PaymentSideSheet({
   const statusConfig = getStatusConfig(payment.status);
   const StatusIcon = statusConfig.icon;
   const MethodIcon = getMethodIcon(payment.payment_method);
+  const memberName = payment.application?.member_details?.name || payment.member;
+  const initials = (memberName || "??")
+    .split(" ")
+    .map((n: string) => n[0])
+    .filter(Boolean)
+    .join("")
+    .substring(0, 2)
+    .toUpperCase();
+
+  const Row = ({ label, children, copy }: { label: string; children: React.ReactNode; copy?: string }) => (
+    <div className="flex items-center justify-between py-2.5 gap-3">
+      <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0">{label}</span>
+      <div className="flex items-center gap-1.5 min-w-0">
+        <div className="text-sm font-medium text-gray-900 dark:text-white truncate text-right">{children}</div>
+        {copy && (
+          <button
+            onClick={() => handleCopy(copy, label)}
+            className="p-1 text-gray-400 hover:text-[#00B5A5] hover:bg-[#00B5A5]/10 rounded transition-colors shrink-0"
+            aria-label={`Copy ${label}`}
+          >
+            <DocumentDuplicateIcon className={`w-3.5 h-3.5 ${copyingField === label ? "text-[#00B5A5]" : ""}`} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
+  const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
+    <div>
+      <h3 className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1 px-1">{title}</h3>
+      <div className="bg-white dark:bg-gray-800/40 border border-gray-200 dark:border-gray-700 rounded-xl px-4 divide-y divide-gray-100 dark:divide-gray-700/50">
+        {children}
+      </div>
+    </div>
+  );
 
   return (
     <Transition appear show={isOpen} as={Fragment}>
       <Dialog as="div" className="relative z-50" onClose={onClose}>
-        {/* Backdrop */}
         <Transition.Child
           as={Fragment}
           enter="ease-out duration-300"
@@ -362,13 +396,12 @@ function PaymentSideSheet({
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <div className="fixed inset-0 bg-black/50 dark:bg-black/70" />
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" />
         </Transition.Child>
 
-        {/* Side Sheet */}
         <div className="fixed inset-0 overflow-hidden">
           <div className="absolute inset-0 overflow-hidden">
-            <div className="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-0 sm:pl-10">
+            <div className="pointer-events-none fixed inset-y-0 right-0 flex max-w-full">
               <Transition.Child
                 as={Fragment}
                 enter="transform transition ease-in-out duration-300"
@@ -378,268 +411,178 @@ function PaymentSideSheet({
                 leaveFrom="translate-x-0"
                 leaveTo="translate-x-full"
               >
-                <Dialog.Panel className="pointer-events-auto w-screen max-w-full sm:max-w-2xl md:max-w-3xl lg:max-w-5xl xl:max-w-[70vw]">
-                  <div className="flex h-full flex-col bg-white dark:bg-gray-900 shadow-2xl">
+                <Dialog.Panel className="pointer-events-auto w-screen max-w-md">
+                  <div className="flex h-full flex-col bg-gray-50 dark:bg-gray-900 shadow-2xl">
                     {/* Header */}
-                    <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+                    <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
                       <div className="flex items-center justify-between">
-                        <Dialog.Title className="text-lg font-semibold text-gray-900 dark:text-white">
-                          Payment Details
-                        </Dialog.Title>
+                        <div>
+                          <Dialog.Title className="text-base font-semibold text-gray-900 dark:text-white">
+                            Payment Details
+                          </Dialog.Title>
+                          <p className="text-[11px] text-gray-400 font-mono mt-0.5">#{payment.id}</p>
+                        </div>
                         <button
                           onClick={onClose}
                           className="p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                          aria-label="Close"
                         >
                           <XMarkIcon className="w-5 h-5" />
                         </button>
                       </div>
                     </div>
 
-                    {/* Content */}
+                    {/* Body */}
                     <div className="flex-1 overflow-y-auto">
-                      {/* Amount Card */}
-                      <div className="p-6 bg-gradient-to-br from-[#00B5A5] to-[#008F82]">
-                        <div className="text-center">
-                          <p className="text-white/80 text-sm mb-1">Amount Paid</p>
-                          <p className="text-3xl font-bold text-white">
-                            {payment.amount_paid}
-                          </p>
-                          <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 bg-white/20 rounded-full">
-                            <StatusIcon className="w-4 h-4 text-white" />
-                            <span className="text-sm font-medium text-white">
-                              {payment.status}
+                      {/* Hero amount */}
+                      <div className="relative overflow-hidden bg-gradient-to-br from-[#00B5A5] via-[#009E91] to-[#008F82] px-5 py-7">
+                        <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-white/10 blur-2xl" />
+                        <div className="absolute -left-6 -bottom-10 w-28 h-28 rounded-full bg-white/5 blur-2xl" />
+                        <div className="relative">
+                          <p className="text-white/70 text-xs uppercase tracking-wider mb-1">Amount Paid</p>
+                          <p className="text-4xl font-bold text-white tracking-tight">{payment.amount_paid || "—"}</p>
+                          <div className="mt-3 flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white/15 backdrop-blur-sm rounded-full text-xs font-medium text-white">
+                              <StatusIcon className="w-3.5 h-3.5" />
+                              {payment.status || "Unknown"}
+                            </span>
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white/15 backdrop-blur-sm rounded-full text-xs font-medium text-white">
+                              <MethodIcon className="w-3.5 h-3.5" />
+                              {payment.payment_method || "—"}
                             </span>
                           </div>
                         </div>
                       </div>
 
-                      {/* Details Sections */}
-                      <div className="p-6 space-y-6">
-                        {/* Transaction Info */}
-                        <div>
-                          <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
-                            Transaction Information
-                          </h3>
-                          <div className="space-y-3">
-                            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                              <div>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">
-                                  Transaction Number
-                                </p>
-                                <p className="font-mono text-sm text-gray-900 dark:text-white">
-                                  #{payment.transaction_number}
-                                </p>
-                              </div>
-                              <button
-                                onClick={() =>
-                                  handleCopy(payment.transaction_number, "Transaction")
-                                }
-                                className="p-2 text-gray-400 hover:text-[#00B5A5] hover:bg-[#00B5A5]/10 rounded-lg transition-colors"
-                              >
-                                <DocumentDuplicateIcon className="w-4 h-4" />
-                              </button>
+                      {/* Member card */}
+                      <div className="px-5 -mt-4 relative">
+                        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm p-4">
+                          <div className="flex items-start gap-3">
+                            <div className="w-11 h-11 rounded-full bg-gradient-to-br from-[#00B5A5] to-[#008F82] flex items-center justify-center text-white font-semibold text-sm shrink-0">
+                              {initials}
                             </div>
-
-                            <div className="grid grid-cols-2 gap-3">
-                              <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                <p className="text-xs text-gray-500 dark:text-gray-400">
-                                  Payment Method
-                                </p>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <MethodIcon className="w-4 h-4 text-[#00B5A5]" />
-                                  <span className="text-sm font-medium text-gray-900 dark:text-white">
-                                    {payment.payment_method}
-                                  </span>
-                                </div>
-                              </div>
-                              <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                <p className="text-xs text-gray-500 dark:text-gray-400">
-                                  Gateway
-                                </p>
-                                <p className="text-sm font-medium text-gray-900 dark:text-white mt-1">
-                                  {payment.gateway}
-                                </p>
-                              </div>
-                            </div>
-
-                            <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                              <p className="text-xs text-gray-500 dark:text-gray-400">
-                                Payment Date
-                              </p>
-                              <div className="flex items-center gap-2 mt-1">
-                                <CalendarIcon className="w-4 h-4 text-gray-400" />
-                                <span className="text-sm font-medium text-gray-900 dark:text-white">
-                                  {formatDateTime(payment.payment_date)}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Member Info */}
-                        <div>
-                          <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
-                            Member Information
-                          </h3>
-                          <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                            <div className="flex items-start gap-3">
-                              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#00B5A5] to-[#008F82] flex items-center justify-center text-white font-semibold">
-                                {(payment.application?.member_details?.name || payment.member)
-                                  .split(" ")
-                                  .map((n: string) => n[0])
-                                  .join("")
-                                  .substring(0, 2)
-                                  .toUpperCase()}
-                              </div>
-                              <div className="flex-1">
-                                <p className="font-semibold text-gray-900 dark:text-white">
-                                  {payment.application?.member_details?.name || payment.member}
-                                </p>
-                                {payment.application?.member_details?.email && (
-                                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                                    {payment.application.member_details.email}
-                                  </p>
-                                )}
-                                <div className="flex items-center gap-2 mt-2">
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#00B5A5]/10 text-[#00B5A5]">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-gray-900 dark:text-white truncate">{memberName}</p>
+                              {payment.application?.member_details?.email && (
+                                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{payment.application.member_details.email}</p>
+                              )}
+                              <div className="flex flex-wrap items-center gap-1 mt-2">
+                                {payment.member && (
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-[#00B5A5]/10 text-[#00B5A5]">
                                     {payment.member}
                                   </span>
-                                  {payment.application?.membership_type && (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400">
-                                      {payment.application.membership_type}
-                                    </span>
-                                  )}
-                                </div>
+                                )}
+                                {payment.application?.membership_type && (
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400">
+                                    {payment.application.membership_type}
+                                  </span>
+                                )}
                               </div>
                             </div>
-
-                            {(payment.application?.member_details?.phone_number || payment.application?.country_of_residency) && (
-                              <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 grid grid-cols-2 gap-3 text-sm">
-                                {payment.application?.member_details?.phone_number && (
-                                  <div>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                                      Phone
-                                    </p>
-                                    <p className="text-gray-900 dark:text-white">
-                                      {payment.application.member_details.phone_number}
-                                    </p>
-                                  </div>
-                                )}
-                                {payment.application?.country_of_residency && (
-                                  <div>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                                      Country
-                                    </p>
-                                    <p className="text-gray-900 dark:text-white">
-                                      {payment.application.country_of_residency}
-                                    </p>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            <button
-                              onClick={() => onViewMember(payment.member)}
-                              className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-[#00B5A5] hover:bg-[#00B5A5]/10 rounded-lg transition-colors"
-                            >
-                              <UserIcon className="w-4 h-4" />
-                              View Member Profile
-                              <ArrowTopRightOnSquareIcon className="w-3 h-3" />
-                            </button>
                           </div>
+                          {(payment.application?.member_details?.phone_number || payment.application?.country_of_residency) && (
+                            <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700/50 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                              <span className="truncate">{payment.application?.member_details?.phone_number || "—"}</span>
+                              <span className="truncate">{payment.application?.country_of_residency || ""}</span>
+                            </div>
+                          )}
+                          <button
+                            onClick={() => payment.member && onViewMember(payment.member)}
+                            className="mt-3 w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#00B5A5] hover:bg-[#00B5A5]/10 rounded-lg transition-colors"
+                          >
+                            <UserIcon className="w-3.5 h-3.5" />
+                            View Member Profile
+                            <ArrowTopRightOnSquareIcon className="w-3 h-3" />
+                          </button>
                         </div>
+                      </div>
 
-                        {/* Application Info */}
+                      {/* Sections */}
+                      <div className="px-5 py-5 space-y-4">
+                        <Section title="Payment">
+                          <Row label="Transaction" copy={payment.transaction_number || undefined}>
+                            {payment.transaction_number ? (
+                              <span className="font-mono text-xs">{payment.transaction_number}</span>
+                            ) : (
+                              <span className="text-gray-400 italic text-xs">Not assigned</span>
+                            )}
+                          </Row>
+                          <Row label="Gateway">
+                            {payment.gateway || <span className="text-gray-400 italic text-xs">Offline</span>}
+                          </Row>
+                          <Row label="Date">
+                            <span className="flex items-center gap-1.5 text-xs">
+                              <CalendarIcon className="w-3.5 h-3.5 text-gray-400" />
+                              {formatDateTime(payment.payment_date)}
+                            </span>
+                          </Row>
+                        </Section>
+
                         {payment.application && (
-                          <div>
-                            <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
-                              Application Details
-                            </h3>
-                            <div className="space-y-2">
-                              {payment.application.application_status && (
-                                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                  <span className="text-sm text-gray-500 dark:text-gray-400">
-                                    Application Status
-                                  </span>
-                                  <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
-                                    {payment.application.application_status}
-                                  </span>
-                                </div>
-                              )}
-                              {payment.application.application_date && (
-                                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                  <span className="text-sm text-gray-500 dark:text-gray-400">
-                                    Application Date
-                                  </span>
-                                  <span className="text-sm text-gray-900 dark:text-white">
-                                    {formatDate(payment.application.application_date)}
-                                  </span>
-                                </div>
-                              )}
-                              <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                <span className="text-sm text-gray-500 dark:text-gray-400">
-                                  Certificate Generated
+                          <Section title="Application">
+                            {payment.application.application_status && (
+                              <Row label="Status">
+                                <span className="text-emerald-600 dark:text-emerald-400 text-xs">
+                                  {payment.application.application_status}
                                 </span>
-                                {payment.is_certificate_generated ? (
-                                  <span className="inline-flex items-center gap-1 text-sm font-medium text-emerald-600 dark:text-emerald-400">
-                                    <CheckCircleIcon className="w-4 h-4" />
-                                    Yes
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1 text-sm font-medium text-amber-600 dark:text-amber-400">
-                                    <ClockIcon className="w-4 h-4" />
-                                    Pending
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
+                              </Row>
+                            )}
+                            {payment.application.application_date && (
+                              <Row label="Applied">
+                                <span className="text-xs">{formatDate(payment.application.application_date)}</span>
+                              </Row>
+                            )}
+                            <Row label="Certificate">
+                              {payment.is_certificate_generated ? (
+                                <span className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                                  <ShieldCheckIcon className="w-3.5 h-3.5" />
+                                  Generated
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 font-medium">
+                                  <ClockIcon className="w-3.5 h-3.5" />
+                                  Pending
+                                </span>
+                              )}
+                            </Row>
+                          </Section>
                         )}
 
-                        {/* Organization Info (if available) */}
                         {payment.application?.name_of_organization && (
-                          <div>
-                            <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
-                              Organization
-                            </h3>
-                            <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                              <p className="font-medium text-gray-900 dark:text-white">
+                          <Section title="Organization">
+                            <Row label="Name">
+                              <span className="text-xs">
                                 {payment.application.name_of_organization}
-                              </p>
-                              {payment.application.Abbreviation && (
-                                <p className="text-sm text-gray-500 dark:text-gray-400">
-                                  ({payment.application.Abbreviation})
-                                </p>
-                              )}
-                              {payment.application.company_email && (
-                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                  {payment.application.company_email}
-                                </p>
-                              )}
-                            </div>
-                          </div>
+                                {payment.application.Abbreviation && (
+                                  <span className="text-gray-400"> ({payment.application.Abbreviation})</span>
+                                )}
+                              </span>
+                            </Row>
+                            {payment.application.company_email && (
+                              <Row label="Email">
+                                <span className="text-xs">{payment.application.company_email}</span>
+                              </Row>
+                            )}
+                          </Section>
                         )}
                       </div>
                     </div>
 
-                    {/* Footer Actions */}
-                    <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                      <div className="flex gap-3">
-                        <button
-                          onClick={onClose}
-                          className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                        >
-                          Close
-                        </button>
-                        <button
-                          onClick={() =>
-                            (window.location.href = `/payments/${payment.id}`)
-                          }
-                          className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-[#00B5A5] hover:bg-[#009985] rounded-lg transition-colors"
-                        >
-                          Full Details
-                        </button>
-                      </div>
+                    {/* Footer */}
+                    <div className="px-5 py-3 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex gap-2">
+                      <button
+                        onClick={onClose}
+                        className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                      >
+                        Close
+                      </button>
+                      <button
+                        onClick={() => (window.location.href = `/payments/${payment.id}`)}
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-[#00B5A5] hover:bg-[#009985] rounded-lg transition-colors"
+                      >
+                        Full Details
+                        <ArrowTopRightOnSquareIcon className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
                 </Dialog.Panel>
