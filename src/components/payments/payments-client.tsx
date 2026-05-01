@@ -139,7 +139,7 @@ const formatDateTime = (dateString: string) => {
 };
 
 const getStatusConfig = (status: string) => {
-  switch (status.toLowerCase()) {
+  switch ((status || "").toLowerCase()) {
     case "completed":
       return {
         color: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
@@ -169,7 +169,7 @@ const getStatusConfig = (status: string) => {
 };
 
 const getMethodIcon = (method: string) => {
-  switch (method.toLowerCase()) {
+  switch ((method || "").toLowerCase()) {
     case "credit card":
       return CreditCardIcon;
     case "bank transfer":
@@ -776,12 +776,13 @@ export default function PaymentsClient() {
 
     return paymentsData.data.reduce(
       (acc, payment) => {
+        const status = (payment.status || "").toLowerCase();
         acc.total++;
-        if (payment.status.toLowerCase() === "completed") acc.completed++;
-        if (payment.status.toLowerCase() === "pending") acc.pending++;
-        if (payment.status.toLowerCase() === "failed") acc.failed++;
+        if (status === "completed") acc.completed++;
+        if (status === "pending") acc.pending++;
+        if (status === "failed") acc.failed++;
 
-        const amount = parseFloat(payment.amount_paid.split(" ")[0]);
+        const amount = parseFloat((payment.amount_paid || "").split(" ")[0]);
         if (!isNaN(amount)) acc.totalAmount += amount;
 
         return acc;
@@ -794,25 +795,25 @@ export default function PaymentsClient() {
     paymentsData?.data.filter((payment) => {
       const searchLower = searchTerm.toLowerCase();
       const matchesSearch =
-        payment.member.toLowerCase().includes(searchLower) ||
-        payment.transaction_number.toLowerCase().includes(searchLower) ||
+        (payment.member || "").toLowerCase().includes(searchLower) ||
+        (payment.transaction_number || "").toLowerCase().includes(searchLower) ||
         (payment.application?.member_details?.name?.toLowerCase().includes(searchLower) ?? false) ||
         (payment.application?.member_details?.email?.toLowerCase().includes(searchLower) ?? false);
 
       const matchesStatus =
         statusFilter === "all" ||
-        payment.status.toLowerCase() === statusFilter.toLowerCase();
+        (payment.status || "").toLowerCase() === statusFilter.toLowerCase();
 
       const matchesGateway =
         gatewayFilter === "all" ||
-        payment.gateway.toLowerCase() === gatewayFilter.toLowerCase();
+        (payment.gateway || "").toLowerCase() === gatewayFilter.toLowerCase();
 
       return matchesSearch && matchesStatus && matchesGateway;
     }) || [];
 
   const getUniqueGateways = () => {
     if (!paymentsData?.data) return [];
-    return [...new Set(paymentsData.data.map((p) => p.gateway))];
+    return [...new Set(paymentsData.data.map((p) => p.gateway).filter((g): g is string => !!g))];
   };
 
   const stats = getPaymentStats();

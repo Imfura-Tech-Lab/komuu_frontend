@@ -127,7 +127,7 @@ const formatDateTime = (dateString: string) => {
 };
 
 const getStatusConfig = (status: string) => {
-  switch (status.toLowerCase()) {
+  switch ((status || "").toLowerCase()) {
     case "completed":
       return {
         color: "text-emerald-600 dark:text-emerald-400",
@@ -169,7 +169,7 @@ const getStatusConfig = (status: string) => {
 };
 
 const getMethodIcon = (method: string) => {
-  switch (method.toLowerCase()) {
+  switch ((method || "").toLowerCase()) {
     case "credit card":
       return CreditCardIcon;
     case "bank transfer":

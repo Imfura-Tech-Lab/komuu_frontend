@@ -147,7 +147,7 @@ const formatDateTime = (dateString: string) => {
 };
 
 const getStatusConfig = (status: string) => {
-  switch (status.toLowerCase()) {
+  switch ((status || "").toLowerCase()) {
     case "completed":
       return {
         color: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
@@ -177,7 +177,7 @@ const getStatusConfig = (status: string) => {
 };
 
 const getMethodIcon = (method: string) => {
-  switch (method.toLowerCase()) {
+  switch ((method || "").toLowerCase()) {
     case "credit card":
       return CreditCardIcon;
     case "bank transfer":
@@ -447,7 +447,7 @@ function printInvoice(payment: Payment) {
       <p><strong>Date:</strong> ${new Date(payment.payment_date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</p>
       <p><strong>Method:</strong> ${payment.payment_method}</p>
       <p><strong>Gateway:</strong> ${payment.gateway}</p>
-      <p><strong>Status:</strong> <span class="status status-${payment.status.toLowerCase()}">${payment.status}</span></p>
+      <p><strong>Status:</strong> <span class="status status-${(payment.status || "").toLowerCase()}">${payment.status || "—"}</span></p>
     </div>
   </div>
 
@@ -756,7 +756,7 @@ function PaymentSideSheet({
                         >
                           Close
                         </button>
-                        {payment.status.toLowerCase() === "completed" && (
+                        {(payment.status || "").toLowerCase() === "completed" && (
                           <button
                             onClick={() => printInvoice(payment)}
                             className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-[#00B5A5] hover:bg-[#009985] rounded-lg transition-colors"
@@ -927,11 +927,12 @@ export default function MyPaymentsClient() {
 
     return paymentsData.data.reduce(
       (acc, payment) => {
+        const status = (payment.status || "").toLowerCase();
         acc.total++;
-        if (payment.status.toLowerCase() === "completed") acc.completed++;
-        if (payment.status.toLowerCase() === "pending") acc.pending++;
+        if (status === "completed") acc.completed++;
+        if (status === "pending") acc.pending++;
 
-        const amount = parseFloat(payment.amount_paid.split(" ")[0]);
+        const amount = parseFloat((payment.amount_paid || "").split(" ")[0]);
         if (!isNaN(amount)) acc.totalAmount += amount;
 
         return acc;
@@ -944,13 +945,13 @@ export default function MyPaymentsClient() {
     paymentsData?.data.filter((payment) => {
       const searchLower = searchTerm.toLowerCase();
       const matchesSearch =
-        payment.transaction_number.toLowerCase().includes(searchLower) ||
-        payment.member.toLowerCase().includes(searchLower) ||
+        (payment.transaction_number || "").toLowerCase().includes(searchLower) ||
+        (payment.member || "").toLowerCase().includes(searchLower) ||
         (payment.application?.membership_type?.toLowerCase().includes(searchLower) ?? false);
 
       const matchesStatus =
         statusFilter === "all" ||
-        payment.status.toLowerCase() === statusFilter.toLowerCase();
+        (payment.status || "").toLowerCase() === statusFilter.toLowerCase();
 
       return matchesSearch && matchesStatus;
     }) || [];
