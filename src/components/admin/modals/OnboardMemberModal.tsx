@@ -182,9 +182,9 @@ export default function OnboardMemberModal({ isOpen, onClose, onSuccess }: Props
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/40" onClick={() => !loading && onClose()} />
-      <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-xl mx-4 max-h-[90vh] overflow-y-auto">
+      <div className="relative bg-white dark:bg-gray-800 shadow-2xl w-full max-w-2xl h-full overflow-y-auto rounded-l-2xl">
         {/* Header */}
         <div className="sticky top-0 bg-white dark:bg-gray-800 px-6 py-4 border-b border-gray-200 dark:border-gray-700 z-10">
           <div className="flex items-center justify-between mb-3">
