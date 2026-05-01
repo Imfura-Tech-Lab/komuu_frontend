@@ -1,9 +1,104 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { XMarkIcon, UserPlusIcon, ArrowLeftIcon, ArrowRightIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
+import { useState, useEffect, useRef } from "react";
+import { XMarkIcon, UserPlusIcon, ArrowLeftIcon, ArrowRightIcon, CheckCircleIcon, CloudArrowUpIcon, DocumentTextIcon } from "@heroicons/react/24/outline";
 import { getAuthenticatedClient, getCompanyHeaders, ApiError } from "@/lib/api-client";
 import { showSuccessToast, showErrorToast } from "@/components/layouts/auth-layer-out";
+
+const formatBytes = (n: number): string => {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(2)} MB`;
+};
+
+interface DropzoneProps {
+  label: string;
+  accept: string;
+  hint: string;
+  maxBytes: number;
+  file: File | null;
+  onChange: (f: File | null) => void;
+  error?: string;
+}
+
+function FileDropzone({ label, accept, hint, maxBytes, file, onChange, error }: DropzoneProps) {
+  const [dragOver, setDragOver] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const validate = (f: File): string | null => {
+    if (f.size > maxBytes) return `File is ${formatBytes(f.size)} — max allowed is ${formatBytes(maxBytes)}`;
+    return null;
+  };
+
+  const handleFile = (f: File | null) => {
+    setLocalError(null);
+    if (!f) { onChange(null); return; }
+    const err = validate(f);
+    if (err) { setLocalError(err); return; }
+    onChange(f);
+  };
+
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const dropped = e.dataTransfer.files?.[0];
+    if (dropped) handleFile(dropped);
+  };
+
+  return (
+    <div>
+      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">{label}</label>
+      {!file ? (
+        <div
+          onClick={() => inputRef.current?.click()}
+          onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={onDrop}
+          className={`flex flex-col items-center justify-center w-full py-5 px-3 border-2 border-dashed rounded-lg cursor-pointer transition ${
+            dragOver
+              ? "border-[#00B5A5] bg-[#00B5A5]/5"
+              : "border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/30 hover:border-[#00B5A5]/60 hover:bg-[#00B5A5]/5"
+          }`}
+        >
+          <CloudArrowUpIcon className={`w-7 h-7 mb-2 ${dragOver ? "text-[#00B5A5]" : "text-gray-400"}`} />
+          <p className="text-xs text-gray-600 dark:text-gray-300 text-center">
+            <span className="font-semibold text-[#00B5A5]">Click to upload</span> or drag and drop
+          </p>
+          <p className="text-[10px] text-gray-400 mt-1">{hint}</p>
+          <input
+            ref={inputRef}
+            type="file"
+            accept={accept}
+            className="hidden"
+            onChange={e => handleFile(e.target.files?.[0] || null)}
+          />
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 p-2.5 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-700/30">
+          <div className="w-9 h-9 flex items-center justify-center rounded-md bg-[#00B5A5]/10 shrink-0">
+            <DocumentTextIcon className="w-5 h-5 text-[#00B5A5]" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium text-gray-700 dark:text-gray-200 truncate">{file.name}</p>
+            <p className="text-[10px] text-gray-400">{formatBytes(file.size)}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => { onChange(null); if (inputRef.current) inputRef.current.value = ""; }}
+            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-md shrink-0"
+            aria-label={`Remove ${file.name}`}
+          >
+            <XMarkIcon className="w-4 h-4 text-gray-500" />
+          </button>
+        </div>
+      )}
+      {(localError || error) && (
+        <p className="text-[10px] text-red-500 mt-1">{localError || error}</p>
+      )}
+    </div>
+  );
+}
 
 interface Props { isOpen: boolean; onClose: () => void; onSuccess: () => void; }
 interface Category { id: number; category: string; price: string; }
@@ -331,8 +426,24 @@ export default function OnboardMemberModal({ isOpen, onClose, onSuccess }: Props
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><label className={labelCls}>CV/Resume (PDF, max 2MB)</label><input type="file" accept=".pdf,.doc,.docx" onChange={e => setCvFile(e.target.files?.[0] || null)} className="w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-[#00B5A5]/10 file:text-[#00B5A5]" />{err("cv_resume") && <p className={errCls}>{err("cv_resume")}</p>}</div>
-              <div><label className={labelCls}>Qualification (PDF, max 2MB)</label><input type="file" accept=".pdf" onChange={e => setQualFile(e.target.files?.[0] || null)} className="w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-[#00B5A5]/10 file:text-[#00B5A5]" />{err("qualification") && <p className={errCls}>{err("qualification")}</p>}</div>
+              <FileDropzone
+                label="CV / Resume"
+                accept=".pdf,.doc,.docx"
+                hint="PDF, DOC or DOCX (max 2MB)"
+                maxBytes={2 * 1024 * 1024}
+                file={cvFile}
+                onChange={setCvFile}
+                error={err("cv_resume")}
+              />
+              <FileDropzone
+                label="Qualification"
+                accept=".pdf"
+                hint="PDF only (max 2MB)"
+                maxBytes={2 * 1024 * 1024}
+                file={qualFile}
+                onChange={setQualFile}
+                error={err("qualification")}
+              />
             </div>
           </>)}
 
