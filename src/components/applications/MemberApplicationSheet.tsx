@@ -111,7 +111,7 @@ interface MemberApplicationSheetProps {
 type TabId = "overview" | "practice" | "documents" | "compliance";
 
 function getStatusConfig(status: string) {
-  const normalized = status.toLowerCase();
+  const normalized = (status || "").toLowerCase();
   if (normalized.includes("approved") || normalized.includes("certificate")) {
     return {
       color: "text-emerald-700 dark:text-emerald-400",

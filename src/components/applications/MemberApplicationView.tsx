@@ -309,7 +309,7 @@ export default function MemberApplicationView({
   const statusConfig = getStatusConfig(application.application_status);
   const StatusIcon = statusConfig.icon;
   const member = application.member_details;
-  const normalizedStatus = application.application_status.toLowerCase();
+  const normalizedStatus = (application.application_status || "").toLowerCase();
   const isWaitingForPayment = normalizedStatus.includes("waiting for payment");
   const isCertificateGenerated = normalizedStatus.includes("certificate");
   const isRejected = normalizedStatus.includes("rejected") || normalizedStatus.includes("denied");

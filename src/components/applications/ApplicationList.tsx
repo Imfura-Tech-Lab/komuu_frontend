@@ -41,7 +41,7 @@ interface ApplicationListProps {
 // Status Badge Component
 function StatusBadge({ status }: { status: string }) {
   const getConfig = (status: string) => {
-    const statusLower = status.toLowerCase();
+    const statusLower = (status || "").toLowerCase();
     if (statusLower.includes("approved") || statusLower.includes("generated")) {
       return {
         color: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
@@ -131,7 +131,7 @@ function ActionDropdown({
   onDelete: () => void;
   loading: string | null;
 }) {
-  const statusLower = application.application_status.toLowerCase();
+  const statusLower = (application.application_status || "").toLowerCase();
   const canApproveApp = canApprove && !statusLower.includes("approved") && !statusLower.includes("generated");
   const canSignApp = canSign && statusLower.includes("approved") && !statusLower.includes("generated");
 
@@ -445,7 +445,7 @@ export default function ApplicationList({
         icon: <CheckCircleIcon className="w-4 h-4" />,
         action: async (selectedItems: Application[]) => {
           const pendingItems = selectedItems.filter(
-            (item) => !item.application_status.toLowerCase().includes("approved")
+            (item) => !(item.application_status || "").toLowerCase().includes("approved")
           );
 
           if (pendingItems.length === 0) {
@@ -473,7 +473,7 @@ export default function ApplicationList({
         icon: <PencilSquareIcon className="w-4 h-4" />,
         action: async (selectedItems: Application[]) => {
           const approvedItems = selectedItems.filter((item) => {
-            const status = item.application_status.toLowerCase();
+            const status = (item.application_status || "").toLowerCase();
             return status.includes("approved") && !status.includes("generated");
           });
 
