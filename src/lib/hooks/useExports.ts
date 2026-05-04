@@ -15,12 +15,11 @@ export interface ExportJob {
   export_until: string;
   generated_by: string;
   generated_at: string;
-}
-
-interface ExportApiResponse {
-  status: string;
-  message?: string;
-  data: ExportJob;
+  approved_count?: number;
+  rejected_count?: number;
+  required_approvals?: number;
+  my_vote?: boolean | null;
+  is_ready_to_download?: boolean;
 }
 
 interface ExportsListResponse {
@@ -118,11 +117,11 @@ export function useExports() {
     }
   }, []);
 
-  const approveExport = useCallback(async (id: number, approved: boolean): Promise<boolean> => {
+  const voteOnExport = useCallback(async (id: number, approved: boolean): Promise<boolean> => {
     try {
       const client = getAuthenticatedClient();
       const response = await client.post<{ status: string; message?: string }>(
-        `export/all/${id}/approve`,
+        `export/all/${id}/confirm-download`,
         { approved },
         { headers: getCompanyHeaders() }
       );
@@ -134,7 +133,7 @@ export function useExports() {
       showErrorToast(response.data.message || "Failed");
       return false;
     } catch (err) {
-      showErrorToast((err as ApiError).message || "Failed to approve");
+      showErrorToast((err as ApiError).message || "Failed to record your vote");
       return false;
     }
   }, []);
@@ -187,7 +186,7 @@ export function useExports() {
     requestExport,
     checkStatus,
     downloadExport,
-    approveExport,
+    voteOnExport,
     fetchExports,
     deleteExport,
   };

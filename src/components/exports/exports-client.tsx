@@ -10,8 +10,11 @@ import {
   CheckCircle,
   XCircle,
   Loader2,
+  ShieldCheck,
+  ShieldX,
+  Users,
 } from "lucide-react";
-import { useExports, ExportJob } from "@/lib/hooks/useExports";
+import { useExports } from "@/lib/hooks/useExports";
 
 function formatDate(dateString: string): string {
   return new Date(dateString).toLocaleDateString("en-US", {
@@ -40,8 +43,9 @@ function getStatusConfig(status: string) {
 }
 
 export default function ExportsClient() {
-  const { exports: exportJobs, loading, fetchExports, requestExport, checkStatus, downloadExport, approveExport, deleteExport } = useExports();
-  const [pollingIds, setPollingIds] = useState<Set<number>>(new Set());
+  const { exports: exportJobs, loading, fetchExports, requestExport, checkStatus, downloadExport, voteOnExport, deleteExport } = useExports();
+  const [, setPollingIds] = useState<Set<number>>(new Set());
+  const [busyId, setBusyId] = useState<number | null>(null);
   const intervalsRef = useRef<Map<number, NodeJS.Timeout>>(new Map());
   const [fromDate, setFromDate] = useState(() => {
     const d = new Date();
@@ -103,12 +107,16 @@ export default function ExportsClient() {
   };
 
   const handleDownload = async (id: number) => {
+    setBusyId(id);
     await downloadExport(id);
+    setBusyId(null);
   };
 
-  const handleApprove = async (id: number) => {
-    const ok = await approveExport(id, true);
-    if (ok) fetchExports();
+  const handleVote = async (id: number, approved: boolean) => {
+    setBusyId(id);
+    const ok = await voteOnExport(id, approved);
+    if (ok) await fetchExports();
+    setBusyId(null);
   };
 
   return (
@@ -187,9 +195,17 @@ export default function ExportsClient() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { label: "Total Exports", value: exportJobs.length, color: "text-gray-900 dark:text-white" },
-          { label: "Completed", value: exportJobs.filter((e) => e.status?.toLowerCase() === "completed").length, color: "text-green-600" },
-          { label: "In Progress", value: exportJobs.filter((e) => ["pending", "processing"].includes(e.status?.toLowerCase())).length, color: "text-blue-600" },
-          { label: "Failed", value: exportJobs.filter((e) => e.status?.toLowerCase() === "failed").length, color: "text-red-600" },
+          { label: "In Progress", value: exportJobs.filter((e) => ["pending", "processing"].includes((e.status || "").toLowerCase())).length, color: "text-blue-600" },
+          {
+            label: "Awaiting Approval",
+            value: exportJobs.filter((e) => (e.status || "").toLowerCase() === "completed" && (e.approved_count ?? 0) < (e.required_approvals ?? 3)).length,
+            color: "text-amber-600",
+          },
+          {
+            label: "Ready to Download",
+            value: exportJobs.filter((e) => e.is_ready_to_download).length,
+            color: "text-green-600",
+          },
         ].map((stat) => (
           <div key={stat.label} className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
             <p className="text-sm text-gray-500 dark:text-gray-400">{stat.label}</p>
@@ -221,55 +237,121 @@ export default function ExportsClient() {
           <div className="divide-y divide-gray-200 dark:divide-gray-700">
             {exportJobs.map((job) => {
               const statusConfig = getStatusConfig(job.status);
-              return (
-                <div key={job.id} className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                  <div className="flex items-center gap-4">
-                    <div className={`p-2 rounded-lg ${statusConfig.bg}`}>
-                      <span className={statusConfig.color}>{statusConfig.icon}</span>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">
-                        Export #{job.id}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {job.export_from} to {job.export_until} &middot; by {job.generated_by} &middot; {formatDate(job.generated_at)}
-                      </p>
-                    </div>
-                  </div>
+              const statusKey = (job.status || "").toLowerCase();
+              const required = job.required_approvals ?? 3;
+              const approved = job.approved_count ?? 0;
+              const rejected = job.rejected_count ?? 0;
+              const myVote = job.my_vote;
+              const isReady = job.is_ready_to_download ?? (statusKey === "completed" && approved >= required);
+              const showVoteButtons = statusKey === "completed" && myVote === null && !isReady;
+              const isBusy = busyId === job.id;
+              const progressPct = Math.min(100, Math.round((approved / required) * 100));
 
-                  <div className="flex items-center gap-2">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusConfig.bg} ${statusConfig.color}`}>
-                      {job.status}
-                    </span>
-                    {job.status?.toLowerCase() !== "completed" && job.status?.toLowerCase() !== "failed" && (
+              return (
+                <div key={job.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                    {/* Left: identity */}
+                    <div className="flex items-start gap-4 min-w-0 flex-1">
+                      <div className={`p-2 rounded-lg flex-shrink-0 ${statusConfig.bg}`}>
+                        <span className={statusConfig.color}>{statusConfig.icon}</span>
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">
+                            Export #{job.id}
+                          </p>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${statusConfig.bg} ${statusConfig.color}`}>
+                            {job.status}
+                          </span>
+                          {isReady && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                              <CheckCircle className="w-3 h-3" />Ready
+                            </span>
+                          )}
+                          {myVote === true && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-300">
+                              <ShieldCheck className="w-3 h-3" />You approved
+                            </span>
+                          )}
+                          {myVote === false && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-300">
+                              <ShieldX className="w-3 h-3" />You denied
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
+                          {job.export_from} to {job.export_until} &middot; by {job.generated_by} &middot; {formatDate(job.generated_at)}
+                        </p>
+
+                        {/* Approval progress — only meaningful once the export is generated */}
+                        {statusKey === "completed" && (
+                          <div className="mt-2 max-w-xs">
+                            <div className="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400 mb-1">
+                              <span className="inline-flex items-center gap-1">
+                                <Users className="w-3 h-3" />
+                                Approvals: <span className="font-semibold text-gray-700 dark:text-gray-200">{approved}/{required}</span>
+                                {rejected > 0 && <span className="text-red-500 dark:text-red-400 ml-1">({rejected} denied)</span>}
+                              </span>
+                            </div>
+                            <div className="h-1.5 w-full bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full transition-all ${approved >= required ? "bg-emerald-500" : "bg-amber-400"}`}
+                                style={{ width: `${progressPct}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Right: actions */}
+                    <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+                      {showVoteButtons && (
+                        <>
+                          <button
+                            onClick={() => handleVote(job.id, true)}
+                            disabled={isBusy}
+                            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <ShieldCheck className="w-4 h-4" />Approve
+                          </button>
+                          <button
+                            onClick={() => handleVote(job.id, false)}
+                            disabled={isBusy}
+                            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-red-700 bg-white dark:bg-gray-700 dark:text-red-300 border border-red-300 dark:border-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <ShieldX className="w-4 h-4" />Deny
+                          </button>
+                        </>
+                      )}
+
+                      {statusKey === "completed" && (
+                        <button
+                          onClick={() => handleDownload(job.id)}
+                          disabled={!isReady || isBusy}
+                          title={isReady ? "Download export" : `Needs ${required - approved} more approval${required - approved === 1 ? "" : "s"}`}
+                          className={`inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                            isReady
+                              ? "text-white bg-[#00B5A5] hover:bg-[#008F82]"
+                              : "text-gray-400 bg-gray-100 dark:bg-gray-700 cursor-not-allowed"
+                          } disabled:opacity-50`}
+                        >
+                          <Download className="w-4 h-4" />Download
+                        </button>
+                      )}
+
                       <button
-                        onClick={() => handleApprove(job.id)}
-                        className="px-2.5 py-1 text-xs font-medium text-green-700 bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-300 dark:hover:bg-green-900/50 rounded-lg transition-colors"
-                        title="Approve export"
+                        onClick={() => {
+                          if (confirm("Delete this export?")) {
+                            deleteExport(job.id);
+                          }
+                        }}
+                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                        title="Delete"
                       >
-                        Approve
+                        <Trash2 className="w-4 h-4" />
                       </button>
-                    )}
-                    {job.status?.toLowerCase() === "completed" && (
-                      <button
-                        onClick={() => handleDownload(job.id)}
-                        className="p-2 text-[#00B5A5] hover:bg-[#00B5A5]/10 rounded-lg transition-colors"
-                        title="Download (requires 3 approvals)"
-                      >
-                        <Download className="w-4 h-4" />
-                      </button>
-                    )}
-                    <button
-                      onClick={() => {
-                        if (confirm("Delete this export?")) {
-                          deleteExport(job.id);
-                        }
-                      }}
-                      className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                      title="Delete"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    </div>
                   </div>
                 </div>
               );
