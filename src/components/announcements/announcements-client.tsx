@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   MegaphoneIcon,
   PlusIcon,
@@ -13,6 +13,8 @@ import {
   XMarkIcon,
   MagnifyingGlassIcon,
   TagIcon,
+  ChevronDownIcon,
+  CheckIcon,
 } from "@heroicons/react/24/outline";
 import { getAuthenticatedClient, ApiError } from "@/lib/api-client";
 import { showSuccessToast, showErrorToast } from "@/components/layouts/auth-layer-out";
@@ -73,8 +75,185 @@ function fmtRelative(d: string) {
 }
 
 // ============================================================================
-// ANNOUNCEMENT COMPOSE MODAL
+// SEARCHABLE DROPDOWN (single + multi)
 // ============================================================================
+
+interface DropdownOption {
+  value: string | number;
+  label: string;
+  icon?: React.ReactNode;
+  sublabel?: string;
+}
+
+function SearchableDropdown({
+  options,
+  value,
+  onChange,
+  placeholder,
+  multiple = false,
+  searchable = true,
+  disabled = false,
+  emptyHint,
+}: {
+  options: DropdownOption[];
+  value: string | number | Array<string | number> | null;
+  onChange: (v: string | number | Array<string | number>) => void;
+  placeholder: string;
+  multiple?: boolean;
+  searchable?: boolean;
+  disabled?: boolean;
+  emptyHint?: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+        setSearch("");
+      }
+    }
+    if (open) document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+
+  const filtered = !search ? options : options.filter(o =>
+    o.label.toLowerCase().includes(search.toLowerCase())
+    || (o.sublabel || "").toLowerCase().includes(search.toLowerCase())
+  );
+
+  const isSelected = (v: string | number) => multiple
+    ? Array.isArray(value) && value.includes(v)
+    : value === v;
+
+  const handlePick = (v: string | number) => {
+    if (multiple) {
+      const current = Array.isArray(value) ? value : [];
+      onChange(current.includes(v) ? current.filter(x => x !== v) : [...current, v]);
+    } else {
+      onChange(v);
+      setOpen(false);
+      setSearch("");
+    }
+  };
+
+  const triggerLabel = (() => {
+    if (multiple) {
+      const arr = Array.isArray(value) ? value : [];
+      if (arr.length === 0) return placeholder;
+      if (arr.length === 1) {
+        const opt = options.find(o => o.value === arr[0]);
+        return opt?.label ?? `${arr.length} selected`;
+      }
+      return `${arr.length} selected`;
+    }
+    const opt = options.find(o => o.value === value);
+    return opt?.label ?? placeholder;
+  })();
+
+  const triggerIcon = (() => {
+    if (multiple) return null;
+    return options.find(o => o.value === value)?.icon ?? null;
+  })();
+
+  const isPlaceholder = multiple
+    ? !Array.isArray(value) || value.length === 0
+    : value === null || value === undefined || value === "";
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen(o => !o)}
+        className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm border rounded-lg text-left transition-all ${
+          open ? "border-[#00B5A5] ring-2 ring-[#00B5A5]/20" : "border-gray-300 dark:border-gray-600"
+        } ${disabled ? "bg-gray-50 dark:bg-gray-800 opacity-60 cursor-not-allowed" : "bg-white dark:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500"} dark:text-white`}
+      >
+        {triggerIcon && <span className="text-gray-500 dark:text-gray-400 flex-shrink-0">{triggerIcon}</span>}
+        <span className={`flex-1 truncate ${isPlaceholder ? "text-gray-400 dark:text-gray-500" : ""}`}>
+          {triggerLabel}
+        </span>
+        {multiple && Array.isArray(value) && value.length > 0 && (
+          <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-[#00B5A5]/10 text-[#00B5A5] flex-shrink-0">
+            {value.length}
+          </span>
+        )}
+        <ChevronDownIcon className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <div className="absolute z-30 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden">
+          {searchable && options.length > 5 && (
+            <div className="p-2 border-b border-gray-100 dark:border-gray-700">
+              <div className="relative">
+                <MagnifyingGlassIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                <input
+                  autoFocus
+                  type="text"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Search..."
+                  className="w-full pl-8 pr-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-[#00B5A5]/30 focus:border-[#00B5A5] dark:bg-gray-700 dark:text-white"
+                />
+              </div>
+            </div>
+          )}
+          <ul className="max-h-64 overflow-y-auto py-1">
+            {options.length === 0 ? (
+              <li className="px-3 py-4 text-xs text-center text-gray-500 dark:text-gray-400">
+                {emptyHint ?? "No options available"}
+              </li>
+            ) : filtered.length === 0 ? (
+              <li className="px-3 py-4 text-xs text-center text-gray-500 dark:text-gray-400">No results for &quot;{search}&quot;</li>
+            ) : (
+              filtered.map(o => {
+                const sel = isSelected(o.value);
+                return (
+                  <li key={o.value}>
+                    <button
+                      type="button"
+                      onClick={() => handlePick(o.value)}
+                      className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors ${
+                        sel ? "bg-[#00B5A5]/10 text-[#00B5A5]" : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                      }`}
+                    >
+                      {multiple && (
+                        <span className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${sel ? "bg-[#00B5A5] border-[#00B5A5]" : "border-gray-300 dark:border-gray-600"}`}>
+                          {sel && <CheckIcon className="w-3 h-3 text-white" />}
+                        </span>
+                      )}
+                      {o.icon && <span className="flex-shrink-0 text-gray-500 dark:text-gray-400">{o.icon}</span>}
+                      <div className="flex-1 min-w-0">
+                        <p className="truncate font-medium">{o.label}</p>
+                        {o.sublabel && <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{o.sublabel}</p>}
+                      </div>
+                      {!multiple && sel && <CheckIcon className="w-4 h-4 text-[#00B5A5] flex-shrink-0" />}
+                    </button>
+                  </li>
+                );
+              })
+            )}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// ANNOUNCEMENT COMPOSE SHEET
+// ============================================================================
+
+const AUDIENCE_OPTIONS: DropdownOption[] = [
+  { value: "All", label: "Everyone", icon: <GlobeAltIcon className="w-4 h-4" />, sublabel: "All members of the institution" },
+  { value: "Members", label: "Members", icon: <UsersIcon className="w-4 h-4" />, sublabel: "Members only — excludes board / admin" },
+  { value: "Board", label: "Board & Admin", icon: <UserGroupIcon className="w-4 h-4" />, sublabel: "Administrators, President, Board, VP" },
+  { value: "Group", label: "Specific Group", icon: <UserGroupIcon className="w-4 h-4" />, sublabel: "Members of one community group" },
+  { value: "Membership Category", label: "By Membership Category", icon: <TagIcon className="w-4 h-4" />, sublabel: "Members in selected categories" },
+];
 
 function AnnouncementModal({ isOpen, onClose, onSubmit, groups, categories, loading }: {
   isOpen: boolean; onClose: () => void;
@@ -89,89 +268,201 @@ function AnnouncementModal({ isOpen, onClose, onSubmit, groups, categories, load
   const [sendEmail, setSendEmail] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
 
+  useEffect(() => {
+    if (!isOpen) {
+      setTitle("");
+      setContent("");
+      setTarget("All");
+      setTargetGroupId("");
+      setSelectedCategories([]);
+      setSendEmail(false);
+      setIsPinned(false);
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
-  const toggleCategory = (id: number) => {
-    setSelectedCategories(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]);
+  const handleAudienceChange = (v: string | number | Array<string | number>) => {
+    setTarget(v as string);
+    setTargetGroupId("");
+    setSelectedCategories([]);
+  };
+
+  const groupOptions: DropdownOption[] = groups.map(g => ({ value: g.id, label: g.name }));
+  const categoryOptions: DropdownOption[] = categories.map(c => ({ value: c.id, label: c.category }));
+
+  const canSubmit = !!title.trim() && !!content.trim() && !loading
+    && !(target === "Group" && !targetGroupId)
+    && !(target === "Membership Category" && selectedCategories.length === 0);
+
+  const handleSubmit = () => {
+    if (!canSubmit) return;
+    onSubmit({
+      title: title.trim(),
+      content: content.trim(),
+      target,
+      target_group_id: target === "Group" ? targetGroupId : undefined,
+      categories: target === "Membership Category" ? selectedCategories.map(id => ({ id })) : undefined,
+      send_email: sendEmail,
+      is_pinned: isPinned,
+    });
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white dark:bg-gray-800 px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between z-10">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white">New Announcement</h3>
-          <button onClick={onClose} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"><XMarkIcon className="w-5 h-5 text-gray-500" /></button>
+      <div className="relative w-full max-w-xl h-full bg-white dark:bg-gray-800 shadow-2xl flex flex-col rounded-l-2xl overflow-hidden animate-in slide-in-from-right">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
+          <div>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white">New Announcement</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Broadcast to the people you choose</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+            <XMarkIcon className="w-5 h-5 text-gray-500" />
+          </button>
         </div>
-        <div className="p-6 space-y-4">
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-5">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
-            <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="Announcement title" className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#00B5A5] dark:bg-gray-700 dark:text-white" />
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Title</label>
+            <input
+              type="text"
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              placeholder="Announcement title"
+              className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#00B5A5]/30 focus:border-[#00B5A5] dark:bg-gray-700 dark:text-white"
+            />
           </div>
+
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Message</label>
-            <textarea value={content} onChange={e => setContent(e.target.value)} placeholder="Write your announcement..." rows={4} className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#00B5A5] dark:bg-gray-700 dark:text-white resize-none" />
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Message</label>
+            <textarea
+              value={content}
+              onChange={e => setContent(e.target.value)}
+              placeholder="Write your announcement..."
+              rows={6}
+              className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#00B5A5]/30 focus:border-[#00B5A5] dark:bg-gray-700 dark:text-white resize-none"
+            />
+            <p className="mt-1 text-xs text-gray-400">{content.length} characters</p>
           </div>
+
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Audience</label>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { v: "All", l: "Everyone", icon: <GlobeAltIcon className="w-4 h-4" /> },
-                { v: "Members", l: "Members", icon: <UsersIcon className="w-4 h-4" /> },
-                { v: "Board", l: "Board & Admin", icon: <UserGroupIcon className="w-4 h-4" /> },
-                { v: "Group", l: "Specific Group", icon: <UserGroupIcon className="w-4 h-4" /> },
-                { v: "Membership Category", l: "By Category", icon: <TagIcon className="w-4 h-4" /> },
-              ].map(o => (
-                <button key={o.v} onClick={() => setTarget(o.v)} className={`flex items-center gap-2 p-2.5 rounded-lg border text-xs font-medium transition-colors ${target === o.v ? "border-[#00B5A5] bg-[#00B5A5]/10 text-[#00B5A5]" : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"}`}>
-                  {o.icon}{o.l}
-                </button>
-              ))}
-            </div>
-            {target === "Group" && (
-              groups.length === 0 ? (
-                <div className="mt-2 p-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 text-xs text-amber-700 dark:text-amber-300">
-                  No groups exist yet. Create a group from <span className="font-medium">Community → Groups</span> before targeting one here.
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Audience</label>
+            <SearchableDropdown
+              options={AUDIENCE_OPTIONS}
+              value={target}
+              onChange={handleAudienceChange}
+              placeholder="Choose audience"
+              searchable={false}
+            />
+          </div>
+
+          {target === "Group" && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                Group <span className="text-red-500">*</span>
+              </label>
+              {groups.length === 0 ? (
+                <div className="p-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 text-xs text-amber-700 dark:text-amber-300">
+                  No groups exist yet. Create one under <span className="font-medium">Community → Groups</span> first.
                 </div>
               ) : (
-                <select value={targetGroupId} onChange={e => setTargetGroupId(e.target.value)} className="w-full mt-2 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                  <option value="">Select a group ({groups.length} available)</option>
-                  {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-                </select>
-              )
-            )}
-            {target === "Membership Category" && (
-              categories.length === 0 ? (
-                <div className="mt-2 p-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 text-xs text-amber-700 dark:text-amber-300">
+                <SearchableDropdown
+                  options={groupOptions}
+                  value={targetGroupId}
+                  onChange={(v) => setTargetGroupId(v as string)}
+                  placeholder={`Select a group (${groups.length} available)`}
+                />
+              )}
+            </div>
+          )}
+
+          {target === "Membership Category" && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                Categories <span className="text-red-500">*</span>
+              </label>
+              {categories.length === 0 ? (
+                <div className="p-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 text-xs text-amber-700 dark:text-amber-300">
                   No membership categories defined yet. Add one under <span className="font-medium">Memberships → Categories</span> first.
                 </div>
               ) : (
-                <div className="mt-2 space-y-1.5">
-                  {categories.map(c => (
-                    <label key={c.id} className="flex items-center gap-2 p-2 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
-                      <input type="checkbox" checked={selectedCategories.includes(c.id)} onChange={() => toggleCategory(c.id)} className="w-4 h-4 text-[#00B5A5] border-gray-300 rounded focus:ring-[#00B5A5]" />
-                      <span className="text-sm text-gray-700 dark:text-gray-300">{c.category}</span>
-                    </label>
-                  ))}
-                </div>
-              )
-            )}
-          </div>
-          <div className="space-y-2">
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input type="checkbox" checked={sendEmail} onChange={e => setSendEmail(e.target.checked)} className="w-4 h-4 text-[#00B5A5] border-gray-300 rounded focus:ring-[#00B5A5]" />
-              <div><p className="text-sm font-medium text-gray-700 dark:text-gray-300">Also send via email</p></div>
+                <>
+                  <SearchableDropdown
+                    options={categoryOptions}
+                    value={selectedCategories}
+                    onChange={(v) => setSelectedCategories(v as number[])}
+                    placeholder={`Select categories (${categories.length} available)`}
+                    multiple
+                  />
+                  {selectedCategories.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {selectedCategories.map(id => {
+                        const c = categories.find(x => x.id === id);
+                        if (!c) return null;
+                        return (
+                          <span key={id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-[#00B5A5]/10 text-[#00B5A5]">
+                            {c.category}
+                            <button
+                              type="button"
+                              onClick={() => setSelectedCategories(prev => prev.filter(x => x !== id))}
+                              className="hover:text-[#008F82]"
+                            >
+                              <XMarkIcon className="w-3 h-3" />
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          <div className="pt-2 space-y-2 border-t border-gray-100 dark:border-gray-700">
+            <label className="flex items-center gap-3 cursor-pointer pt-3">
+              <input
+                type="checkbox"
+                checked={sendEmail}
+                onChange={e => setSendEmail(e.target.checked)}
+                className="w-4 h-4 text-[#00B5A5] border-gray-300 rounded focus:ring-[#00B5A5]"
+              />
+              <div>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Also send via email</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Members get an email in addition to the in-app notification</p>
+              </div>
             </label>
             <label className="flex items-center gap-3 cursor-pointer">
-              <input type="checkbox" checked={isPinned} onChange={e => setIsPinned(e.target.checked)} className="w-4 h-4 text-[#00B5A5] border-gray-300 rounded focus:ring-[#00B5A5]" />
-              <div><p className="text-sm font-medium text-gray-700 dark:text-gray-300">Pin to top</p></div>
+              <input
+                type="checkbox"
+                checked={isPinned}
+                onChange={e => setIsPinned(e.target.checked)}
+                className="w-4 h-4 text-[#00B5A5] border-gray-300 rounded focus:ring-[#00B5A5]"
+              />
+              <div>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Pin to top</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Highlight at the top of the feed</p>
+              </div>
             </label>
           </div>
         </div>
-        <div className="sticky bottom-0 bg-white dark:bg-gray-800 px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex gap-3">
-          <button onClick={onClose} className="flex-1 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg">Cancel</button>
-          <button onClick={() => { if (title.trim() && content.trim()) onSubmit({ title: title.trim(), content: content.trim(), target, target_group_id: target === "Group" ? targetGroupId : undefined, categories: target === "Membership Category" ? selectedCategories.map(id => ({ id })) : undefined, send_email: sendEmail, is_pinned: isPinned }); }}
-            disabled={!title.trim() || !content.trim() || loading || (target === "Group" && !targetGroupId) || (target === "Membership Category" && selectedCategories.length === 0)}
-            className="flex-1 py-2.5 text-sm font-medium text-white bg-[#00B5A5] hover:bg-[#008F82] rounded-lg disabled:opacity-50 flex items-center justify-center gap-2">
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex gap-3 flex-shrink-0">
+          <button
+            onClick={onClose}
+            className="flex-1 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={!canSubmit}
+            className="flex-1 py-2.5 text-sm font-medium text-white bg-[#00B5A5] hover:bg-[#008F82] rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
+          >
             <MegaphoneIcon className="w-4 h-4" />{loading ? "Publishing..." : "Publish"}
           </button>
         </div>
