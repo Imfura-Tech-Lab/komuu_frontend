@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Fragment } from "react";
 import { Dialog, Transition } from "@headlessui/react";
-import { XMarkIcon, PhotoIcon, ExclamationCircleIcon } from "@heroicons/react/24/outline";
+import { XMarkIcon, PhotoIcon, ExclamationCircleIcon, VideoCameraIcon } from "@heroicons/react/24/outline";
 import { Event } from "@/lib/hooks/useEvents";
 
 export interface EventFormData {
@@ -21,6 +21,7 @@ export interface EventFormData {
   capacity: number;
   status?: "Scheduled" | "Ongoing" | "Completed" | "Cancelled" | "Draft";
   thumbnail?: File;
+  register_google_meet?: boolean;
 }
 
 interface EventModalProps {
@@ -77,6 +78,7 @@ export function EventModal({
     price: undefined,
     capacity: 100,
     status: "Scheduled",
+    register_google_meet: true,
   });
 
   const [thumbnailPreview, setThumbnailPreview] = useState<string>("");
@@ -109,6 +111,7 @@ export function EventModal({
         price: event.price,
         capacity: event.capacity,
         status: event.status,
+        register_google_meet: !!event.google_meet,
       });
       if (event.thumbnail) {
         setThumbnailPreview(event.thumbnail);
@@ -129,6 +132,7 @@ export function EventModal({
         price: undefined,
         capacity: 100,
         status: "Scheduled",
+        register_google_meet: true,
       });
       setThumbnailPreview("");
     }
@@ -645,6 +649,30 @@ export function EventModal({
                           {getFieldError('attendance_link')}
                         </p>
                       )}
+                    </div>
+                  )}
+
+                  {/* Google Meet (create-only) */}
+                  {!event && (formData.event_mode === "Online" || formData.event_mode === "Hybrid") && (
+                    <div className={`rounded-xl p-4 border transition-colors ${formData.register_google_meet ? "bg-teal-50 dark:bg-teal-900/20 border-teal-200 dark:border-teal-800" : "bg-gray-50 dark:bg-gray-900/40 border-gray-200 dark:border-gray-700"}`}>
+                      <label className="flex items-start gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={!!formData.register_google_meet}
+                          onChange={(e) => setFormData({ ...formData, register_google_meet: e.target.checked })}
+                          className="mt-1 h-4 w-4 text-[#00B5A5] focus:ring-[#00B5A5] border-gray-300 rounded"
+                          disabled={loading}
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <VideoCameraIcon className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+                            <span className="text-sm font-semibold text-gray-900 dark:text-white">Generate a Google Meet link</span>
+                          </div>
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                            We will create a Google Calendar event and Meet link, invite all current members, and use it as the attendance link automatically.
+                          </p>
+                        </div>
+                      </label>
                     </div>
                   )}
 

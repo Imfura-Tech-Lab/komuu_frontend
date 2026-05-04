@@ -18,6 +18,9 @@ import {
   TrashIcon,
   TicketIcon,
   CheckBadgeIcon,
+  ClipboardDocumentIcon,
+  PlayCircleIcon,
+  DocumentTextIcon,
 } from "@heroicons/react/24/outline";
 import { useEvents, Event } from "@/lib/hooks/useEvents";
 import { EventModal, EventFormData } from "@/components/admin/modals/EventModal";
@@ -347,8 +350,115 @@ export default function EventDetailClient({ eventId }: EventDetailClientProps) {
               </div>
             </div>
 
+            {/* Google Meet block */}
+            {event.google_meet && (
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-6 mb-8">
+                <div className="rounded-2xl border border-teal-200 dark:border-teal-800 bg-gradient-to-br from-teal-50 to-white dark:from-teal-900/20 dark:to-gray-800 p-5">
+                  <div className="flex items-start justify-between gap-4 flex-wrap">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 bg-white dark:bg-gray-800 rounded-xl shadow-sm">
+                        <VideoCameraIcon className="h-6 w-6 text-teal-600 dark:text-teal-400" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-gray-900 dark:text-white">Google Meet</h3>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                            event.google_meet.status === "active" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+                            : event.google_meet.status === "ended" ? "bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300"
+                            : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                          }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${event.google_meet.status === "active" ? "bg-green-500 animate-pulse" : event.google_meet.status === "ended" ? "bg-gray-500" : "bg-blue-500"}`} />
+                            {event.google_meet.status}
+                          </span>
+                          {event.google_meet.meeting_code && (
+                            <span className="text-xs text-gray-500 dark:text-gray-400">Code: <span className="font-mono">{event.google_meet.meeting_code}</span></span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <a
+                        href={event.google_meet.meeting_uri}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm font-medium"
+                      >
+                        <VideoCameraIcon className="h-4 w-4" />
+                        Join Meet
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => navigator.clipboard?.writeText(event.google_meet?.meeting_uri || "")}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-white dark:hover:bg-gray-700 transition-colors text-sm"
+                      >
+                        <ClipboardDocumentIcon className="h-4 w-4" />
+                        Copy link
+                      </button>
+                    </div>
+                  </div>
+
+                  {(event.google_meet.recording_drive_url || event.google_meet.transcript_doc_url) && (
+                    <div className="mt-4 pt-4 border-t border-teal-200/60 dark:border-teal-800/60 flex flex-wrap gap-3">
+                      {event.google_meet.recording_drive_url && (
+                        <a
+                          href={event.google_meet.recording_drive_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                        >
+                          <PlayCircleIcon className="h-4 w-4 text-red-500" />
+                          Recording
+                        </a>
+                      )}
+                      {event.google_meet.transcript_doc_url && (
+                        <a
+                          href={event.google_meet.transcript_doc_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                        >
+                          <DocumentTextIcon className="h-4 w-4 text-blue-500" />
+                          Transcript
+                        </a>
+                      )}
+                    </div>
+                  )}
+
+                  {event.google_meet.participants && event.google_meet.participants.length > 0 && (
+                    <details className="mt-4 pt-4 border-t border-teal-200/60 dark:border-teal-800/60 group">
+                      <summary className="cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center justify-between">
+                        <span>Invitees ({event.google_meet.participants.length})</span>
+                        <span className="text-xs text-gray-500 group-open:hidden">Show</span>
+                        <span className="text-xs text-gray-500 hidden group-open:inline">Hide</span>
+                      </summary>
+                      <ul className="mt-3 space-y-1.5 max-h-60 overflow-y-auto">
+                        {event.google_meet.participants.map((p) => {
+                          const rsvpColor =
+                            p.rsvp_status === "accepted" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+                            : p.rsvp_status === "declined" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                            : p.rsvp_status === "tentative" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                            : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300";
+                          return (
+                            <li key={p.id} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{p.name || p.email || "—"}</p>
+                                {p.name && p.email && <p className="text-xs text-gray-500 truncate">{p.email}</p>}
+                              </div>
+                              <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${rsvpColor}`}>
+                                {p.rsvp_status === "needsAction" ? "pending" : p.rsvp_status}
+                              </span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </details>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Links */}
-            {(event.attendance_link || event.event_link) && (
+            {(event.attendance_link || event.event_link) && !event.google_meet && (
               <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                   Event Links
@@ -377,6 +487,20 @@ export default function EventDetailClient({ eventId }: EventDetailClientProps) {
                     </a>
                   )}
                 </div>
+              </div>
+            )}
+
+            {event.event_link && event.google_meet && (
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                <a
+                  href={event.event_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm"
+                >
+                  <LinkIcon className="h-5 w-5" />
+                  Event Website
+                </a>
               </div>
             )}
 

@@ -5,6 +5,30 @@ import {
 } from "@/components/layouts/auth-layer-out";
 import { getAuthenticatedClient, getCompanyHeaders, ApiError } from "@/lib/api-client";
 
+export interface MeetingParticipant {
+  id: number;
+  google_meet_id: number;
+  email: string | null;
+  name: string | null;
+  rsvp_status: "needsAction" | "accepted" | "declined" | "tentative" | string;
+  joined_at: string | null;
+  left_at: string | null;
+  duration_minutes: number;
+}
+
+export interface GoogleMeet {
+  id: number;
+  calendar_event_id: string | null;
+  space_id: string | null;
+  meeting_uri: string;
+  meeting_code: string | null;
+  status: "scheduled" | "active" | "ended" | string;
+  conference_record_id: string | null;
+  recording_drive_url: string | null;
+  transcript_doc_url: string | null;
+  participants?: MeetingParticipant[];
+}
+
 export interface Event {
   id: string;
   title: string;
@@ -26,6 +50,7 @@ export interface Event {
   organizer?: string;
   created_at: string;
   updated_at?: string;
+  google_meet?: GoogleMeet | null;
 }
 
 interface CreateEventParams {
@@ -43,6 +68,7 @@ interface CreateEventParams {
   price?: number;
   capacity: number;
   thumbnail?: File;
+  register_google_meet?: boolean;
 }
 
 interface UpdateEventParams extends CreateEventParams {
@@ -94,6 +120,7 @@ function mapEventData(event: Record<string, unknown>): Event {
     organizer: event.organizer as string | undefined,
     created_at: event.created_at as string,
     updated_at: event.updated_at as string | undefined,
+    google_meet: (event.google_meet as GoogleMeet | null | undefined) ?? null,
   };
 }
 
@@ -219,6 +246,9 @@ export function useEvents(): UseEventsReturn {
         formData.append("is_paid", params.is_paid ? "1" : "0");
         if (params.price) formData.append("price", params.price.toString());
         formData.append("capacity", params.capacity.toString());
+        if (params.event_mode !== "In-Person") {
+          formData.append("register_google_meet", params.register_google_meet ? "1" : "0");
+        }
         if (params.thumbnail) formData.append("thumbnail", params.thumbnail);
 
         const client = getAuthenticatedClient();
