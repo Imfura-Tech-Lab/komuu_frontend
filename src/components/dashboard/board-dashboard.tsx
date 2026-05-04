@@ -823,7 +823,7 @@ function OverviewTab({
       {/* Quick Map Preview */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-          Global Overview
+          Global Overview - Country of Practice
         </h3>
         <div className="h-96 relative">
           <InteractiveMap
