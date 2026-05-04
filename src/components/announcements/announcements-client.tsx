@@ -128,20 +128,32 @@ function AnnouncementModal({ isOpen, onClose, onSubmit, groups, categories, load
               ))}
             </div>
             {target === "Group" && (
-              <select value={targetGroupId} onChange={e => setTargetGroupId(e.target.value)} className="w-full mt-2 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                <option value="">Select a group</option>
-                {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-              </select>
+              groups.length === 0 ? (
+                <div className="mt-2 p-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 text-xs text-amber-700 dark:text-amber-300">
+                  No groups exist yet. Create a group from <span className="font-medium">Community → Groups</span> before targeting one here.
+                </div>
+              ) : (
+                <select value={targetGroupId} onChange={e => setTargetGroupId(e.target.value)} className="w-full mt-2 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                  <option value="">Select a group ({groups.length} available)</option>
+                  {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                </select>
+              )
             )}
-            {target === "Membership Category" && categories.length > 0 && (
-              <div className="mt-2 space-y-1.5">
-                {categories.map(c => (
-                  <label key={c.id} className="flex items-center gap-2 p-2 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <input type="checkbox" checked={selectedCategories.includes(c.id)} onChange={() => toggleCategory(c.id)} className="w-4 h-4 text-[#00B5A5] border-gray-300 rounded focus:ring-[#00B5A5]" />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">{c.category}</span>
-                  </label>
-                ))}
-              </div>
+            {target === "Membership Category" && (
+              categories.length === 0 ? (
+                <div className="mt-2 p-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 text-xs text-amber-700 dark:text-amber-300">
+                  No membership categories defined yet. Add one under <span className="font-medium">Memberships → Categories</span> first.
+                </div>
+              ) : (
+                <div className="mt-2 space-y-1.5">
+                  {categories.map(c => (
+                    <label key={c.id} className="flex items-center gap-2 p-2 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
+                      <input type="checkbox" checked={selectedCategories.includes(c.id)} onChange={() => toggleCategory(c.id)} className="w-4 h-4 text-[#00B5A5] border-gray-300 rounded focus:ring-[#00B5A5]" />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">{c.category}</span>
+                    </label>
+                  ))}
+                </div>
+              )
             )}
           </div>
           <div className="space-y-2">
@@ -199,7 +211,24 @@ export default function AnnouncementsClient() {
     try { setAnnLoading(true); const c = getAuthenticatedClient(); const r = await c.get<{ status: string; data: { data: Announcement[] } }>("announcements"); if (r.data.status === "success") setAnnouncements(r.data.data.data || []); } catch {} finally { setAnnLoading(false); }
   };
   const fetchGroups = async () => {
-    try { const c = getAuthenticatedClient(); const r = await c.get<{ status: string; data: { data: Array<Record<string, unknown>> } | Array<Record<string, unknown>> }>("communication/groups/all"); const raw = r.data.data; const arr = Array.isArray(raw) ? raw : (raw as { data: Array<Record<string, unknown>> })?.data || []; setGroups(arr.map(g => ({ id: String(g.id), name: String(g.name || ""), slug: String(g.slug || "") }))); } catch {}
+    try {
+      const c = getAuthenticatedClient();
+      // Admin-side: community/groups returns ALL groups in the institution (paginator). Walk all pages so the dropdown is complete.
+      type RawGroup = Record<string, unknown>;
+      type Paginated = { data: RawGroup[]; current_page?: number; last_page?: number };
+      const collected: RawGroup[] = [];
+      let page = 1;
+      let lastPage = 1;
+      do {
+        const r = await c.get<{ status: string; data: Paginated }>(`community/groups?page=${page}`);
+        const raw = r.data?.data;
+        const items = Array.isArray(raw?.data) ? raw.data : [];
+        collected.push(...items);
+        lastPage = Number(raw?.last_page ?? 1);
+        page += 1;
+      } while (page <= lastPage && page < 20); // safety cap
+      setGroups(collected.map(g => ({ id: String(g.id), name: String(g.name || ""), slug: String(g.slug || "") })));
+    } catch {}
   };
   const fetchCategories = async () => {
     try {
