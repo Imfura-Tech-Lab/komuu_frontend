@@ -715,19 +715,21 @@ export default function SingleApplicationPage({
           onClose={closeFile}
         />
 
-        {/* Reject Modal */}
+        {/* Reject Sheet */}
         {showRejectModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="fixed inset-0 z-50 flex justify-end">
             <div className="absolute inset-0 bg-black/40" onClick={() => setShowRejectModal(false)} />
-            <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">Reject Application</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">This will immediately reject the application and notify the applicant via email.</p>
-              <div>
+            <div className="relative w-full max-w-md h-full bg-white dark:bg-gray-800 shadow-2xl border-l border-gray-200 dark:border-gray-700 flex flex-col rounded-l-2xl overflow-hidden animate-in slide-in-from-right">
+              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Reject Application</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">This will immediately reject the application and notify the applicant via email.</p>
+              </div>
+              <div className="flex-1 overflow-y-auto p-6">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Reason for rejection *</label>
-                <textarea value={rejectNote} onChange={e => setRejectNote(e.target.value)} placeholder="Explain why this application is being rejected..." rows={4}
+                <textarea value={rejectNote} onChange={e => setRejectNote(e.target.value)} placeholder="Explain why this application is being rejected..." rows={6}
                   className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent dark:bg-gray-700 dark:text-white resize-none" />
               </div>
-              <div className="flex gap-3 mt-4">
+              <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex gap-3 flex-shrink-0">
                 <button onClick={() => { setShowRejectModal(false); setRejectNote(""); }} className="flex-1 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg">Cancel</button>
                 <button onClick={handleReject} disabled={!rejectNote.trim() || isUpdating}
                   className="flex-1 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50">

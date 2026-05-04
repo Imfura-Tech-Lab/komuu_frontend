@@ -7,7 +7,6 @@ import {
   MapPinIcon,
   UserGroupIcon,
   CurrencyDollarIcon,
-  ClockIcon,
   ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
 import { Event } from "@/lib/hooks/useMemberEvents";
@@ -115,21 +114,14 @@ export function RegisterEventModal({
   const isLimitedSeats = availableSlots <= 10 && availableSlots > 0;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      {/* Backdrop */}
+    <div className="fixed inset-0 z-50 flex justify-end">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div
-        className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
-        onClick={onClose}
-      />
-
-      {/* Modal */}
-      <div className="flex min-h-full items-center justify-center p-4">
-        <div
-          className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl transform transition-all"
-          onClick={(e) => e.stopPropagation()}
-        >
+        className="relative w-full max-w-xl h-full bg-white dark:bg-gray-800 shadow-2xl border-l border-gray-200 dark:border-gray-700 flex flex-col rounded-l-2xl overflow-hidden animate-in slide-in-from-right"
+        onClick={(e) => e.stopPropagation()}
+      >
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
               Register for Event
             </h3>
@@ -143,7 +135,7 @@ export function RegisterEventModal({
           </div>
 
           {/* Content */}
-          <div className="p-6 space-y-6">
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
             {/* Event Details Summary */}
             <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 space-y-3">
               <h4 className="text-lg font-bold text-gray-900 dark:text-white">
@@ -355,7 +347,7 @@ export function RegisterEventModal({
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-end space-x-3 px-6 py-4 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 rounded-b-lg">
+          <div className="flex items-center justify-end space-x-3 px-6 py-4 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
             <button
               type="button"
               onClick={onClose}
@@ -399,7 +391,6 @@ export function RegisterEventModal({
               )}
             </button>
           </div>
-        </div>
       </div>
     </div>
   );
