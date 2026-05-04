@@ -24,7 +24,7 @@ import {
   showSuccessToast,
   showErrorToast,
 } from "@/components/layouts/auth-layer-out";
-import { PlusIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { getAuthenticatedClient } from "@/lib/api-client";
 
 const ADMIN_ROLES = ["Administrator", "President", "Board"];
@@ -295,13 +295,21 @@ type TabId = "all" | "joined";
 
 export default function MemberGroupsPage() {
   const router = useRouter();
+  const [isAdmin] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      const ud = JSON.parse(localStorage.getItem("user_data") || "{}");
+      return ADMIN_ROLES.includes(ud.role);
+    } catch {
+      return false;
+    }
+  });
   const [tab, setTab] = useState<TabId>("all");
   const [search, setSearch] = useState("");
   const [filterPrivacy, setFilterPrivacy] = useState("all");
   const [refreshing, setRefreshing] = useState(false);
   const [selected, setSelected] = useState<MemberGroup | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createName, setCreateName] = useState("");
   const [createDesc, setCreateDesc] = useState("");
@@ -311,12 +319,8 @@ export default function MemberGroupsPage() {
 
   useEffect(() => {
     fetchAllGroups(1);
-    fetchJoinedGroups(1);
-    try {
-      const ud = JSON.parse(localStorage.getItem("user_data") || "{}");
-      setIsAdmin(ADMIN_ROLES.includes(ud.role));
-    } catch {}
-  }, []);
+    if (!isAdmin) fetchJoinedGroups(1);
+  }, [isAdmin]);
 
   const handleCreateGroup = async () => {
     if (!createName.trim()) return;
@@ -351,7 +355,11 @@ export default function MemberGroupsPage() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([fetchAllGroups(pagination.currentPage), fetchJoinedGroups(1)]);
+    if (isAdmin) {
+      await fetchAllGroups(pagination.currentPage);
+    } else {
+      await Promise.all([fetchAllGroups(pagination.currentPage), fetchJoinedGroups(1)]);
+    }
     setRefreshing(false);
   };
 
@@ -419,30 +427,34 @@ export default function MemberGroupsPage() {
       {loading && !refreshing ? <Skeleton /> : (
         <>
           {/* Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className={`grid grid-cols-1 ${isAdmin ? "sm:grid-cols-2" : "sm:grid-cols-3"} gap-4`}>
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 flex items-center justify-between">
-              <div><p className="text-sm text-gray-500 dark:text-gray-400">Available</p><p className="text-2xl font-bold text-gray-900 dark:text-white">{totalGroups}</p></div>
+              <div><p className="text-sm text-gray-500 dark:text-gray-400">{isAdmin ? "Total Groups" : "Available"}</p><p className="text-2xl font-bold text-gray-900 dark:text-white">{totalGroups}</p></div>
               <div className="p-2 bg-[#00B5A5]/10 rounded-lg"><UserGroupIcon className="w-6 h-6 text-[#00B5A5]" /></div>
             </div>
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 flex items-center justify-between">
-              <div><p className="text-sm text-gray-500 dark:text-gray-400">My Groups</p><p className="text-2xl font-bold text-gray-900 dark:text-white">{myGroups}</p></div>
-              <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg"><UsersIcon className="w-6 h-6 text-blue-600" /></div>
-            </div>
+            {!isAdmin && (
+              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 flex items-center justify-between">
+                <div><p className="text-sm text-gray-500 dark:text-gray-400">My Groups</p><p className="text-2xl font-bold text-gray-900 dark:text-white">{myGroups}</p></div>
+                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg"><UsersIcon className="w-6 h-6 text-blue-600" /></div>
+              </div>
+            )}
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 flex items-center justify-between">
               <div><p className="text-sm text-gray-500 dark:text-gray-400">Public</p><p className="text-2xl font-bold text-gray-900 dark:text-white">{publicGroups}</p></div>
               <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg"><GlobeAltIcon className="w-6 h-6 text-green-600" /></div>
             </div>
           </div>
 
-          {/* Tabs + Search */}
+          {/* Tabs (members only) + Search */}
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center gap-1 px-4 pt-3 border-b border-gray-200 dark:border-gray-700">
-              {tabs.map(t => (
-                <button key={t.id} onClick={() => handleTabChange(t.id)} className={`px-4 py-2.5 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${tab === t.id ? "border-[#00B5A5] text-[#00B5A5]" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700"}`}>
-                  {t.label} ({t.count})
-                </button>
-              ))}
-            </div>
+            {!isAdmin && (
+              <div className="flex items-center gap-1 px-4 pt-3 border-b border-gray-200 dark:border-gray-700">
+                {tabs.map(t => (
+                  <button key={t.id} onClick={() => handleTabChange(t.id)} className={`px-4 py-2.5 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${tab === t.id ? "border-[#00B5A5] text-[#00B5A5]" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700"}`}>
+                    {t.label} ({t.count})
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="p-4 flex flex-col sm:flex-row gap-3">
               <div className="flex-1 relative">
                 <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
