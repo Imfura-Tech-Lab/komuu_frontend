@@ -211,7 +211,7 @@ export function Header({
                   )}
                 </div>
                 <span className={`hidden sm:block text-[10px] font-medium ${connectionState === "connected" ? "text-[#00B5A5]" : connectionState === "connecting" ? "text-amber-500" : "text-gray-400"}`}>
-                  {connectionState === "connected" ? "Live" : connectionState === "connecting" ? "..." : "Offline"}
+                  {connectionState === "connected" ? "Online" : connectionState === "connecting" ? "Connecting…" : "Offline"}
                 </span>
               </div>
 
