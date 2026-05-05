@@ -527,8 +527,16 @@ export default function HomePage() {
 
       <section
         id="hero"
-        className="relative bg-gradient-to-br from-[#00B5A5] via-[#00A095] to-[#008A7C] dark:from-[#00D4C7] dark:via-[#00C4B7] dark:to-[#00B5A5] text-white pt-32 pb-24 overflow-hidden"
+        className="relative text-white pt-32 pb-24 overflow-hidden"
       >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/hero-bg.jpg"
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#00B5A5]/85 via-[#00A095]/85 to-[#008A7C]/90 dark:from-[#00D4C7]/85 dark:via-[#00C4B7]/85 dark:to-[#00B5A5]/90" />
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-20 left-10 w-72 h-72 bg-white rounded-full blur-3xl"></div>
           <div className="absolute bottom-20 right-10 w-96 h-96 bg-white rounded-full blur-3xl"></div>
@@ -657,9 +665,13 @@ export default function HomePage() {
               </div>
             </div>
             <div className="relative">
-              <div className="w-full h-96 bg-gradient-to-br from-[#00B5A5] to-[#008A7C] dark:from-[#00D4C7] dark:to-[#00B5A5] rounded-2xl flex items-center justify-center shadow-2xl">
-                <Globe size={120} className="text-white/20" />
-              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/about-team.jpg"
+                alt="Forensic professionals collaborating in a laboratory"
+                className="w-full h-96 object-cover rounded-2xl shadow-2xl"
+              />
+              <div className="absolute inset-0 rounded-2xl ring-1 ring-black/5 dark:ring-white/10 pointer-events-none" />
             </div>
           </div>
         </div>
