@@ -514,61 +514,86 @@ export default function HomePage() {
 
       <section
         id="hero"
-        className="relative text-white pt-32 pb-24 overflow-hidden"
+        className="relative bg-gradient-to-br from-[#00B5A5] via-[#00A095] to-[#008A7C] dark:from-[#00D4C7] dark:via-[#00C4B7] dark:to-[#00B5A5] text-white pt-32 pb-32 overflow-hidden"
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/hero-bg.jpg"
-          alt=""
-          aria-hidden="true"
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-br from-[#00B5A5]/85 via-[#00A095]/85 to-[#008A7C]/90 dark:from-[#00D4C7]/85 dark:via-[#00C4B7]/85 dark:to-[#00B5A5]/90" />
-        <div className="absolute inset-0 opacity-10">
+        <div className="absolute inset-0 opacity-10 pointer-events-none">
           <div className="absolute top-20 left-10 w-72 h-72 bg-white rounded-full blur-3xl"></div>
           <div className="absolute bottom-20 right-10 w-96 h-96 bg-white rounded-full blur-3xl"></div>
         </div>
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <div className="inline-block mb-6">
-              <span className="bg-white/20 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-semibold">
-                Together for Excellence, Integrity, and Innovation
-              </span>
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            {/* LEFT: copy + CTAs */}
+            <div className="text-center lg:text-left">
+              <div className="inline-block mb-6">
+                <span className="bg-white/20 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-semibold">
+                  Together for Excellence, Integrity, and Innovation
+                </span>
+              </div>
+              <h1 className="text-4xl sm:text-5xl xl:text-6xl font-bold mb-6 leading-tight">
+                African Forensic
+                <br />
+                <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-white/80">
+                  Sciences Academy
+                </span>
+              </h1>
+              <p className="text-lg sm:text-xl mb-10 text-white/95 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
+                Empowering forensic professionals through world-class education,
+                cutting-edge research, and collaborative innovation across the
+                continent.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start items-center">
+                <button
+                  onClick={() => router.push("/register")}
+                  className="bg-white text-[#00B5A5] px-8 py-4 rounded-xl font-bold hover:shadow-2xl transition-all duration-300 hover:scale-105 flex items-center justify-center group min-w-[200px]"
+                >
+                  Become a Member
+                  <ArrowRight
+                    className="ml-2 group-hover:translate-x-1 transition-transform"
+                    size={20}
+                  />
+                </button>
+                <button
+                  onClick={() => scrollToSection("about")}
+                  className="border-2 border-white text-white px-8 py-4 rounded-xl font-bold hover:bg-white hover:text-[#00B5A5] transition-all duration-300 hover:scale-105 min-w-[200px]"
+                >
+                  Explore More
+                </button>
+              </div>
             </div>
-            <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
-              African Forensic
-              <br />
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-white/80">
-                Sciences Academy
-              </span>
-            </h1>
-            <p className="text-xl md:text-2xl mb-10 text-white/95 max-w-3xl mx-auto leading-relaxed">
-              Empowering forensic professionals through world-class education,
-              cutting-edge research, and collaborative innovation across the
-              continent.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <button
-                onClick={() => router.push("/register")}
-                className="bg-white text-[#00B5A5] px-8 py-4 rounded-xl font-bold hover:shadow-2xl transition-all duration-300 hover:scale-105 flex items-center justify-center group min-w-[200px]"
-              >
-                Become a Member
-                <ArrowRight
-                  className="ml-2 group-hover:translate-x-1 transition-transform"
-                  size={20}
+
+            {/* RIGHT: device mockups — desktop with mobile overlapping its left */}
+            <div className="relative max-w-xl mx-auto lg:mx-0 lg:ml-auto w-full">
+              {/* Desktop browser frame */}
+              <div className="ml-12 sm:ml-20 lg:ml-16 xl:ml-24 rounded-xl overflow-hidden shadow-2xl ring-1 ring-black/20 bg-gray-900">
+                <div className="h-7 bg-gray-800 flex items-center gap-1.5 px-3 border-b border-gray-700/60">
+                  <span className="w-2.5 h-2.5 bg-red-400/80 rounded-full" />
+                  <span className="w-2.5 h-2.5 bg-yellow-400/80 rounded-full" />
+                  <span className="w-2.5 h-2.5 bg-green-400/80 rounded-full" />
+                  <div className="ml-3 flex-1 h-3.5 max-w-[200px] bg-gray-700/60 rounded-full" />
+                </div>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/screenshot-desktop.png"
+                  alt="AFSA membership portal — desktop preview"
+                  className="w-full h-auto block"
                 />
-              </button>
-              <button
-                onClick={() => scrollToSection("about")}
-                className="border-2 border-white text-white px-8 py-4 rounded-xl font-bold hover:bg-white hover:text-[#00B5A5] transition-all duration-300 hover:scale-105 min-w-[200px]"
-              >
-                Explore More
-              </button>
+              </div>
+
+              {/* Mobile phone frame, overlapping desktop's bottom-left */}
+              <div className="absolute -left-2 sm:-left-4 lg:-left-6 -bottom-6 sm:-bottom-10 w-28 sm:w-36 lg:w-40 xl:w-44">
+                <div className="rounded-[1.75rem] bg-gray-900 p-1.5 shadow-2xl ring-1 ring-black/30">
+                  <div className="rounded-[1.4rem] overflow-hidden bg-gray-900">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src="/screenshot-mobile.png"
+                      alt="AFSA membership portal — mobile preview"
+                      className="w-full h-auto block"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce">
-          <ChevronRight size={32} className="text-white/60 rotate-90" />
         </div>
       </section>
 
