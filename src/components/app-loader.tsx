@@ -28,7 +28,9 @@ import {
   Sparkles,
   Target,
   ChevronRight,
-  Building2 as Building,
+  Calendar,
+  Layers,
+  ExternalLink,
 } from "lucide-react";
 
 const HomeThemeToggle = () => {
@@ -136,7 +138,7 @@ export default function HomePage() {
       "programs",
       "benefits",
       "membership",
-      "testimonials",
+      "engage",
       "contact",
     ];
     const observerOptions = {
@@ -193,10 +195,9 @@ export default function HomePage() {
   };
 
   const stats = [
-    { number: "2,500+", label: "Active Members", icon: Users },
-    { number: "75+", label: "Partner Institutions", icon: Building },
-    { number: "35", label: "African Countries", icon: Globe },
-    { number: "250+", label: "Research Projects", icon: BookOpen },
+    { number: "320", label: "Members", icon: Users },
+    { number: "39", label: "Countries", icon: Globe },
+    { number: "7", label: "Fields Represented", icon: Layers },
   ];
 
   const features = [
@@ -230,17 +231,18 @@ export default function HomePage() {
     },
   ];
 
+  // Mirrors the active categories in /membership/categories on AFSA's company.
+  // Update here when prices or categories change in the admin panel.
   const membershipTiers = [
     {
       name: "Student Member",
       price: "$10",
       period: "per year",
-      description: "Perfect for students pursuing forensic science education",
+      description: "For students pursuing forensic science education",
       features: [
         "Access to educational resources",
         "Student networking events",
         "Mentorship program",
-        "Career guidance workshops",
         "Discounted conference rates",
       ],
       highlighted: false,
@@ -255,8 +257,7 @@ export default function HomePage() {
         "Full voting rights",
         "Exclusive research publications",
         "Priority conference registration",
-        "Professional certification programs",
-        "Access to expert directory",
+        "Professional certification access",
       ],
       highlighted: true,
     },
@@ -270,7 +271,18 @@ export default function HomePage() {
         "Professional networking",
         "Discounted events",
         "Industry publications",
-        "Development workshops",
+      ],
+      highlighted: false,
+    },
+    {
+      name: "Affiliate Member",
+      price: "Free",
+      period: "per year",
+      description: "For institutional and industry partners",
+      features: [
+        "Stay informed of AFSA initiatives",
+        "Access to public resources",
+        "Invitation to selected events",
       ],
       highlighted: false,
     },
@@ -300,27 +312,6 @@ export default function HomePage() {
       title: "Innovation Hub",
       description:
         "Stay at the forefront of forensic science with access to latest research and technological advances.",
-    },
-  ];
-
-  const testimonials = [
-    {
-      name: "Dr. Amara Okafor",
-      role: "Forensic Pathologist, Nigeria",
-      content:
-        "AFSA membership transformed my career. The networking opportunities and professional development programs are exceptional.",
-    },
-    {
-      name: "Prof. Kwame Mensah",
-      role: "Director, Ghana Forensic Science Laboratory",
-      content:
-        "The collaborative research initiatives and knowledge sharing within AFSA have significantly enhanced our laboratory capabilities.",
-    },
-    {
-      name: "Sarah Ndlovu",
-      role: "Forensic Science Student, South Africa",
-      content:
-        "As a student member, the mentorship program and educational resources have been invaluable to my academic journey.",
     },
   ];
 
@@ -357,7 +348,7 @@ export default function HomePage() {
                       : "text-white/80"
                   }`}
                 >
-                  African Forensic Sciences Academy
+                  African Forensic Science Association
                 </p>
               </div>
             </div>
@@ -453,14 +444,14 @@ export default function HomePage() {
           <div className="text-center">
             <div className="inline-block mb-6">
               <span className="bg-white/20 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-semibold">
-                Advancing Forensic Science Across Africa
+                Together for Excellence, Integrity, and Innovation
               </span>
             </div>
             <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
               African Forensic
               <br />
               <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-white/80">
-                Sciences Academy
+                Science Association
               </span>
             </h1>
             <p className="text-xl md:text-2xl mb-10 text-white/95 max-w-3xl mx-auto leading-relaxed">
@@ -495,7 +486,7 @@ export default function HomePage() {
 
       <section className="py-20 bg-gray-50 dark:bg-gray-800 relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
             {stats.map((stat, index) => {
               const Icon = stat.icon;
               return (
@@ -529,11 +520,21 @@ export default function HomePage() {
               About AFSA
             </h2>
             <p className="text-lg text-gray-600 dark:text-gray-400 max-w-3xl mx-auto leading-relaxed">
-              The African Forensic Sciences Academy stands as the continent's
-              premier institution, dedicated to elevating forensic science
-              capabilities through comprehensive education, groundbreaking
-              research, and continuous professional development.
+              The African Forensic Science Association unites forensic
+              practitioners, researchers, and educators across the continent —
+              dedicated to advancing the discipline through collaboration,
+              capacity building, and the highest standards of scientific
+              integrity.
             </p>
+            <a
+              href="https://afsa.africa/about/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-6 inline-flex items-center gap-2 text-[#00B5A5] dark:text-[#00D4C7] hover:underline font-semibold"
+            >
+              Learn more on afsa.africa
+              <ExternalLink size={16} />
+            </a>
           </div>
           <div className="grid md:grid-cols-2 gap-12 items-center mb-16">
             <div className="space-y-6">
@@ -667,7 +668,7 @@ export default function HomePage() {
               goals and career stage.
             </p>
           </div>
-          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
             {membershipTiers.map((tier, index) => (
               <div
                 key={index}
@@ -763,44 +764,60 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section id="testimonials" className="py-24 bg-white dark:bg-gray-900">
+      <section id="engage" className="py-24 bg-white dark:bg-gray-900">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <span className="text-[#00B5A5] dark:text-[#00D4C7] font-semibold text-sm uppercase tracking-wide">
-              Success Stories
+              Stay Engaged
             </span>
             <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mt-4 mb-6">
-              What Our Members Say
+              Events & Resources
             </h2>
             <p className="text-lg text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
-              Hear from professionals who have transformed their careers through
-              AFSA membership.
+              Members access conferences, workshops, training courses, and a
+              growing library of forensic science resources curated by the
+              community.
             </p>
           </div>
-          <div className="grid md:grid-cols-3 gap-8">
-            {testimonials.map((testimonial, index) => (
-              <div
-                key={index}
-                className="p-8 rounded-2xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2"
-              >
-                <div className="flex items-center space-x-4 mb-6">
-                  <div className="w-16 h-16 bg-gradient-to-br from-[#00B5A5] to-[#008A7C] dark:from-[#00D4C7] dark:to-[#00B5A5] rounded-full flex items-center justify-center text-white font-bold text-xl">
-                    {testimonial.name.charAt(0)}
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-gray-900 dark:text-white">
-                      {testimonial.name}
-                    </h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {testimonial.role}
-                    </p>
-                  </div>
-                </div>
-                <p className="text-gray-700 dark:text-gray-300 italic leading-relaxed">
-                  "{testimonial.content}"
-                </p>
+          <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+            <div className="group p-8 rounded-2xl bg-gradient-to-br from-[#00B5A5]/5 to-[#008A7C]/5 dark:from-[#00D4C7]/10 dark:to-[#00B5A5]/10 border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all duration-300">
+              <div className="w-14 h-14 bg-gradient-to-br from-[#00B5A5] to-[#008A7C] dark:from-[#00D4C7] dark:to-[#00B5A5] rounded-xl flex items-center justify-center mb-6">
+                <Calendar size={28} className="text-white" />
               </div>
-            ))}
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+                Upcoming Events
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
+                Annual conferences, regional symposia, and online seminars
+                connecting forensic professionals across the continent.
+              </p>
+              <button
+                onClick={() => router.push("/events")}
+                className="inline-flex items-center gap-2 text-[#00B5A5] dark:text-[#00D4C7] font-semibold hover:gap-3 transition-all"
+              >
+                Browse events
+                <ArrowRight size={18} />
+              </button>
+            </div>
+            <div className="group p-8 rounded-2xl bg-gradient-to-br from-[#00B5A5]/5 to-[#008A7C]/5 dark:from-[#00D4C7]/10 dark:to-[#00B5A5]/10 border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all duration-300">
+              <div className="w-14 h-14 bg-gradient-to-br from-[#00B5A5] to-[#008A7C] dark:from-[#00D4C7] dark:to-[#00B5A5] rounded-xl flex items-center justify-center mb-6">
+                <BookOpen size={28} className="text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+                Member Resources
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
+                Research papers, training materials, technical guidelines, and
+                case studies contributed by AFSA members and partners.
+              </p>
+              <button
+                onClick={() => router.push("/resources")}
+                className="inline-flex items-center gap-2 text-[#00B5A5] dark:text-[#00D4C7] font-semibold hover:gap-3 transition-all"
+              >
+                Browse resources
+                <ArrowRight size={18} />
+              </button>
+            </div>
           </div>
         </div>
       </section>
@@ -854,7 +871,7 @@ export default function HomePage() {
                 <div>
                   <h3 className="text-2xl font-bold">AFSA</h3>
                   <p className="text-sm text-gray-400">
-                    African Forensic Sciences Academy
+                    African Forensic Science Association
                   </p>
                 </div>
               </div>
@@ -890,6 +907,10 @@ export default function HomePage() {
                   {
                     label: "Membership",
                     action: () => scrollToSection("membership"),
+                  },
+                  {
+                    label: "Events & Resources",
+                    action: () => scrollToSection("engage"),
                   },
                   {
                     label: "Member Login",
@@ -952,17 +973,33 @@ export default function HomePage() {
           <div className="border-t border-gray-800 pt-8">
             <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
               <p className="text-gray-400 text-sm">
-                © 2024 African Forensic Sciences Academy. All rights reserved.
+                © {new Date().getFullYear()} African Forensic Science
+                Association. All rights reserved.
               </p>
-              <div className="flex space-x-6 text-sm text-gray-400">
-                <a href="#" className="hover:text-[#00B5A5] transition-colors">
+              <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-gray-400">
+                <a
+                  href="https://afsa.africa/contact-us/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-[#00B5A5] transition-colors"
+                >
+                  Contact Us
+                </a>
+                <a
+                  href="https://afsa.africa/privacy-policy/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-[#00B5A5] transition-colors"
+                >
                   Privacy Policy
                 </a>
-                <a href="#" className="hover:text-[#00B5A5] transition-colors">
-                  Terms of Service
-                </a>
-                <a href="#" className="hover:text-[#00B5A5] transition-colors">
-                  Cookie Policy
+                <a
+                  href="https://afsa.africa/terms-and-conditions/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-[#00B5A5] transition-colors"
+                >
+                  Terms &amp; Conditions
                 </a>
               </div>
             </div>
