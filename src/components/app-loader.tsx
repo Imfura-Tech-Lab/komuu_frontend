@@ -884,6 +884,31 @@ export default function HomePage() {
         </div>
       </section>
 
+      <section className="relative h-72 md:h-96 overflow-hidden">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/afsa-conference-2.webp"
+          alt="AFSA 2024 conference booth in Kigali, with member country flags on display"
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-gray-900/85 via-gray-900/55 to-[#00B5A5]/40" />
+        <div className="relative h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center">
+          <div className="max-w-2xl text-white">
+            <span className="inline-block text-[#7FF3E6] dark:text-[#7FF3E6] font-semibold text-sm uppercase tracking-wide mb-3">
+              AFSA 2024 · Kigali, Rwanda
+            </span>
+            <h2 className="text-3xl md:text-5xl font-bold leading-tight mb-4">
+              One community, every African country.
+            </h2>
+            <p className="text-lg text-white/90 leading-relaxed">
+              Forensic professionals from across the continent gathered in
+              Kigali for AFSA&rsquo;s inaugural conference — uniting member
+              institutions under a shared standard of evidence and integrity.
+            </p>
+          </div>
+        </div>
+      </section>
+
       <section id="engage" className="py-24 bg-white dark:bg-gray-900">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
