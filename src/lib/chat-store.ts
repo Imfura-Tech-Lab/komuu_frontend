@@ -6,15 +6,15 @@
 const DB_VERSION = 1;
 
 function getDbName(): string {
-  if (typeof window === "undefined") return "komuu_chat_0";
+  if (typeof window === "undefined") return "afsa_chat_0";
   try {
     const userData = localStorage.getItem("user_data");
     if (userData) {
       const parsed = JSON.parse(userData);
-      if (parsed.id) return `komuu_chat_${parsed.id}`;
+      if (parsed.id) return `afsa_chat_${parsed.id}`;
     }
   } catch {}
-  return "komuu_chat_0";
+  return "afsa_chat_0";
 }
 
 interface PendingMessage {

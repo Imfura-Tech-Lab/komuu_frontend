@@ -53,7 +53,7 @@ function getVerificationBaseUrl(): string {
   if (typeof window !== 'undefined' && window.location?.origin) {
     return window.location.origin;
   }
-  return 'https://komuu.com';
+  return 'https://membership.afsa.africa';
 }
 
 async function loadImageAsBase64(url: string): Promise<string | null> {

@@ -133,7 +133,7 @@ export default function VerifyCertificatePage({
             className="inline-flex items-center gap-2 text-[#00B5A5] hover:text-[#008F82]"
           >
             <ShieldCheckIcon className="w-6 h-6" />
-            <span className="text-lg font-semibold">Komuu</span>
+            <span className="text-lg font-semibold">AFSA</span>
           </Link>
           <h1 className="mt-3 text-2xl font-bold text-gray-900 dark:text-white">
             Certificate Verification
