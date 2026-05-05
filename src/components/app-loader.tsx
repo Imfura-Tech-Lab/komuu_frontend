@@ -524,8 +524,8 @@ export default function HomePage() {
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* LEFT: copy + CTAs */}
             <div className="text-center lg:text-left">
-              <div className="inline-block mb-6">
-                <span className="bg-white/20 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-semibold">
+              <div className="mb-6 flex justify-center lg:justify-start">
+                <span className="inline-block max-w-full bg-white/20 backdrop-blur-sm text-white px-4 py-2 rounded-2xl text-xs xl:text-sm font-semibold leading-snug">
                   Together for Excellence, Integrity, and Innovation
                 </span>
               </div>
