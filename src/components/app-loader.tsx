@@ -3,6 +3,37 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
+import { apiClient } from "@/lib/api-client";
+
+// AFSA's company UUID. When forking this codebase into the multi-tenant SaaS
+// product, this constant should be removed and the public landing page should
+// resolve the active tenant from a different mechanism (subdomain or env).
+const AFSA_COMPANY_ID = "0155afcb-a75d-45f7-bb39-a28e6f003c6f";
+
+interface PublicEvent {
+  id: string | number;
+  title: string;
+  description: string | null;
+  type: string | null;
+  event_mode: string | null;
+  location: string | null;
+  start_time: string;
+  start_end: string | null;
+  is_paid: boolean;
+  thumbnail: string | null;
+  status: string;
+}
+
+interface PublicResource {
+  id: number;
+  title: string;
+  description: string | null;
+  file_url: string | null;
+  link: string | null;
+  type: string | null;
+  tags: string[] | null;
+  created_at: string;
+}
 import {
   Sun,
   Moon,
@@ -31,6 +62,10 @@ import {
   Calendar,
   Layers,
   ExternalLink,
+  Video,
+  FileText,
+  Link as LinkIcon,
+  Image as ImageIcon,
 } from "lucide-react";
 
 const HomeThemeToggle = () => {
@@ -112,12 +147,70 @@ export default function HomePage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("hero");
   const [isScrolled, setIsScrolled] = useState(false);
+  const [publicEvents, setPublicEvents] = useState<PublicEvent[]>([]);
+  const [publicResources, setPublicResources] = useState<PublicResource[]>([]);
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  useEffect(() => {
+    type PaginatedPayload<T> = { data: { data: T[] } };
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const eventsRes = await apiClient.get<PaginatedPayload<PublicEvent>>(
+          `${AFSA_COMPANY_ID}/public-events`
+        );
+        if (!cancelled && eventsRes.data?.data?.data) {
+          setPublicEvents(eventsRes.data.data.data.slice(0, 3));
+        }
+      } catch {
+        // Silent — section falls back to its empty state.
+      }
+      try {
+        const resourcesRes = await apiClient.get<PaginatedPayload<PublicResource>>(
+          `${AFSA_COMPANY_ID}/public-resources`
+        );
+        if (!cancelled && resourcesRes.data?.data?.data) {
+          setPublicResources(resourcesRes.data.data.data.slice(0, 3));
+        }
+      } catch {
+        // Silent — section falls back to its empty state.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const formatEventDate = (iso: string) => {
+    try {
+      return new Date(iso).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    } catch {
+      return iso;
+    }
+  };
+
+  const resourceIcon = (type: string | null) => {
+    switch ((type || "").toLowerCase()) {
+      case "link":
+        return LinkIcon;
+      case "image":
+        return ImageIcon;
+      case "video":
+        return Video;
+      default:
+        return FileText;
+    }
+  };
 
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
@@ -780,41 +873,128 @@ export default function HomePage() {
             </p>
           </div>
           <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-            <div className="group p-8 rounded-2xl bg-gradient-to-br from-[#00B5A5]/5 to-[#008A7C]/5 dark:from-[#00D4C7]/10 dark:to-[#00B5A5]/10 border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all duration-300">
-              <div className="w-14 h-14 bg-gradient-to-br from-[#00B5A5] to-[#008A7C] dark:from-[#00D4C7] dark:to-[#00B5A5] rounded-xl flex items-center justify-center mb-6">
-                <Calendar size={28} className="text-white" />
+            <div className="p-8 rounded-2xl bg-gradient-to-br from-[#00B5A5]/5 to-[#008A7C]/5 dark:from-[#00D4C7]/10 dark:to-[#00B5A5]/10 border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all duration-300 flex flex-col">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-gradient-to-br from-[#00B5A5] to-[#008A7C] dark:from-[#00D4C7] dark:to-[#00B5A5] rounded-xl flex items-center justify-center flex-shrink-0">
+                  <Calendar size={24} className="text-white" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  Upcoming Events
+                </h3>
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
-                Upcoming Events
-              </h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
-                Annual conferences, regional symposia, and online seminars
-                connecting forensic professionals across the continent.
-              </p>
+
+              {publicEvents.length === 0 ? (
+                <p className="text-gray-600 dark:text-gray-400 mb-6 leading-relaxed flex-1">
+                  Annual conferences, regional symposia, and online seminars
+                  connecting forensic professionals across the continent.
+                </p>
+              ) : (
+                <ul className="space-y-4 mb-6 flex-1">
+                  {publicEvents.map((evt) => (
+                    <li
+                      key={evt.id}
+                      className="p-4 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700"
+                    >
+                      <p className="font-semibold text-gray-900 dark:text-white mb-1 line-clamp-1">
+                        {evt.title}
+                      </p>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600 dark:text-gray-400">
+                        <span className="inline-flex items-center gap-1">
+                          <Calendar size={12} />
+                          {formatEventDate(evt.start_time)}
+                        </span>
+                        {evt.event_mode && (
+                          <span className="inline-flex items-center gap-1">
+                            <Video size={12} />
+                            {evt.event_mode}
+                          </span>
+                        )}
+                        {evt.location && (
+                          <span className="inline-flex items-center gap-1 line-clamp-1">
+                            <MapPin size={12} />
+                            {evt.location}
+                          </span>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
               <button
                 onClick={() => router.push("/events")}
-                className="inline-flex items-center gap-2 text-[#00B5A5] dark:text-[#00D4C7] font-semibold hover:gap-3 transition-all"
+                className="inline-flex items-center gap-2 text-[#00B5A5] dark:text-[#00D4C7] font-semibold hover:gap-3 transition-all self-start"
               >
-                Browse events
+                {publicEvents.length === 0 ? "Browse events" : "View all events"}
                 <ArrowRight size={18} />
               </button>
             </div>
-            <div className="group p-8 rounded-2xl bg-gradient-to-br from-[#00B5A5]/5 to-[#008A7C]/5 dark:from-[#00D4C7]/10 dark:to-[#00B5A5]/10 border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all duration-300">
-              <div className="w-14 h-14 bg-gradient-to-br from-[#00B5A5] to-[#008A7C] dark:from-[#00D4C7] dark:to-[#00B5A5] rounded-xl flex items-center justify-center mb-6">
-                <BookOpen size={28} className="text-white" />
+
+            <div className="p-8 rounded-2xl bg-gradient-to-br from-[#00B5A5]/5 to-[#008A7C]/5 dark:from-[#00D4C7]/10 dark:to-[#00B5A5]/10 border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all duration-300 flex flex-col">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-gradient-to-br from-[#00B5A5] to-[#008A7C] dark:from-[#00D4C7] dark:to-[#00B5A5] rounded-xl flex items-center justify-center flex-shrink-0">
+                  <BookOpen size={24} className="text-white" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  Member Resources
+                </h3>
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
-                Member Resources
-              </h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
-                Research papers, training materials, technical guidelines, and
-                case studies contributed by AFSA members and partners.
-              </p>
+
+              {publicResources.length === 0 ? (
+                <p className="text-gray-600 dark:text-gray-400 mb-6 leading-relaxed flex-1">
+                  Research papers, training materials, technical guidelines, and
+                  case studies contributed by AFSA members and partners.
+                </p>
+              ) : (
+                <ul className="space-y-4 mb-6 flex-1">
+                  {publicResources.map((res) => {
+                    const Icon = resourceIcon(res.type);
+                    return (
+                      <li
+                        key={res.id}
+                        className="p-4 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700"
+                      >
+                        <div className="flex items-start gap-3">
+                          <Icon
+                            size={16}
+                            className="text-[#00B5A5] dark:text-[#00D4C7] flex-shrink-0 mt-1"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="font-semibold text-gray-900 dark:text-white mb-1 line-clamp-1">
+                              {res.title}
+                            </p>
+                            {res.description && (
+                              <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">
+                                {res.description}
+                              </p>
+                            )}
+                            {res.tags && res.tags.length > 0 && (
+                              <div className="mt-2 flex flex-wrap gap-1">
+                                {res.tags.slice(0, 3).map((tag) => (
+                                  <span
+                                    key={tag}
+                                    className="text-[10px] px-2 py-0.5 rounded-full bg-[#00B5A5]/10 dark:bg-[#00D4C7]/15 text-[#00B5A5] dark:text-[#00D4C7]"
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+
               <button
                 onClick={() => router.push("/resources")}
-                className="inline-flex items-center gap-2 text-[#00B5A5] dark:text-[#00D4C7] font-semibold hover:gap-3 transition-all"
+                className="inline-flex items-center gap-2 text-[#00B5A5] dark:text-[#00D4C7] font-semibold hover:gap-3 transition-all self-start"
               >
-                Browse resources
+                {publicResources.length === 0
+                  ? "Browse resources"
+                  : "View all resources"}
                 <ArrowRight size={18} />
               </button>
             </div>
