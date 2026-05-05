@@ -679,11 +679,14 @@ export default function HomePage() {
             <div className="relative">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/about-team.jpg"
-                alt="Forensic professionals collaborating in a laboratory"
+                src="/afsa-conference-1.webp"
+                alt="AFSA members and leadership at the AFSA 2024 inaugural conference in Kigali"
                 className="w-full h-96 object-cover rounded-2xl shadow-2xl"
               />
               <div className="absolute inset-0 rounded-2xl ring-1 ring-black/5 dark:ring-white/10 pointer-events-none" />
+              <div className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-sm text-white text-xs px-3 py-1.5 rounded-full">
+                AFSA 2024 · Kigali, Rwanda
+              </div>
             </div>
           </div>
         </div>
@@ -1026,7 +1029,15 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="py-24 bg-gradient-to-r from-[#00B5A5] to-[#008A7C] dark:from-[#00D4C7] dark:to-[#00B5A5] text-white relative overflow-hidden">
+      <section className="py-24 text-white relative overflow-hidden">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/afsa-venue-kcc.jpg"
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#00B5A5]/90 to-[#008A7C]/95 dark:from-[#00D4C7]/90 dark:to-[#00B5A5]/95" />
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full blur-3xl"></div>
           <div className="absolute bottom-0 left-0 w-72 h-72 bg-white rounded-full blur-3xl"></div>
