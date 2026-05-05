@@ -11,7 +11,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "AFSA - Membership",
-  description: "Join the African Forensic Science Association",
+  description: "Join the African Forensic Sciences Academy",
 };
 
 export default function RootLayout({

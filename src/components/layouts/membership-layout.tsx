@@ -183,7 +183,7 @@ const MembershipLayout: React.FC<MembershipLayoutProps> = ({
           AFSA Membership
         </h1>
         <p className="text-gray-600 dark:text-gray-400 text-sm">
-          Join the African Forensic Science Association
+          Join the African Forensic Sciences Academy
         </p>
       </div>
 

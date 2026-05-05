@@ -423,27 +423,14 @@ export default function HomePage() {
               className="flex items-center space-x-3 cursor-pointer"
               onClick={() => scrollToSection("hero")}
             >
-              <div className="w-12 h-12 bg-gradient-to-br from-[#00B5A5] to-[#008A7C] dark:from-[#00D4C7] dark:to-[#00B5A5] rounded-xl flex items-center justify-center shadow-lg transform transition-transform hover:scale-105">
-                <span className="text-white font-bold text-xl">A</span>
-              </div>
-              <div>
-                <h1
-                  className={`text-xl font-bold transition-colors ${
-                    isScrolled ? "text-gray-900 dark:text-white" : "text-white"
-                  }`}
-                >
-                  AFSA
-                </h1>
-                <p
-                  className={`text-xs transition-colors ${
-                    isScrolled
-                      ? "text-gray-600 dark:text-gray-400"
-                      : "text-white/80"
-                  }`}
-                >
-                  African Forensic Science Association
-                </p>
-              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/Logo.png"
+                alt="African Forensic Sciences Academy"
+                className={`h-12 w-auto transition-[filter] duration-300 ${
+                  isScrolled ? "" : "brightness-0 invert"
+                }`}
+              />
             </div>
 
             <nav className="hidden md:flex items-center space-x-8">
@@ -552,7 +539,7 @@ export default function HomePage() {
               African Forensic
               <br />
               <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-white/80">
-                Science Association
+                Sciences Academy
               </span>
             </h1>
             <p className="text-xl md:text-2xl mb-10 text-white/95 max-w-3xl mx-auto leading-relaxed">
@@ -621,7 +608,7 @@ export default function HomePage() {
               About AFSA
             </h2>
             <p className="text-lg text-gray-600 dark:text-gray-400 max-w-3xl mx-auto leading-relaxed">
-              The African Forensic Science Association unites forensic
+              The African Forensic Sciences Academy unites forensic
               practitioners, researchers, and educators across the continent —
               dedicated to advancing the discipline through collaboration,
               capacity building, and the highest standards of scientific
@@ -1056,16 +1043,13 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-12 mb-12">
             <div className="lg:col-span-2">
-              <div className="flex items-center space-x-3 mb-6">
-                <div className="w-12 h-12 bg-gradient-to-br from-[#00B5A5] to-[#008A7C] dark:from-[#00D4C7] dark:to-[#00B5A5] rounded-xl flex items-center justify-center">
-                  <span className="text-white font-bold text-xl">A</span>
-                </div>
-                <div>
-                  <h3 className="text-2xl font-bold">AFSA</h3>
-                  <p className="text-sm text-gray-400">
-                    African Forensic Science Association
-                  </p>
-                </div>
+              <div className="mb-6">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/Logo.png"
+                  alt="African Forensic Sciences Academy"
+                  className="h-14 w-auto brightness-0 invert"
+                />
               </div>
               <p className="text-gray-400 mb-6 max-w-md leading-relaxed">
                 Empowering forensic professionals through world-class education,
