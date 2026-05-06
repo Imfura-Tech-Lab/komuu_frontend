@@ -346,7 +346,6 @@ export default function HomePage() {
       period: "per year",
       description: "For qualified forensic professionals",
       features: [
-        "All Student Member benefits",
         "Full voting rights",
         "Exclusive research publications",
         "Priority conference registration",
@@ -801,7 +800,7 @@ export default function HomePage() {
                 {tier.highlighted && (
                   <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
                     <span className="bg-white text-[#00B5A5] px-4 py-1 rounded-full text-sm font-bold shadow-lg">
-                      Most Popular
+                      for africa
                     </span>
                   </div>
                 )}
