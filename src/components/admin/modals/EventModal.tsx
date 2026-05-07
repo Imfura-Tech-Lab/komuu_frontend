@@ -513,7 +513,9 @@ export function EventModal({
                           ? "text-orange-500"
                           : "text-green-500"
                       }`}>
-                        {formData.description?.length || 0}/50 characters
+                        {(formData.description?.length || 0) < 50
+                          ? `${formData.description?.length || 0} / 50 minimum`
+                          : `${formData.description?.length || 0} characters`}
                       </span>
                     </div>
                   </div>
