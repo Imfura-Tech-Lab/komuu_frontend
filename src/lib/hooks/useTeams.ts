@@ -173,9 +173,8 @@ export function useTeams() {
   const blockMemberAccess = useCallback(async (memberId: number): Promise<boolean> => {
     try {
       const client = getAuthenticatedClient();
-      const response = await client.post<ApiResponse<void>>(
+      const response = await client.get<ApiResponse<void>>(
         `team-management/${memberId}/block-access`,
-        undefined,
         { headers: getCompanyHeaders() }
       );
 
@@ -197,9 +196,8 @@ export function useTeams() {
   const activateMemberAccess = useCallback(async (memberId: number): Promise<boolean> => {
     try {
       const client = getAuthenticatedClient();
-      const response = await client.post<ApiResponse<void>>(
+      const response = await client.get<ApiResponse<void>>(
         `team-management/${memberId}/activate-access`,
-        undefined,
         { headers: getCompanyHeaders() }
       );
 

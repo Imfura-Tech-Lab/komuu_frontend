@@ -89,8 +89,6 @@ export const ROLE_PERMISSIONS = {
     "view_profile",
     "update_profile",
     "member_dashboard",
-    "team_management",
-    "manage_teams",
     "manage_groups",
     "manage_conversations",
     "manage_events",

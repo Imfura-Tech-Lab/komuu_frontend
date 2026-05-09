@@ -4,7 +4,7 @@ import SecureDashboardLayout from "@/components/dashboard/secure-dashboard-layou
 
 export default function AdminTeamsPage() {
   return (
-    <SecureDashboardLayout requiredRoles={["Administrator", "Board", "President"]}>
+    <SecureDashboardLayout requiredRoles={["Administrator", "President"]}>
       <Suspense>
         <TeamsPage />
       </Suspense>
