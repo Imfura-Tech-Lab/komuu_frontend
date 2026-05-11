@@ -196,6 +196,8 @@ export function CreateMemberModal({
                           >
                             <option value="Board">Board</option>
                             <option value="Administrator">Administrator</option>
+                            <option value="President">President</option>
+                            <option value="Vice_President">Vice President</option>
                           </select>
                         </div>
 
