@@ -325,16 +325,14 @@ export default function TeamsPage() {
   };
 
   const handleCreateMemberSubmit = async (
-    memberData: any
-  ): Promise<boolean> => {
-    try {
-      await addTeamMember(memberData);
+    memberData: FormData
+  ): Promise<{ success: boolean; errors?: Record<string, string[]> }> => {
+    const result = await addTeamMember(memberData);
+    if (result.success) {
       setShowCreateModal(false);
       await fetchTeams(pagination?.currentPage || 1);
-      return true;
-    } catch {
-      return false;
     }
+    return result;
   };
 
   const uniqueRoles = Array.from(

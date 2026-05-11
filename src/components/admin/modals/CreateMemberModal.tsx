@@ -5,10 +5,15 @@ import { Dialog, Transition } from "@headlessui/react";
 import { XMarkIcon, PhotoIcon } from "@heroicons/react/24/outline";
 import { PhoneInput } from "@/components/ui/PhoneInput";
 
+interface CreateMemberSubmitResult {
+  success: boolean;
+  errors?: Record<string, string[]>;
+}
+
 interface CreateMemberModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (formData: FormData) => Promise<boolean>;
+  onSubmit: (formData: FormData) => Promise<CreateMemberSubmitResult>;
 }
 
 export function CreateMemberModal({
@@ -28,13 +33,28 @@ export function CreateMemberModal({
   const [profilePicture, setProfilePicture] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const fieldError = (name: string): string | undefined =>
+    fieldErrors[name]?.[0];
+
+  const clearFieldError = (name: string) => {
+    if (fieldErrors[name]) {
+      setFieldErrors((prev) => {
+        const next = { ...prev };
+        delete next[name];
+        return next;
+      });
+    }
+  };
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    clearFieldError(name);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -52,6 +72,7 @@ export function CreateMemberModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setFieldErrors({});
 
     const submitFormData = new FormData();
     submitFormData.append("title", formData.title);
@@ -66,12 +87,11 @@ export function CreateMemberModal({
       submitFormData.append("profile_picture", profilePicture);
     }
 
-    const success = await onSubmit(submitFormData);
+    const result = await onSubmit(submitFormData);
 
     setIsSubmitting(false);
 
-    if (success) {
-      // Reset form
+    if (result.success) {
       setFormData({
         title: "Mr",
         role: "Board",
@@ -83,7 +103,10 @@ export function CreateMemberModal({
       });
       setProfilePicture(null);
       setPreviewUrl(null);
+      setFieldErrors({});
       onClose();
+    } else if (result.errors) {
+      setFieldErrors(result.errors);
     }
   };
 
@@ -212,8 +235,15 @@ export function CreateMemberModal({
                             value={formData.first_name}
                             onChange={handleInputChange}
                             required
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent"
+                            className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent ${
+                              fieldError("first_name")
+                                ? "border-red-500 dark:border-red-500"
+                                : "border-gray-300 dark:border-gray-600"
+                            }`}
                           />
+                          {fieldError("first_name") && (
+                            <p className="mt-1 text-sm text-red-500">{fieldError("first_name")}</p>
+                          )}
                         </div>
 
                         {/* Middle Name */}
@@ -226,8 +256,15 @@ export function CreateMemberModal({
                             name="middle_name"
                             value={formData.middle_name}
                             onChange={handleInputChange}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent"
+                            className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent ${
+                              fieldError("middle_name")
+                                ? "border-red-500 dark:border-red-500"
+                                : "border-gray-300 dark:border-gray-600"
+                            }`}
                           />
+                          {fieldError("middle_name") && (
+                            <p className="mt-1 text-sm text-red-500">{fieldError("middle_name")}</p>
+                          )}
                         </div>
 
                         {/* Surname */}
@@ -241,8 +278,15 @@ export function CreateMemberModal({
                             value={formData.surname}
                             onChange={handleInputChange}
                             required
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent"
+                            className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent ${
+                              fieldError("surname")
+                                ? "border-red-500 dark:border-red-500"
+                                : "border-gray-300 dark:border-gray-600"
+                            }`}
                           />
+                          {fieldError("surname") && (
+                            <p className="mt-1 text-sm text-red-500">{fieldError("surname")}</p>
+                          )}
                         </div>
 
                         {/* Email */}
@@ -256,18 +300,29 @@ export function CreateMemberModal({
                             value={formData.email}
                             onChange={handleInputChange}
                             required
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent"
+                            className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#00B5A5] focus:border-transparent ${
+                              fieldError("email")
+                                ? "border-red-500 dark:border-red-500"
+                                : "border-gray-300 dark:border-gray-600"
+                            }`}
                           />
+                          {fieldError("email") && (
+                            <p className="mt-1 text-sm text-red-500">{fieldError("email")}</p>
+                          )}
                         </div>
 
                         {/* Phone Number */}
                         <div className="md:col-span-2">
                           <PhoneInput
                             value={formData.phone_number}
-                            onChange={(value) => setFormData(prev => ({ ...prev, phone_number: value }))}
+                            onChange={(value) => {
+                              setFormData((prev) => ({ ...prev, phone_number: value }));
+                              clearFieldError("phone_number");
+                            }}
                             label="Phone Number"
                             required
                             placeholder="Enter phone number"
+                            error={fieldError("phone_number")}
                           />
                         </div>
                       </div>
