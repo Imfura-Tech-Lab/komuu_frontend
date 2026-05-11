@@ -149,7 +149,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
   const roleSpecificItems: { [key in UserRole]?: NavigationItemType[] } = {
     Administrator: [
       {
-        name: "Application Management",
+        name: "Applications",
         href: "/applications",
         permission: "approve_applications",
         section: "membership",
@@ -159,7 +159,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         order: 2,
       },
       {
-        name: "Member Management",
+        name: "Members",
         href: "/members",
         permission: "manage_users",
         section: "membership",
@@ -460,7 +460,7 @@ export const createNavigationItems = (role: UserRole): NavigationItemType[] => {
         order: 7,
       },
       {
-        name: "Policy Management",
+        name: "Policies",
         href: "/policies",
         permission: "policy_decisions",
         section: "governance",
