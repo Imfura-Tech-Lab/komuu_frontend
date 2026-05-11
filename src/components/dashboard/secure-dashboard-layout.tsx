@@ -68,10 +68,61 @@ export default function SecureDashboardLayout({
     setIsProd(process.env.NODE_ENV === 'production');
   }, []);
 
-  // Memoized navigation items
+  // Resolved values for sidebar badge keys (e.g. badge: "pending_count").
+  // Fetched lazily below; until a value arrives the badge stays hidden.
+  const [pendingApplicationsCount, setPendingApplicationsCount] = useState<number | null>(null);
+
+  // Memoized navigation items, with badge keys resolved against live values.
   const navigationItems = useMemo(() => {
-    return userData ? createNavigationItems(userData.role) : [];
-  }, [userData?.role]);
+    if (!userData) return [];
+    const items = createNavigationItems(userData.role);
+    const badgeValues: Record<string, number | null> = {
+      pending_count: pendingApplicationsCount,
+    };
+    return items.map((item) => {
+      if (!item.badge) return item;
+      const resolved = badgeValues[item.badge];
+      if (resolved === null || resolved === undefined || resolved === 0) {
+        return { ...item, badge: undefined };
+      }
+      return { ...item, badge: String(resolved) };
+    });
+  }, [userData?.role, pendingApplicationsCount]);
+
+  // Fetch the pending-applications count for the sidebar badge. Scoped to
+  // roles that have the applications-review item; other roles never see the
+  // badge so we skip the request for them. The list endpoint paginates and
+  // returns a `total` field that we can read without loading any rows.
+  useEffect(() => {
+    if (!userData) return;
+    const perms = ROLE_PERMISSIONS[userData.role] as readonly string[] | undefined;
+    if (!perms?.includes("approve_applications")) return;
+
+    const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
+    const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+    const companyId = typeof window !== "undefined" ? localStorage.getItem("company_id") : null;
+    if (!apiUrl || !token) return;
+
+    const controller = new AbortController();
+    fetch(`${apiUrl}applications?status=Pending&page=1`, {
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`,
+        ...(companyId ? { "X-Company-ID": companyId } : {}),
+      },
+      signal: controller.signal,
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        const total = data?.data?.total;
+        if (typeof total === "number") setPendingApplicationsCount(total);
+      })
+      .catch(() => {
+        // network/abort — leave the badge hidden, don't surface
+      });
+
+    return () => controller.abort();
+  }, [userData?.role, userData?.id]);
 
   // Enhanced role color with new styling
   const roleColor = useMemo(() => {
