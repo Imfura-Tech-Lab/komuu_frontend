@@ -126,7 +126,10 @@ export function useTeams() {
     }
   }, []);
 
-  const addTeamMember = useCallback(async (formData: FormData): Promise<boolean> => {
+  const addTeamMember = useCallback(async (formData: FormData): Promise<{
+    success: boolean;
+    errors?: Record<string, string[]>;
+  }> => {
     try {
       const client = getAuthenticatedClient();
       const response = await client.postFormData<ApiResponse<TeamMember>>(
@@ -139,14 +142,21 @@ export function useTeams() {
       if (data.status === "success" || data.status === true) {
         showSuccessToast(data.message || "Team member added successfully");
         await fetchTeams(pagination.currentPage);
-        return true;
-      } else {
-        throw new Error(data.message || "Failed to add team member");
+        return { success: true };
       }
+      throw new Error(data.message || "Failed to add team member");
     } catch (err) {
       const apiError = err as ApiError;
-      showErrorToast(apiError.message || "Failed to add team member");
-      return false;
+      const fieldErrors = (apiError.errors ?? undefined) as
+        | Record<string, string[]>
+        | undefined;
+      const firstFieldMsg = fieldErrors
+        ? Object.values(fieldErrors).flat()[0]
+        : undefined;
+      showErrorToast(
+        firstFieldMsg || apiError.message || "Failed to add team member"
+      );
+      return { success: false, errors: fieldErrors };
     }
   }, [fetchTeams, pagination.currentPage]);
 
